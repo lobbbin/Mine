@@ -63,7 +63,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         .stateIn(viewModelScope, SharingStarted.Eagerly, "Google")
 
     val model: StateFlow<String> = settingsDataStore.modelFlow
-        .stateIn(viewModelScope, SharingStarted.Eagerly, "gemini-1.5-flash")
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "gemini-3.5-flash")
 
     val customEndpoint: StateFlow<String> = settingsDataStore.customEndpointFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, "")

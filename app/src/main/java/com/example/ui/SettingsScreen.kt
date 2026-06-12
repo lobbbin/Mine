@@ -95,10 +95,7 @@ fun SettingsScreen(
     val providers = listOf("Google", "OpenAI", "Anthropic", "Nvidia")
     val providerModels = mapOf(
         "Google" to listOf(
-            "gemini-1.5-flash",
-            "gemini-2.0-flash",
-            "gemini-1.5-pro",
-            "gemini-2.0-pro-exp",
+            "gemini-3.5-flash",
             "gemini-3.1-pro-preview",
             "gemini-3.1-flash-lite-preview"
         ),

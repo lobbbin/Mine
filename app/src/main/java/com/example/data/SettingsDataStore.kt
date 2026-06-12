@@ -120,7 +120,7 @@ class SettingsDataStore(private val context: Context) {
 
     val modelFlow: Flow<String> = context.dataStore.data
         .map { preferences ->
-            preferences[MODEL_KEY] ?: "gemini-1.5-flash"
+            preferences[MODEL_KEY] ?: "gemini-3.5-flash"
         }
 
     val customEndpointFlow: Flow<String> = context.dataStore.data
