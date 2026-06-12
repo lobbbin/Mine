@@ -1929,7 +1929,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         if (customUrl.isNotBlank()) {
             val base = customUrl.trim()
             return when (provider) {
-                "OpenAI", "Nvidia", "Ollama", "vLLM", "Custom (OpenAI-compatible)" -> {
+                "Cerebras", "OpenAI", "Nvidia", "Ollama", "vLLM", "Custom (OpenAI-compatible)" -> {
                     if (base.contains("chat/completions")) base
                     else if (base.endsWith("/")) "${base}v1/chat/completions"
                     else if (base.endsWith("/v1")) "$base/chat/completions"
@@ -1952,6 +1952,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         }
         return when (provider) {
             "OpenAI" -> "https://api.openai.com/v1/chat/completions"
+            "Cerebras" -> "https://api.cerebras.ai/v1/chat/completions"
             "Nvidia" -> "https://integrate.api.nvidia.com/v1/chat/completions"
             "Anthropic" -> "https://api.anthropic.com/v1/messages"
             "Ollama" -> "http://10.0.2.2:11434/v1/chat/completions"
@@ -1969,7 +1970,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         customUrl: String = customEndpoint.value
     ): String {
         return when (provider) {
-            "OpenAI", "Nvidia", "Ollama", "vLLM", "Custom (OpenAI-compatible)" -> {
+            "Cerebras", "OpenAI", "Nvidia", "Ollama", "vLLM", "Custom (OpenAI-compatible)" -> {
                 val activeKey = if (apiKey.isBlank()) "sk-no-key-required" else apiKey
                 val messages = mutableListOf<OpenAIMessage>()
                 messages.add(OpenAIMessage("system", systemPrompt))
@@ -2025,7 +2026,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val request = OpenAIRequest(
                     model = modelName,
                     messages = messages,
-                    response_format = if (isCustomUrl || provider in listOf("Nvidia", "Ollama", "vLLM", "Custom (OpenAI-compatible)")) null else OpenAIResponseFormat("json_object"),
+                    response_format = if (isCustomUrl || provider in listOf("Cerebras", "Nvidia", "Ollama", "vLLM", "Custom (OpenAI-compatible)")) null else OpenAIResponseFormat("json_object"),
                     temperature = finalTemp,
                     top_p = finalTopP,
                     max_tokens = finalMaxTokens,

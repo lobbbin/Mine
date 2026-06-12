@@ -91,7 +91,7 @@ fun SettingsScreen(
     var labCostInput by remember(savedLabCost) { mutableStateOf(savedLabCost.toInt().toString()) }
     var specCostInput by remember(savedSpecCost) { mutableStateOf(savedSpecCost.toInt().toString()) }
 
-    val providers = listOf("Google", "OpenAI", "Anthropic", "Nvidia", "Ollama", "vLLM", "Custom (OpenAI-compatible)")
+    val providers = listOf("Google", "OpenAI", "Anthropic", "Cerebras", "Nvidia", "Ollama", "vLLM", "Custom (OpenAI-compatible)")
     val providerModels = mapOf(
         "Google" to listOf(
             "gemini-3.5-flash",
@@ -101,6 +101,15 @@ fun SettingsScreen(
         ),
         "OpenAI" to listOf("gpt-4o", "gpt-4o-mini", "gpt-4", "custom"),
         "Anthropic" to listOf("claude-3-5-sonnet", "claude-3-haiku", "custom"),
+        "Cerebras" to listOf(
+            "llama3.3-70b",
+            "llama3.1-8b",
+            "deepseek-r1-distill-llama-70b",
+            "deepseek-r1-distill-qwen-14b",
+            "gpt-oss-120b",
+            "zai-glm-4.7",
+            "custom"
+        ),
         "Nvidia" to listOf(
             "minimaxai/minimax-m3",
             "minimaxai/minimax-m2.7",
