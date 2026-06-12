@@ -84,7 +84,6 @@ fun SettingsScreen(
 
     var apiKeyInput by remember(savedApiKey) { mutableStateOf(savedApiKey ?: "") }
     var providerInput by remember(savedProvider) { mutableStateOf(savedProvider) }
-    var modelInput by remember(savedModel) { mutableStateOf(savedModel) }
     var customEndpointInput by remember(savedCustomEndpoint) { mutableStateOf(savedCustomEndpoint) }
     var specialtyInput by remember(preferredSpecialty) { mutableStateOf(preferredSpecialty) }
     var severityInput by remember(preferredSeverity) { mutableStateOf(preferredSeverity) }
@@ -92,16 +91,22 @@ fun SettingsScreen(
     var labCostInput by remember(savedLabCost) { mutableStateOf(savedLabCost.toInt().toString()) }
     var specCostInput by remember(savedSpecCost) { mutableStateOf(savedSpecCost.toInt().toString()) }
 
-    val providers = listOf("Google", "OpenAI", "Anthropic", "Nvidia")
+    val providers = listOf("Google", "OpenAI", "Anthropic", "Nvidia", "Ollama", "vLLM", "Custom (OpenAI-compatible)")
     val providerModels = mapOf(
         "Google" to listOf(
             "gemini-3.5-flash",
             "gemini-3.1-pro-preview",
-            "gemini-3.1-flash-lite-preview"
+            "gemini-3.1-flash-lite-preview",
+            "custom"
         ),
-        "OpenAI" to listOf("gpt-4o", "gpt-4o-mini", "gpt-4"),
-        "Anthropic" to listOf("claude-3-5-sonnet", "claude-3-haiku"),
+        "OpenAI" to listOf("gpt-4o", "gpt-4o-mini", "gpt-4", "custom"),
+        "Anthropic" to listOf("claude-3-5-sonnet", "claude-3-haiku", "custom"),
         "Nvidia" to listOf(
+            "minimaxai/minimax-m3",
+            "minimaxai/minimax-m2.7",
+            "google/gemma-4-31b-it",
+            "mistralai/mistral-medium-3.5-128b",
+            "mistralai/mistral-large-3-675b-instruct-2512",
             "meta/llama-3.3-70b-instruct",
             "meta/llama-3.1-405b-instruct",
             "meta/llama-3.1-70b-instruct",
@@ -135,14 +140,44 @@ fun SettingsScreen(
             "z-ai/glm-5.1",
             "qwen/qwen3.5-122b-a10b",
             "qwen/qwen3.5-397b-a17b",
-            "qwen/qwen3-next-80b-a3b-instruct",
             "stepfun-ai/step-3.7-flash",
             "nvidia/cosmos3-nano-reasoner",
             "nvidia/nemotron-3-ultra-550b-a55b",
             "moonshotai/kimi-k2.6",
-            "mistralai/mistral-medium-3.5-128b"
+            "custom"
+        ),
+        "Ollama" to listOf(
+            "llama3.3",
+            "llama3.1",
+            "llama3",
+            "gemma2",
+            "mistral",
+            "phi3",
+            "codegemma",
+            "custom"
+        ),
+        "vLLM" to listOf(
+            "meta-llama/Llama-3.3-70B-Instruct",
+            "meta-llama/Meta-Llama-3-8B-Instruct",
+            "Qwen/Qwen2.5-7B-Instruct",
+            "Qwen/Qwen2.5-Coder-32B-Instruct",
+            "custom"
+        ),
+        "Custom (OpenAI-compatible)" to listOf(
+            "custom"
         )
     )
+
+    val initialModelIsCustom = remember(savedModel, savedProvider) {
+        val models = providerModels[savedProvider] ?: emptyList()
+        savedModel.isNotBlank() && savedModel !in models && savedModel != "custom"
+    }
+    var modelInput by remember(savedModel, savedProvider) { 
+        mutableStateOf(if (initialModelIsCustom) "custom" else savedModel) 
+    }
+    var customModelName by remember(savedModel, savedProvider) {
+        mutableStateOf(if (initialModelIsCustom) savedModel else "")
+    }
 
     // Automatically correct model input if its provider mapping is missing
     LaunchedEffect(providerInput) {
@@ -310,6 +345,26 @@ fun SettingsScreen(
                 }
             }
 
+            if (modelInput == "custom") {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Custom Model Identifier",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.Start)
+                )
+                OutlinedTextField(
+                    value = customModelName,
+                    onValueChange = { customModelName = it },
+                    placeholder = { Text("E.g. llama3:latest, deepseek-r1, or custom-model") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                        .testTag("custom_model_field"),
+                    singleLine = true
+                )
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
 
             // --- Secure API Key TextField ---
@@ -395,10 +450,15 @@ fun SettingsScreen(
                     onClick = {
                         isTestingConnection = true
                         testResultText = null
+                        val modelToTest = if (modelInput == "custom") {
+                            if (customModelName.isNotBlank()) customModelName else "custom"
+                        } else {
+                            modelInput
+                        }
                         viewModel.testConnection(
                             testKey = apiKeyInput,
                             testProvider = providerInput,
-                            testModel = modelInput,
+                            testModel = modelToTest,
                             testCustomEndpoint = customEndpointInput
                         ) { success, msg ->
                             isTestingConnection = false
@@ -413,7 +473,7 @@ fun SettingsScreen(
                     enabled = !isTestingConnection
                 ) {
                     if (isTestingConnection) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                     } else {
                         Icon(imageVector = Icons.Default.Refresh, contentDescription = "Refresh icon")
                         Spacer(modifier = Modifier.size(6.dp))
@@ -424,10 +484,15 @@ fun SettingsScreen(
                 Button(
                     onClick = {
                         scope.launch {
+                            val modelToSave = if (modelInput == "custom") {
+                                if (customModelName.isNotBlank()) customModelName else "custom"
+                            } else {
+                                modelInput
+                            }
                             viewModel.saveActiveKeys(
                                 newKey = apiKeyInput,
                                 newProvider = providerInput,
-                                newModel = modelInput,
+                                newModel = modelToSave,
                                 newCustomEndpoint = customEndpointInput
                             )
                         }

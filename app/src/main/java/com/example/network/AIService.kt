@@ -32,7 +32,11 @@ data class OpenAIRequest(
     val temperature: Double? = null,
     val max_tokens: Int? = null,
     val top_p: Double? = null,
-    val stream: Boolean = false
+    val stream: Boolean = false,
+    val reasoning_effort: String? = null,
+    val chat_template_kwargs: Map<String, Boolean>? = null,
+    val frequency_penalty: Double? = null,
+    val presence_penalty: Double? = null
 )
 
 @JsonClass(generateAdapter = true)

@@ -1915,9 +1915,10 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         if (customUrl.isNotBlank()) {
             val base = customUrl.trim()
             return when (provider) {
-                "OpenAI", "Nvidia" -> {
+                "OpenAI", "Nvidia", "Ollama", "vLLM", "Custom (OpenAI-compatible)" -> {
                     if (base.contains("chat/completions")) base
                     else if (base.endsWith("/")) "${base}v1/chat/completions"
+                    else if (base.endsWith("/v1")) "$base/chat/completions"
                     else "$base/v1/chat/completions"
                 }
                 "Anthropic" -> {
@@ -1939,6 +1940,9 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             "OpenAI" -> "https://api.openai.com/v1/chat/completions"
             "Nvidia" -> "https://integrate.api.nvidia.com/v1/chat/completions"
             "Anthropic" -> "https://api.anthropic.com/v1/messages"
+            "Ollama" -> "http://10.0.2.2:11434/v1/chat/completions"
+            "vLLM" -> "http://10.0.2.2:8000/v1/chat/completions"
+            "Custom (OpenAI-compatible)" -> "http://10.0.2.2:8080/v1/chat/completions"
             else -> "https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$apiKey"
         }
     }
@@ -1951,7 +1955,8 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         customUrl: String = customEndpoint.value
     ): String {
         return when (provider) {
-            "OpenAI", "Nvidia" -> {
+            "OpenAI", "Nvidia", "Ollama", "vLLM", "Custom (OpenAI-compatible)" -> {
+                val activeKey = if (apiKey.isBlank()) "sk-no-key-required" else apiKey
                 val messages = mutableListOf<OpenAIMessage>()
                 messages.add(OpenAIMessage("system", systemPrompt))
                 
@@ -1963,14 +1968,58 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 }
 
                 val isCustomUrl = customUrl.isNotBlank()
+                var finalTemp: Double? = if (modelName.contains("step-3.7")) 1.0 else 0.7
+                var finalTopP: Double? = if (modelName.contains("step-3.7")) 0.95 else null
+                var finalMaxTokens: Int? = if (modelName.contains("step-3.7") || isCustomUrl) 8192 else null
+                var finalReasoningEffort: String? = null
+                var finalChatTemplateKwargs: Map<String, Boolean>? = null
+                var finalFrequencyPenalty: Double? = null
+                var finalPresencePenalty: Double? = null
+
+                when {
+                    modelName.contains("step-3.7") -> {
+                        finalTemp = 1.0
+                        finalTopP = 0.95
+                        finalMaxTokens = 262144
+                    }
+                    modelName == "minimaxai/minimax-m3" || modelName == "minimaxai/minimax-m2.7" -> {
+                        finalTemp = 1.0
+                        finalTopP = 0.95
+                        finalMaxTokens = 8192
+                    }
+                    modelName == "google/gemma-4-31b-it" -> {
+                        finalTemp = 1.0
+                        finalTopP = 0.95
+                        finalMaxTokens = 16384
+                        finalChatTemplateKwargs = mapOf("enable_thinking" to true)
+                    }
+                    modelName == "mistralai/mistral-medium-3.5-128b" -> {
+                        finalTemp = 0.7
+                        finalTopP = 1.0
+                        finalMaxTokens = 16384
+                        finalReasoningEffort = "high"
+                    }
+                    modelName == "mistralai/mistral-large-3-675b-instruct-2512" -> {
+                        finalTemp = 0.15
+                        finalTopP = 1.00
+                        finalMaxTokens = 2048
+                        finalFrequencyPenalty = 0.00
+                        finalPresencePenalty = 0.00
+                    }
+                }
+
                 val request = OpenAIRequest(
                     model = modelName,
                     messages = messages,
-                    response_format = if (isCustomUrl || provider == "Nvidia") null else OpenAIResponseFormat("json_object"),
-                    temperature = if (modelName.contains("step-3.7")) 1.0 else 0.7,
-                    top_p = if (modelName.contains("step-3.7")) 0.95 else null,
-                    max_tokens = if (modelName.contains("step-3.7") || isCustomUrl) 8192 else null,
-                    stream = false // Default stream
+                    response_format = if (isCustomUrl || provider in listOf("Nvidia", "Ollama", "vLLM", "Custom (OpenAI-compatible)")) null else OpenAIResponseFormat("json_object"),
+                    temperature = finalTemp,
+                    top_p = finalTopP,
+                    max_tokens = finalMaxTokens,
+                    stream = false,
+                    reasoning_effort = finalReasoningEffort,
+                    chat_template_kwargs = finalChatTemplateKwargs,
+                    frequency_penalty = finalFrequencyPenalty,
+                    presence_penalty = finalPresencePenalty
                 )
 
                 val activeUrl = getActiveUrl(provider, modelName, apiKey, customUrl)
@@ -1979,7 +2028,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     val streamRequest = request.copy(stream = true)
                     val response = RetrofitClient.service.callOpenAIStream(
                         url = activeUrl,
-                        authorization = "Bearer $apiKey",
+                        authorization = "Bearer $activeKey",
                         accept = "text/event-stream",
                         body = streamRequest
                     )
@@ -2012,7 +2061,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 } else {
                     val response = RetrofitClient.service.callOpenAI(
                         url = activeUrl,
-                        authorization = "Bearer $apiKey",
+                        authorization = "Bearer $activeKey",
                         accept = "application/json",
                         body = request
                     )
@@ -2145,7 +2194,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             try {
                 val activeKey = if (testKey.isBlank() && testProvider.equals("Google", ignoreCase = true)) {
                     BuildConfig.GEMINI_API_KEY
-                } else if (testKey.isBlank() && testCustomEndpoint.isNotBlank()) {
+                } else if (testKey.isBlank() && (testCustomEndpoint.isNotBlank() || testProvider in listOf("Ollama", "vLLM", "Custom (OpenAI-compatible)"))) {
                     "dummy-local-key"
                 } else {
                     testKey
