@@ -1897,6 +1897,15 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                             settingsDataStore.addXp(score.toLong() * 5)
                             val normScore = score.coerceIn(0.0, 100.0) / 20.0f
                             newRep = ((reputationStars.value * 0.9f) + (normScore.toFloat() * 0.1f)).coerceIn(1.0f, 5.0f)
+                            
+                            val isCompleting = update.isEncounterComplete == true || _uiState.value.isEncounterComplete
+                            if (score < 50.0 && isCompleting) {
+                                startLawsuitSimulation(
+                                    patientName = getPatientName(),
+                                    caseDiagnosis = _hiddenCase.value?.trueDiagnosis ?: "Unknown",
+                                    score = score.toInt()
+                                )
+                            }
                         }
                         
                         settingsDataStore.updateClinicStats(clinicBalance.value + addedRevenue, newRep)

@@ -333,25 +333,6 @@ fun DashboardScreen(
                     icon = { Icon(Icons.AutoMirrored.Filled.Send, null) },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
-                NavigationDrawerItem(
-                    label = { Text("⚖️ HPCSA LAW TRIBUNAL", fontWeight = FontWeight.Bold) },
-                    selected = false,
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        val currentName = if (uiState.patientDemographics.startsWith("Patient: ")) {
-                            uiState.patientDemographics.substring(9).substringBefore(" • ")
-                        } else {
-                            uiState.patientDemographics
-                        }
-                        viewModel.startLawsuitSimulation(
-                            patientName = currentName,
-                            caseDiagnosis = uiState.currentPhase,
-                            score = 48
-                        )
-                    },
-                    icon = { Icon(Icons.Default.Assignment, null) },
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
                 Spacer(Modifier.height(24.dp))
             }
         }
