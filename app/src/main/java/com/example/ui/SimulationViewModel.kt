@@ -863,10 +863,13 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val currentModel = model.value
                 val userKey = apiKey.value ?: ""
 
-                val activeKey = if (userKey.isBlank() && currentProvider.equals("Google", ignoreCase = true)) {
-                    BuildConfig.GEMINI_API_KEY
-                } else if (userKey.isBlank() && customEndpoint.value.isNotBlank()) {
-                    "dummy-local-key"
+                val activeKey = if (userKey.isBlank()) {
+                    when {
+                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
+                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
+                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
+                        else -> ""
+                    }
                 } else {
                     userKey
                 }
@@ -1781,10 +1784,13 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val currentProvider = provider.value
                 val currentModel = model.value
                 val userKey = apiKey.value ?: ""
-                val activeKey = if (userKey.isBlank() && currentProvider.equals("Google", ignoreCase = true)) {
-                    BuildConfig.GEMINI_API_KEY
-                } else if (userKey.isBlank() && customEndpoint.value.isNotBlank()) {
-                    "dummy-local-key"
+                val activeKey = if (userKey.isBlank()) {
+                    when {
+                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
+                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
+                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
+                        else -> ""
+                    }
                 } else {
                     userKey
                 }
@@ -2342,10 +2348,13 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val currentProvider = provider.value
                 val currentModel = model.value
                 val userKey = apiKey.value ?: ""
-                val activeKey = if (userKey.isBlank() && currentProvider.equals("Google", ignoreCase = true)) {
-                    BuildConfig.GEMINI_API_KEY
-                } else if (userKey.isBlank() && customEndpoint.value.isNotBlank()) {
-                    "dummy-local-key"
+                val activeKey = if (userKey.isBlank()) {
+                    when {
+                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
+                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
+                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
+                        else -> ""
+                    }
                 } else {
                     userKey
                 }
