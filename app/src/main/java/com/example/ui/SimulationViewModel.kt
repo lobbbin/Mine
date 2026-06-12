@@ -324,8 +324,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                             val dxText = "${curr.trueDiagnosis}\n(${curr.specialty})"
                             table.addCell(com.itextpdf.text.Phrase(dxText, normalFont))
                             
-                            val scoreMatch = Regex("\"clinicalScore\":\\s*(\\d+)").find(curr.evaluation ?: "")
-                            val score = scoreMatch?.groupValues?.get(1) ?: "N/A"
+                            val score = extractScoreFromEvaluation(curr.evaluation ?: "") ?: "N/A"
                             val outcomeText = "${curr.patientOutcome}\nScore: $score/100"
                             table.addCell(com.itextpdf.text.Phrase(outcomeText, normalFont))
                             
@@ -453,7 +452,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                                  Total Prescribed Consumable Expenditure: R${String.format("%.2f", totalGross)}
                                  
                                  SIGNATURE RECORD STATUS: ${consentStatus}
-                                 Detail Statement: Prior to diagnostic investigations, medical tariff boundaries and out-of-pocket fees were disclosed to the patient, who ratified this written quote with active visual signature consent.
+                                 Detail Statement: ${if (hasConsentSigned) "Prior to diagnostic investigations, medical tariff boundaries and out-of-pocket fees were disclosed to the patient, who ratified this written quote with active visual signature consent." else "Medical tariff boundaries and out-of-pocket fees were NOT explicitly disclosed or electronically ratified by the patient prior to diagnostic investigations."}
                              """.trimIndent()
                              
                              document.add(createPdfShadedBox(consentSignatureText, "🇿🇦 Informed Financial Consent Cost Quote Statement & Signature:", normalFont, boldFont))
@@ -463,20 +462,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                                 document.add(createPdfShadedBox(curr.billingReceipt, billingTitle, normalFont, boldFont))
                             }
 
-                            val scorePattern = java.util.regex.Pattern.compile("(\\d{1,3})/100")
-                            val scoreMatcher = curr.evaluation?.let { scorePattern.matcher(it) }
-                            val scoreVal = if (scoreMatcher?.find() == true) {
-                                scoreMatcher.group(1).toIntOrNull()
-                            } else {
-                                val scorePattern2 = java.util.regex.Pattern.compile("(?i)score:\\s*(\\d{1,3})")
-                                val scoreMatcher2 = curr.evaluation?.let { scorePattern2.matcher(it) }
-                                if (scoreMatcher2?.find() == true) {
-                                    scoreMatcher2.group(1).toIntOrNull()
-                                } else {
-                                    val scoreMatch = Regex("\"clinicalScore\":\\s*(\\d+)").find(curr.evaluation ?: "")
-                                    scoreMatch?.groupValues?.get(1)?.toIntOrNull()
-                                }
-                            }
+                            val scoreVal = extractScoreFromEvaluation(curr.evaluation ?: "")?.toIntOrNull()
                             
                             val scoreText = scoreVal?.let { "Clinical Competency Critique & Audit Score: $it/100" } ?: "Clinical Competency Critique & Audit Feedback:"
                             if (!curr.evaluation.isNullOrBlank()) {
@@ -1138,7 +1124,6 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             return matcher.group(1)
         }
         val scorePattern = Pattern.compile("(?i)score:\\s*(\\d{1,3})")
-        val scoreMatcher = scorePattern.matcher(scorePattern.pattern()) // wait, let's match on evaluation block!
         val scoreMatcher2 = scorePattern.matcher(evaluation)
         if (scoreMatcher2.find()) {
             return scoreMatcher2.group(1)
@@ -1272,7 +1257,13 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
 
         val specificInfo = if (labsDescription.isNotBlank()) "Doctor specifically requested: $labsDescription." else "Doctor requested general investigations."
         val patientNameStr = getPatientName()
-        performAiAction(systemInstructionOverride = "Doctor has ordered laboratory investigations. $specificInfo Generate comprehensive, realistic South African metric lab results (e.g., blood counts, CRP, biochemistry, ABGs, or whichever specific assessments are relevant) matching the hidden profile and the doctor's request. Include Dr. Tim (JB Consultation Practice) and the patient name ($patientNameStr) in the lab report header. Do NOT use placeholders. Populate the labResults field in your JSON result. Set the currentPhase to 'Phase 2 - Diagnostic Investigations' and keep dialogueResponse polite regarding getting bloods taken.")
+        performAiAction(
+            systemInstructionOverride = "Doctor has ordered laboratory investigations. $specificInfo Generate comprehensive, realistic South African metric lab results (e.g., blood counts, CRP, biochemistry, ABGs, or whichever specific assessments are relevant) matching the hidden profile and the doctor's request. Include Dr. Tim (JB Consultation Practice) and the patient name ($patientNameStr) in the lab report header. Do NOT use placeholders. Populate the labResults field in your JSON result. Set the currentPhase to 'Phase 2 - Diagnostic Investigations' and keep dialogueResponse polite regarding getting bloods taken.",
+            onSuccessExtra = {
+                _uiState.value = _uiState.value.copy(currentPhase = "Phase 2 - Diagnostic Investigations")
+                saveCurrentStateToDatabase()
+            }
+        )
     }
 
     fun performPhysicalExam(examDescription: String = "") {
@@ -1314,7 +1305,11 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         saveCurrentStateToDatabase()
 
         performAiAction(
-            systemInstructionOverride = "Doctor has formulated a working Diagnosis of '$diagnosis' and management plan: '$treatmentPlan'. Act as the clinical mentor / patient and acknowledge their working diagnosis. Direct the practitioner to draft their required Medication Prescriptions, Specialist Referrals, and Medical Certificates/Sick Notes. Set `currentPhase` to 'Phase 4 - Prescription, Referral & Sick Note' and keep `isEncounterComplete` false."
+            systemInstructionOverride = "Doctor has formulated a working Diagnosis of '$diagnosis' and management plan: '$treatmentPlan'. Act as the clinical mentor / patient and acknowledge their working diagnosis. Direct the practitioner to draft their required Medication Prescriptions, Specialist Referrals, and Medical Certificates/Sick Notes. Set `currentPhase` to 'Phase 4 - Prescription, Referral & Sick Note' and keep `isEncounterComplete` false.",
+            onSuccessExtra = {
+                _uiState.value = _uiState.value.copy(currentPhase = "Phase 4 - Prescription, Referral & Sick Note")
+                saveCurrentStateToDatabase()
+            }
         )
     }
 
@@ -1388,9 +1383,9 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
 
             Generate highly professional, clean, formatted text files/receipts for ONLY those items which are requested or prescribed above matching private general practice requirements.
             Format them separately and fill in the corresponding JSON fields exactly:
-            1. "prescriptionString": ${if (medPrescribed) "Complete itemized prescription under HPCSA regulations, showing Doctor name (Dr. Tim), practice name (JB Consultation Practice), practice number (PR# 1234567), patient name ($patientNameStr), meds line, dispensing directions, repeat instructions, and signature block. Do NOT use placeholders." else "null (without quotes)"}
-            2. "referralLetterString": ${if (referralProvided) "Format a complete specialist clinical referral advisory letter from Dr. Tim (JB Consultation Practice) addressing $patientNameStr. Do NOT use placeholders." else "null (without quotes)"}
-            3. "sickNoteString": ${if (sickNoteProvided) "Format an official South African Medical Certificate under Ethical Rule 16 from Dr. Tim (JB Consultation Practice), declaring the patient ($patientNameStr) unfitted for physical duties, with sick leave dates. Do NOT use placeholders." else "null (without quotes)"}
+            1. "prescriptionString": ${if (medPrescribed) "Complete itemized prescription under HPCSA regulations, showing Doctor name (Dr. Tim), practice name (JB Consultation Practice), practice number (PR# 1234567), patient name ($patientNameStr), meds line, dispensing directions, repeat instructions, and signature block. Do NOT use blank lines, underlines, or placeholders like '_______________' or '[Date]'. Generate a mock date (e.g. '12 Oct 2026'), and use an electronic signature like 'Dr. Tim (E-Signed)'." else "null (without quotes)"}
+            2. "referralLetterString": ${if (referralProvided) "Format a complete specialist clinical referral advisory letter from Dr. Tim (JB Consultation Practice) addressing $patientNameStr. Do NOT use blank underlines or placeholders. Use a mock date, mock contact info, and 'Dr. Tim (E-Signed)' instead of blanks." else "null (without quotes)"}
+            3. "sickNoteString": ${if (sickNoteProvided) "Format an official South African Medical Certificate under Ethical Rule 16 from Dr. Tim (JB Consultation Practice), declaring the patient ($patientNameStr) unfitted for physical duties, with sick leave dates. Do NOT use blank lines or placeholders. Fill with mock values." else "null (without quotes)"}
             
             Set currentPhase to "Phase 4 - Prescription, Referral & Sick Note". Keep dialogueResponse encouraging and detailed.
         """.trimIndent()
@@ -1442,6 +1437,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             2. Medical Aid covered portion (depending on insurance Status: Private Medical Aid covers 80% of total, State Funded covers 100%, Cash/Uninsured covers 0%)
             3. Out-of-pocket patient co-payment (ZAR)
             
+            Do NOT use any placeholders like '_______________' or '[Date]', instead use mock dates and electronic signatures (e.g. 'Dr. Tim (E-Signed)', 'Generated REF: 12345').
             Return this invoice itemized inside the "billingReceipt" JSON field. Set currentPhase to "Phase 5 - Medical Billing & Collection" and keep dialogueResponse polite regarding payment collection.
         """.trimIndent()
 
@@ -1449,7 +1445,8 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             systemInstructionOverride = finalPrompt,
             onSuccessExtra = {
                 _uiState.value = _uiState.value.copy(
-                    billingApprovedByHuman = true
+                    billingApprovedByHuman = true,
+                    currentPhase = "Phase 5 - Medical Billing & Collection"
                 )
                 saveCurrentStateToDatabase()
             }
@@ -1480,7 +1477,8 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 _uiState.value = _uiState.value.copy(
                     dailyRevenue = _uiState.value.dailyRevenue + amountCollected,
                     patientsSeen = _uiState.value.patientsSeen + 1,
-                    isEncounterComplete = true
+                    isEncounterComplete = true,
+                    currentPhase = "Phase 6 - Case Evaluation & Feedback"
                 )
 
                 viewModelScope.launch {
@@ -1510,7 +1508,13 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         )
         saveCurrentStateToDatabase()
 
-        performAiAction(systemInstructionOverride = "The doctor is finalizing this encounter. Based on the clinical history, infer the diagnosis, generate the final billing receipt in ZAR, and provide the Phase 4 evaluation score out of 100.")
+        performAiAction(
+            systemInstructionOverride = "The doctor is finalizing this encounter. Based on the clinical history, infer the diagnosis, generate the final billing receipt in ZAR, and provide the Phase 4 evaluation score out of 100.",
+            onSuccessExtra = {
+                _uiState.value = _uiState.value.copy(currentPhase = "Phase 4 - Case Reveal & Evaluation")
+                saveCurrentStateToDatabase()
+            }
+        )
     }
 
     fun seekConsultation(specialtyConsult: String) {
@@ -1551,7 +1555,8 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val charge = consultationFee.value * 0.5 // Half fee for referral
                 _uiState.value = _uiState.value.copy(
                     dailyRevenue = _uiState.value.dailyRevenue + charge,
-                    patientsSeen = _uiState.value.patientsSeen + 1
+                    patientsSeen = _uiState.value.patientsSeen + 1,
+                    currentPhase = "Phase 4 - Case Reveal & Evaluation"
                 )
                 viewModelScope.launch {
                     val profit = _uiState.value.dailyRevenue - _uiState.value.expensesIncurred - 200.0 // R200 overhead
