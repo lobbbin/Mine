@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Clinical Sim Engine",
+  "description": "An interactive clinical OSCE and practice operations simulation engine for medical clinical teaching.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

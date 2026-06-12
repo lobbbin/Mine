@@ -1,0 +1,2510 @@
+package com.example.ui
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AssignmentTurnedIn
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Healing
+import androidx.compose.material.icons.filled.HeartBroken
+import androidx.compose.material.icons.filled.LocalHospital
+import androidx.compose.material.icons.filled.MonitorHeart
+import androidx.compose.material.icons.filled.Science
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Thermostat
+import androidx.compose.material.icons.filled.WindPower
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Air
+import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.NavigationDrawerItemDefaults
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.animation.animateContentSize
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material.icons.filled.Assignment
+import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.RequestQuote
+import kotlinx.coroutines.launch
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.window.Dialog
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.data.ChatMessage
+import com.example.data.Vitals
+import com.example.data.SimulationState
+import com.example.data.HiddenCaseProfile
+import kotlinx.coroutines.flow.collectLatest
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.foundation.border
+import androidx.compose.ui.text.font.FontFamily
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun DashboardScreen(
+    viewModel: SimulationViewModel,
+    onNavigateToSettings: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val hiddenCase by viewModel.hiddenCase.collectAsStateWithLifecycle()
+    
+    val currentDay by viewModel.currentDay.collectAsStateWithLifecycle()
+    val patientsSeenToday by viewModel.patientsSeenToday.collectAsStateWithLifecycle()
+    val dailyRevenue by viewModel.dailyRevenueLive.collectAsStateWithLifecycle()
+    val dailyExpenses by viewModel.dailyExpensesLive.collectAsStateWithLifecycle()
+    val clinicBalance by viewModel.clinicBalance.collectAsStateWithLifecycle()
+    val syringeStock by viewModel.syringeStock.collectAsStateWithLifecycle()
+    val salineStock by viewModel.salineStock.collectAsStateWithLifecycle()
+    val adrenalineStock by viewModel.adrenalineStock.collectAsStateWithLifecycle()
+    val reagentsStock by viewModel.reagentsStock.collectAsStateWithLifecycle()
+    val medsStock by viewModel.medsStock.collectAsStateWithLifecycle()
+    
+    val doctorRank by viewModel.doctorRank.collectAsStateWithLifecycle()
+    val doctorXp by viewModel.doctorXp.collectAsStateWithLifecycle()
+    val reputationStars by viewModel.reputationStars.collectAsStateWithLifecycle()
+    val model by viewModel.model.collectAsStateWithLifecycle()
+
+    val lawsuitActive by viewModel.lawsuitActive.collectAsStateWithLifecycle()
+    val lawsuitLog by viewModel.lawsuitLog.collectAsStateWithLifecycle()
+    val lawsuitPatientName by viewModel.lawsuitPatientName.collectAsStateWithLifecycle()
+    val lawsuitCaseDiag by viewModel.lawsuitCaseDiag.collectAsStateWithLifecycle()
+    val lawsuitCharges by viewModel.lawsuitCharges.collectAsStateWithLifecycle()
+    val lawsuitTension by viewModel.lawsuitTension.collectAsStateWithLifecycle()
+    val lawsuitProsecutorAggression by viewModel.lawsuitProsecutorAggression.collectAsStateWithLifecycle()
+    val lawsuitVerdict by viewModel.lawsuitVerdict.collectAsStateWithLifecycle()
+    val lawsuitFine by viewModel.lawsuitFine.collectAsStateWithLifecycle()
+    val lawsuitSuspension by viewModel.lawsuitSuspension.collectAsStateWithLifecycle()
+    val lawsuitCurrentStage by viewModel.lawsuitCurrentStage.collectAsStateWithLifecycle()
+
+    var showBottomSheet by remember { mutableStateOf(false) }
+    var selectedSheetTab by remember { mutableStateOf(0) }
+
+    // Dialog form inputs
+    var showDiagnosisDialog by remember { mutableStateOf(false) }
+    var diagnosisInput by remember { mutableStateOf("") }
+    var treatmentPlanInput by remember { mutableStateOf("") }
+
+    var showPhysicalExamDialog by remember { mutableStateOf(false) }
+    var physicalExamInput by remember { mutableStateOf("") }
+
+    var showLabsDialog by remember { mutableStateOf(false) }
+    var labsInput by remember { mutableStateOf("") }
+    var financialConsentSigned by remember { mutableStateOf(false) }
+    
+    var showNotesDialog by remember { mutableStateOf(false) }
+    var ddxNotesInput by remember { mutableStateOf(uiState.ddxNotes) }
+    
+    var showConsultDialog by remember { mutableStateOf(false) }
+    var consultSpecialtyInput by remember { mutableStateOf("") }
+
+    // Phase 4 paperwork local drafting inputs
+    var medsNameInput by remember { mutableStateOf("") }
+    var medsDoseInput by remember { mutableStateOf("") }
+    var medsFreqInput by remember { mutableStateOf("") }
+    var medsDurationInput by remember { mutableStateOf("") }
+
+    var referralSpecialityInput by remember { mutableStateOf("") }
+    var referralReasonInput by remember { mutableStateOf("") }
+
+    var sickNoteReasonInput by remember { mutableStateOf("") }
+    var sickNoteDaysInput by remember { mutableStateOf("0") }
+    
+    var showPaperworkDraftPanel by remember { mutableStateOf(false) }
+    var activePaperworkTab by remember { mutableStateOf(0) }
+
+    // Instant Chat field inputs
+    var doctorMessageText by remember { mutableStateOf("") }
+    val lazyListState = rememberLazyListState()
+    val focusManager = LocalFocusManager.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+
+    // Automatically trigger bottom folders when lab, bill, or evaluation is ready
+    LaunchedEffect(uiState.labResults) {
+        if (!uiState.labResults.isNullOrBlank()) {
+            selectedSheetTab = 0
+            showBottomSheet = true
+        }
+    }
+
+    LaunchedEffect(uiState.physicalExamResults) {
+        if (!uiState.physicalExamResults.isNullOrBlank()) {
+            selectedSheetTab = 1
+            showBottomSheet = true
+        }
+    }
+
+    LaunchedEffect(uiState.billingReceipt) {
+        if (!uiState.billingReceipt.isNullOrBlank()) {
+            selectedSheetTab = 2
+            showBottomSheet = true
+        }
+    }
+
+    LaunchedEffect(uiState.evaluation) {
+        if (!uiState.evaluation.isNullOrBlank()) {
+            selectedSheetTab = 3
+            showBottomSheet = true
+        }
+    }
+
+    // Scroll chat stream to bottom when a new entry is detected
+    LaunchedEffect(uiState.chatHistory.size) {
+        if (uiState.chatHistory.isNotEmpty()) {
+            lazyListState.animateScrollToItem(uiState.chatHistory.size - 1)
+        }
+    }
+
+    // Capture background thread errors
+    LaunchedEffect(Unit) {
+        viewModel.errorEvents.collectLatest { msg ->
+            snackbarHostState.showSnackbar(msg)
+        }
+    }
+
+    LaunchedEffect(uiState.submittedDiagnosis, uiState.submittedTreatmentPlan) {
+        diagnosisInput = uiState.submittedDiagnosis
+        treatmentPlanInput = uiState.submittedTreatmentPlan
+    }
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        gesturesEnabled = !uiState.isEncounterComplete,
+        drawerContent = {
+            ModalDrawerSheet(
+                modifier = Modifier.width(300.dp)
+            ) {
+                Text(
+                    "🧰 Clinical Toolbox",
+                    modifier = Modifier.padding(24.dp),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Black
+                )
+                HorizontalDivider()
+                Spacer(Modifier.height(12.dp))
+                
+                NavigationDrawerItem(
+                    label = { Text("🧪 LAB INVESTIGATIONS", fontWeight = FontWeight.Bold) },
+                    selected = false,
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        financialConsentSigned = false
+                        showLabsDialog = true
+                    },
+                    icon = { Icon(Icons.Default.Science, null) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
+                NavigationDrawerItem(
+                    label = { Text("🩺 PHYSICAL EXAM", fontWeight = FontWeight.Bold) },
+                    selected = false,
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        showPhysicalExamDialog = true
+                    },
+                    icon = { Icon(Icons.Default.Healing, null) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
+                NavigationDrawerItem(
+                    label = { Text("📝 DDx NOTES", fontWeight = FontWeight.Bold) },
+                    selected = false,
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        showNotesDialog = true
+                    },
+                    icon = { Icon(Icons.Default.Assignment, null) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
+                
+                Spacer(Modifier.weight(1f))
+                HorizontalDivider()
+                
+                Text(
+                    "EXTERNAL ACTIONS",
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                
+                NavigationDrawerItem(
+                    label = { Text("📞 CONSULT SPECIALIST", fontWeight = FontWeight.Bold) },
+                    selected = false,
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        showConsultDialog = true
+                    },
+                    icon = { Icon(Icons.Default.Phone, null) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
+                NavigationDrawerItem(
+                    label = { Text("🚑 REFER PATIENT", fontWeight = FontWeight.Bold) },
+                    selected = false,
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        viewModel.referPatient()
+                    },
+                    icon = { Icon(Icons.AutoMirrored.Filled.Send, null) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
+                NavigationDrawerItem(
+                    label = { Text("⚖️ HPCSA LAW TRIBUNAL", fontWeight = FontWeight.Bold) },
+                    selected = false,
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        val currentName = if (uiState.patientDemographics.startsWith("Patient: ")) {
+                            uiState.patientDemographics.substring(9).substringBefore(" • ")
+                        } else {
+                            uiState.patientDemographics
+                        }
+                        viewModel.startLawsuitSimulation(
+                            patientName = currentName,
+                            caseDiagnosis = uiState.currentPhase,
+                            score = 48
+                        )
+                    },
+                    icon = { Icon(Icons.Default.Assignment, null) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
+                Spacer(Modifier.height(24.dp))
+            }
+        }
+    ) {
+        Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            topBar = {
+                TopAppBar(
+                    navigationIcon = {
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(Icons.Default.Menu, contentDescription = "Menu")
+                        }
+                    },
+                    title = {
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "🏥 Practice Engine",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Surface(
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    text = doctorRank,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            // Added: Model display
+                            Surface(
+                                color = MaterialTheme.colorScheme.tertiaryContainer,
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    text = model,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.horizontalScroll(rememberScrollState())
+                        ) {
+                            Text(
+                                text = "⭐ ${String.format("%.1f", reputationStars)}",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Black,
+                                color = Color(0xFFFBC02D)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "🧬 XP: $doctorXp",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "📆 Day $currentDay ($patientsSeenToday/5)",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "👥 Total: ${uiState.patientsSeen}",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "💰 Bal: R ${String.format("%.0f", clinicBalance)}",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF2E7D32)
+                            )
+                        }
+                    }
+                },
+                actions = {
+                    IconButton(
+                        onClick = {
+                            selectedSheetTab = 0
+                            showBottomSheet = true
+                        },
+                        modifier = Modifier.testTag("open_folders_button")
+                    ) {
+                        Icon(imageVector = Icons.Default.Description, contentDescription = "Records")
+                    }
+                    IconButton(
+                        onClick = onNavigateToSettings,
+                        modifier = Modifier.testTag("settings_button")
+                    ) {
+                        Icon(imageVector = Icons.Default.Settings, contentDescription = "Settings")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    titleContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            )
+        },
+        modifier = modifier.fillMaxSize()
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .background(MaterialTheme.colorScheme.background)
+        ) {
+            // --- Collapsible Bedside Clinical Hub Card (Vitals, Demographics, and Emergency Interventions under one clean tabbed subsection drawer) ---
+            ClinicalHubCard(
+                uiState = uiState,
+                hiddenCase = hiddenCase,
+                isLoading = isLoading,
+                viewModel = viewModel
+            )
+
+            DailyPracticeClosureCard(
+                currentDay = currentDay,
+                patientsSeenToday = patientsSeenToday,
+                dailyRevenue = dailyRevenue,
+                dailyExpenses = dailyExpenses,
+                clinicBalance = clinicBalance,
+                syringeStock = syringeStock,
+                salineStock = salineStock,
+                adrenalineStock = adrenalineStock,
+                reagentsStock = reagentsStock,
+                medsStock = medsStock,
+                viewModel = viewModel
+            )
+
+            // Current Phase Tracker
+            Text(
+                text = "📍 CURRENT PHASE: ${uiState.currentPhase}",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
+                    .padding(vertical = 6.dp, horizontal = 16.dp)
+            )
+
+            // --- Dialogue Chat Stream ---
+            LazyColumn(
+                state = lazyListState,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(uiState.chatHistory) { message ->
+                    ChatMessageRow(message)
+                }
+
+                if (isLoading) {
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "Simulation Engine processing clinical data...",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+                    }
+                }
+            }
+
+            // --- Immediate Chat Response Input Bar ---
+            if (uiState.isEncounterComplete) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    VisualPatientOutcomeBanner(outcome = uiState.patientOutcome)
+                    if (patientsSeenToday >= 5) {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                text = "🌅 Day Completed! You have seen 5 patients today. Please review the Daily Practice Report above, close the books, and click 'ADVANCE TO DAY ${currentDay + 1}' to begin the next shift.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.padding(16.dp),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+                    } else {
+                        Button(
+                            onClick = { viewModel.startNextPatient() },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                                .height(64.dp)
+                                .testTag("next_patient_button"),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                            shape = RoundedCornerShape(16.dp),
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(24.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text("✅ CASE CLOSED. START NEXT PX", fontSize = 18.sp, fontWeight = FontWeight.Black)
+                        }
+                    }
+                }
+            } else {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = doctorMessageText,
+                        onValueChange = { doctorMessageText = it },
+                        placeholder = { Text("Consult/Interview with the patient...") },
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("chat_input_field"),
+                        shape = RoundedCornerShape(24.dp),
+                        singleLine = false,
+                        maxLines = 3
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(
+                        onClick = {
+                            if (doctorMessageText.isNotBlank()) {
+                                viewModel.sendMessage(doctorMessageText)
+                                doctorMessageText = ""
+                                focusManager.clearFocus()
+                            }
+                        },
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(100.dp))
+                            .size(56.dp)
+                            .testTag("send_chat_button"),
+                        enabled = doctorMessageText.isNotBlank() && !isLoading
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "Send message",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+            }
+
+            // --- Conclusion Action Panel ---
+            if (!uiState.isEncounterComplete) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    when {
+                        uiState.currentPhase.startsWith("Phase 4") -> {
+                            // Render Phase 4 module!
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    val hasDraftedAny = !uiState.prescriptionString.isNullOrBlank() || 
+                                                        !uiState.referralLetterString.isNullOrBlank() || 
+                                                        !uiState.sickNoteString.isNullOrBlank()
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            "📝 Phase 4 - Draft Clinical Paperwork",
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .background(
+                                                    if (hasDraftedAny) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer,
+                                                    shape = RoundedCornerShape(100.dp)
+                                                )
+                                                .padding(horizontal = 10.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = if (hasDraftedAny) "COMPILED" else "PENDING DRAFT",
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Black,
+                                                color = if (hasDraftedAny) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
+                                            )
+                                        }
+                                    }
+                                    
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)),
+                                        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)
+                                    ) {
+                                        Column(modifier = Modifier.padding(10.dp)) {
+                                            Text(
+                                                text = "🩺 Working Diagnosis:",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                            Text(
+                                                text = uiState.submittedDiagnosis.ifBlank { "Pending/None" },
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                modifier = Modifier.padding(bottom = 6.dp)
+                                            )
+                                            Text(
+                                                text = "📋 Treatment Plan Summary:",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                            Text(
+                                                text = uiState.submittedTreatmentPlan.ifBlank { "Pending/None" },
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                    }
+                                    
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    
+                                    if (!showPaperworkDraftPanel) {
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Button(
+                                                onClick = { showPaperworkDraftPanel = true },
+                                                modifier = Modifier.weight(1.5f),
+                                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                            ) {
+                                                Icon(Icons.Default.Assignment, null, modifier = Modifier.size(16.dp))
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text("DRAFT DOCUMENTS", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                            
+                                            if (hasDraftedAny) {
+                                                OutlinedButton(
+                                                    onClick = {
+                                                        selectedSheetTab = 2 // Rx Docs tab in ResultsBottomSheet (index 2)
+                                                        showBottomSheet = true
+                                                    },
+                                                    modifier = Modifier.weight(1.5f)
+                                                ) {
+                                                    Text("📄 VIEW", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                                                }
+                                                
+                                                Button(
+                                                    onClick = { viewModel.approveDoctorDocumentsAndGenerateBill() },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                                                    modifier = Modifier.weight(1.8f),
+                                                    enabled = !isLoading
+                                                ) {
+                                                    Text("🧾 SIGN & BILL ➔", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            // Paperwork Selection Tabs
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(bottom = 4.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                listOf("🩺 Dx Plan", "💊 Script", "🏥 Referral", "🤒 Sick Note").forEachIndexed { index, title ->
+                                                    val selected = activePaperworkTab == index
+                                                    AssistChip(
+                                                        onClick = { activePaperworkTab = index },
+                                                        label = { Text(title, fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                                                        colors = AssistChipDefaults.assistChipColors(
+                                                            containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                                                            labelColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                                        ),
+                                                        border = BorderStroke(
+                                                            1.dp,
+                                                            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                                                        )
+                                                    )
+                                                }
+                                            }
+
+                                            when (activePaperworkTab) {
+                                                0 -> {
+                                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                        Text("0. Working Diagnosis & Treatment Plan", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                                        OutlinedTextField(
+                                                            value = diagnosisInput,
+                                                            onValueChange = { diagnosisInput = it },
+                                                            label = { Text("Clinical Working Diagnosis") },
+                                                            modifier = Modifier.fillMaxWidth().testTag("clinical_diagnosis_input_ph4"),
+                                                            textStyle = MaterialTheme.typography.bodySmall,
+                                                            singleLine = false,
+                                                            maxLines = 3
+                                                        )
+                                                        OutlinedTextField(
+                                                            value = treatmentPlanInput,
+                                                            onValueChange = { treatmentPlanInput = it },
+                                                            label = { Text("Management & Intervention Plan") },
+                                                            modifier = Modifier.fillMaxWidth().testTag("clinical_plan_input_ph4"),
+                                                            textStyle = MaterialTheme.typography.bodySmall,
+                                                            singleLine = false,
+                                                            maxLines = 4
+                                                        )
+                                                        
+                                                        Button(
+                                                            onClick = {
+                                                                if (diagnosisInput.isNotBlank()) {
+                                                                    viewModel.submitDiagnosisAndPlan(diagnosisInput, treatmentPlanInput)
+                                                                }
+                                                            },
+                                                            modifier = Modifier.align(Alignment.End),
+                                                            enabled = diagnosisInput.isNotBlank() && !isLoading,
+                                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                                                        ) {
+                                                            Text("Update Diagnosis & Plan", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                        }
+                                                    }
+                                                }
+                                                1 -> {
+                                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                        Text("1. Prescription Details (PDR)", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                            OutlinedTextField(
+                                                                value = medsNameInput,
+                                                                onValueChange = { medsNameInput = it },
+                                                                label = { Text("Meds Name") },
+                                                                modifier = Modifier.weight(1.2f).testTag("rx_meds_name"),
+                                                                textStyle = MaterialTheme.typography.bodySmall,
+                                                                singleLine = true
+                                                            )
+                                                            OutlinedTextField(
+                                                                value = medsDoseInput,
+                                                                onValueChange = { medsDoseInput = it },
+                                                                label = { Text("Dose") },
+                                                                modifier = Modifier.weight(0.8f).testTag("rx_meds_dose"),
+                                                                textStyle = MaterialTheme.typography.bodySmall,
+                                                                singleLine = true
+                                                            )
+                                                        }
+                                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                            OutlinedTextField(
+                                                                value = medsFreqInput,
+                                                                onValueChange = { medsFreqInput = it },
+                                                                label = { Text("Frequency") },
+                                                                modifier = Modifier.weight(1f).testTag("rx_meds_freq"),
+                                                                textStyle = MaterialTheme.typography.bodySmall,
+                                                                singleLine = true
+                                                            )
+                                                            OutlinedTextField(
+                                                                value = medsDurationInput,
+                                                                onValueChange = { medsDurationInput = it },
+                                                                label = { Text("Days") },
+                                                                modifier = Modifier.weight(0.6f).testTag("rx_meds_duration"),
+                                                                textStyle = MaterialTheme.typography.bodySmall,
+                                                                singleLine = true
+                                                            )
+                                                        }
+                                                        
+                                                        Spacer(modifier = Modifier.height(4.dp))
+                                                        GenericDrugAlternativeAdvisor(
+                                                            medsNameCurrent = medsNameInput,
+                                                            onSelectGeneric = { brand, generic ->
+                                                                medsNameInput = generic
+                                                            }
+                                                        )
+                                                    }
+                                                }
+                                                2 -> {
+                                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                        Text("2. Specialist Clinical Referral Advice", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                            OutlinedTextField(
+                                                                value = referralSpecialityInput,
+                                                                onValueChange = { referralSpecialityInput = it },
+                                                                label = { Text("Specialty") },
+                                                                modifier = Modifier.weight(1f).testTag("ref_specialty"),
+                                                                textStyle = MaterialTheme.typography.bodySmall,
+                                                                singleLine = true
+                                                            )
+                                                            OutlinedTextField(
+                                                                value = referralReasonInput,
+                                                                onValueChange = { referralReasonInput = it },
+                                                                label = { Text("Indication / Reason") },
+                                                                modifier = Modifier.weight(1.4f).testTag("ref_reason"),
+                                                                textStyle = MaterialTheme.typography.bodySmall,
+                                                                singleLine = true
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                                3 -> {
+                                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                        Text("3. SA Ethical Rule 16 Sick note", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                            OutlinedTextField(
+                                                                value = sickNoteReasonInput,
+                                                                onValueChange = { sickNoteReasonInput = it },
+                                                                label = { Text("Diagnosis/Clinical Reason") },
+                                                                modifier = Modifier.weight(1.5f).testTag("sick_reason"),
+                                                                textStyle = MaterialTheme.typography.bodySmall,
+                                                                singleLine = true
+                                                            )
+                                                            OutlinedTextField(
+                                                                value = sickNoteDaysInput,
+                                                                onValueChange = { sickNoteDaysInput = it },
+                                                                label = { Text("Days") },
+                                                                modifier = Modifier.weight(0.5f).testTag("sick_days"),
+                                                                textStyle = MaterialTheme.typography.bodySmall,
+                                                                singleLine = true
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                OutlinedButton(
+                                                    onClick = { showPaperworkDraftPanel = false },
+                                                    modifier = Modifier.weight(1.5f)
+                                                ) {
+                                                    Text("CANCEL")
+                                                }
+                                                Button(
+                                                    onClick = {
+                                                        val normalizedMeds = medsNameInput.trim()
+                                                        val isMedsEmptyOrNA = normalizedMeds.isEmpty() || 
+                                                                              normalizedMeds.equals("n/a", ignoreCase = true) || 
+                                                                              normalizedMeds.equals("null", ignoreCase = true) ||
+                                                                              normalizedMeds.equals("none", ignoreCase = true)
+                                                        
+                                                        val normalizedRef = referralSpecialityInput.trim()
+                                                        val isRefEmptyOrNA = normalizedRef.isEmpty() || 
+                                                                             normalizedRef.equals("n/a", ignoreCase = true) || 
+                                                                             normalizedRef.equals("null", ignoreCase = true) || 
+                                                                             normalizedRef.equals("none", ignoreCase = true)
+                                                                             
+                                                        val normalizedSick = sickNoteReasonInput.trim()
+                                                        val isSickEmptyOrNA = normalizedSick.isEmpty() || 
+                                                                              normalizedSick.equals("n/a", ignoreCase = true) || 
+                                                                              normalizedSick.equals("null", ignoreCase = true) || 
+                                                                              normalizedSick.equals("none", ignoreCase = true) ||
+                                                                              (sickNoteDaysInput.toIntOrNull() ?: 0) <= 0
+
+                                                        if (isMedsEmptyOrNA && isRefEmptyOrNA && isSickEmptyOrNA) {
+                                                            viewModel.logAndEmitError("Error: Please enter at least a valid Prescription, Specialist Referral, or Sick Note to compile.")
+                                                        } else {
+                                                            viewModel.compilePrescriptionAndReferral(
+                                                                medsName = if (isMedsEmptyOrNA) "" else medsNameInput,
+                                                                medsDose = if (isMedsEmptyOrNA) "" else medsDoseInput,
+                                                                medsFreq = if (isMedsEmptyOrNA) "" else medsFreqInput,
+                                                                medsDuration = if (isMedsEmptyOrNA) "" else medsDurationInput,
+                                                                referralSpecialty = if (isRefEmptyOrNA) "" else referralSpecialityInput,
+                                                                referralReason = if (isRefEmptyOrNA) "" else referralReasonInput,
+                                                                sickNoteReason = if (isSickEmptyOrNA) "" else sickNoteReasonInput,
+                                                                sickNoteDays = sickNoteDaysInput.toIntOrNull() ?: 0
+                                                            )
+                                                            showPaperworkDraftPanel = false
+                                                        }
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                                    modifier = Modifier.weight(2f),
+                                                    enabled = !isLoading
+                                                ) {
+                                                    Text("💾 COMPILE FILE", fontWeight = FontWeight.Black)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        uiState.currentPhase.contains("Billing") || uiState.currentPhase.contains("Phase 5") -> {
+                            // Render Phase 5 Billing and Financial Co-payment Module!
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F8E9)),
+                                border = BorderStroke(1.dp, Color(0xFF81C784)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(imageVector = Icons.Default.RequestQuote, contentDescription = null, tint = Color(0xFF2E7D32))
+                                        Text(
+                                            "💸 Phase 5 - Billing & Co-Payment",
+                                            fontWeight = FontWeight.ExtraBold,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = Color(0xFF1B5E20)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "Invoicing generated under South African HPCSA private billing codes. Factors: consultation fee, active scripts, and clinical stock deductions.",
+                                        fontSize = 11.sp,
+                                        lineHeight = 15.sp,
+                                        color = Color(0xFF33691E)
+                                    )
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        OutlinedButton(
+                                            onClick = {
+                                                selectedSheetTab = 3 // Billing tab in ResultsBottomSheet (index 3)
+                                                showBottomSheet = true
+                                            },
+                                            modifier = Modifier.weight(1f),
+                                            border = BorderStroke(1.dp, Color(0xFF81C784))
+                                        ) {
+                                            Text("📄 VIEW CLAIM", fontSize = 11.sp, color = Color(0xFF1B5E20), fontWeight = FontWeight.Bold)
+                                        }
+                                        
+                                        Button(
+                                            onClick = {
+                                                val copay = when (hiddenCase?.insuranceStatus) {
+                                                    "Private Medical Aid" -> viewModel.consultationFee.value * 0.20
+                                                    "State Funded" -> 0.0
+                                                    else -> viewModel.consultationFee.value + 250.0
+                                                }
+                                                viewModel.collectPaymentAndFinish("Standard Cash/Card Drawer Swipe", copay)
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                                            modifier = Modifier.weight(1.5f),
+                                            enabled = !isLoading
+                                        ) {
+                                            val copayText = when (hiddenCase?.insuranceStatus) {
+                                                "Private Medical Aid" -> "R ${String.format("%.2f", viewModel.consultationFee.value * 0.20)} (20%)"
+                                                "State Funded" -> "R 0.00 (Medical Aid)"
+                                                else -> "R ${String.format("%.2f", viewModel.consultationFee.value + 250.0)}"
+                                            }
+                                            Text("💵 RECEIPT $copayText", fontSize = 11.sp, fontWeight = FontWeight.Black)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        else -> {
+                            // Phase 1 or 2 standard bottom action dashboard
+                            Button(
+                                onClick = { showDiagnosisDialog = true },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp)
+                                    .testTag("submit_diagnosis_button"),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                enabled = !isLoading,
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.AssignmentTurnedIn, contentDescription = null, modifier = Modifier.size(24.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("DX/RX PLAN", fontSize = 14.sp, fontWeight = FontWeight.Black)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+        // --- CONSULT SPECIALIST DIALOGUE BOX ---
+        if (showConsultDialog) {
+            AlertDialog(
+                onDismissRequest = { showConsultDialog = false },
+                title = { Text("Telephone Consultation", fontWeight = FontWeight.Bold) },
+                text = {
+                    Column {
+                        Text("Need advice? Call a specialist for a quick consult. This will add 20 minutes to your time and cost R800 from the clinic's expenses.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        OutlinedTextField(
+                            value = consultSpecialtyInput,
+                            onValueChange = { consultSpecialtyInput = it },
+                            label = { Text("Specialty to Call") },
+                            placeholder = { Text("e.g., Cardiology, Neurology") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.seekConsultation(consultSpecialtyInput)
+                            consultSpecialtyInput = ""
+                            showConsultDialog = false
+                        },
+                        enabled = consultSpecialtyInput.isNotBlank()
+                    ) {
+                        Text("Call (R800)")
+                    }
+                },
+                dismissButton = {
+                    OutlinedButton(onClick = { showConsultDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        // --- DDX NOTES DIALOGUE BOX ---
+        if (showNotesDialog) {
+            AlertDialog(
+                onDismissRequest = { 
+                    viewModel.updateDdxNotes(ddxNotesInput)
+                    showNotesDialog = false 
+                },
+                title = { Text("Clinical Differential (DDx) Tracker", fontWeight = FontWeight.Bold) },
+                text = {
+                    Column {
+                        Text("Jot down your observations, differential diagnoses, or planned investigations. These notes are private and not visible to the patient.", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = ddxNotesInput,
+                            onValueChange = { ddxNotesInput = it },
+                            label = { Text("Private Clinical Notes") },
+                            modifier = Modifier.fillMaxWidth().height(150.dp),
+                            maxLines = 10
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.updateDdxNotes(ddxNotesInput)
+                            showNotesDialog = false
+                        }
+                    ) {
+                        Text("Save Notes")
+                    }
+                },
+                dismissButton = {
+                    OutlinedButton(onClick = { 
+                        ddxNotesInput = uiState.ddxNotes
+                        showNotesDialog = false 
+                    }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        // --- PHYSICAL EXAM DIALOGUE BOX ---
+        if (showPhysicalExamDialog) {
+            AlertDialog(
+                onDismissRequest = { showPhysicalExamDialog = false },
+                title = { Text("Request Physical Finding", fontWeight = FontWeight.Bold) },
+                text = {
+                    Column(
+                        modifier = Modifier.verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            "What bodily systems or signs would you like to examine? (e.g. cardiovascular auscultation, respiratory sounds, throat check, abdominal palpation)",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                        OutlinedTextField(
+                            value = physicalExamInput,
+                            onValueChange = { physicalExamInput = it },
+                            placeholder = { Text("Describe clinical palpation/auscultation...") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("physical_exam_field")
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.performPhysicalExam(physicalExamInput)
+                            physicalExamInput = ""
+                            showPhysicalExamDialog = false
+                        }
+                    ) {
+                        Text("Perform Exam")
+                    }
+                },
+                dismissButton = {
+                    OutlinedButton(onClick = { showPhysicalExamDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        // --- LABORATORY INVESTIGATIONS DIALOGUE BOX ---
+        if (showLabsDialog) {
+            val consultFeeVal = viewModel.consultationFee.collectAsState().value
+            val labCostVal = viewModel.labCost.collectAsState().value
+            val totalEst = consultFeeVal + labCostVal + 50.0
+            
+            val insuranceStatus = hiddenCase?.insuranceStatus ?: "Private Medical Aid"
+            val (copayText, schemeDetails) = when (insuranceStatus) {
+                "Private Medical Aid" -> {
+                    val copayAmount = (consultFeeVal * 0.0) + (labCostVal * 0.20) + 50.0 * 0.20
+                    Pair("R ${String.format("%.2f", copayAmount)} (Discovery Classic • 20% co-pay on pathology)", "Subject to Scheme savings limits.")
+                }
+                "State Funded", "State Funded / Uninsured" -> {
+                    Pair("R 0.00 (GEMS Onyx / State Authorized DSP)", "No co-pays required on network contracted diagnostics.")
+                }
+                "Private Medical Aid (Bonitas)" -> {
+                    val copayAmount = (consultFeeVal * 0.20) + (labCostVal * 0.30)
+                    Pair("R ${String.format("%.2f", copayAmount)} (Bonitas Standard • 30% co-pay on pathology)", "Pathology levy rules apply.")
+                }
+                else -> {
+                    Pair("R ${String.format("%.2f", totalEst)} (Full Cash Paying Out-of-Pocket)", "100% patient private responsibility.")
+                }
+            }
+
+            AlertDialog(
+                onDismissRequest = { showLabsDialog = false },
+                title = { 
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.Science, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Text("Order Laboratory Investigations", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    }
+                },
+                text = {
+                    Column(
+                        modifier = Modifier.verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            "Specify the blood tests or diagnostic panels to request (e.g., FBC, CRP, Urea, electrolytes, lipid panel, HbA1c):",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        OutlinedTextField(
+                            value = labsInput,
+                            onValueChange = { labsInput = it },
+                            placeholder = { Text("E.g. FBC, CRP, kidney function, Troponin...") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("labs_order_field"),
+                            textStyle = MaterialTheme.typography.bodySmall,
+                            singleLine = true
+                        )
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        // 🇿🇦 Informed Financial Consent Cost Quote Card
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    text = "🇿🇦 INFORMED FINANCIAL CONSENT QUOTE",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    letterSpacing = 1.sp
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("GP Consultation Code 0101:", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("R ${String.format("%.2f", consultFeeVal)}", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Pathology Lab Reagent Cost:", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("R ${String.format("%.2f", labCostVal)}", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Clinician Admin/Dispatch Fee:", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("R 50.00", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), thickness = 0.5.dp)
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Estimated Bill Total:", fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                        Text("R ${String.format("%.2f", totalEst)}", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Disclosed Patient Co-Payment:", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                        Text(copayText, fontSize = 10.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(text = schemeDetails, fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        // Consent Signature Button Row (Interactive)
+                        val consentOnPrimary = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                        val consentOffSurface = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (financialConsentSigned) consentOnPrimary else consentOffSurface)
+                                .clickable { financialConsentSigned = !financialConsentSigned }
+                                .padding(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (financialConsentSigned) Icons.Default.CheckCircle else Icons.Default.Info,
+                                contentDescription = null,
+                                tint = if (financialConsentSigned) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Secure Patient's Digital Signing",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (financialConsentSigned) Color(0xFF1B5E20) else MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "HPCSA guideline requirement to secure signed private tariff consent.",
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.orderLabs(labsInput, wasFinancialConsentSigned = financialConsentSigned)
+                            labsInput = ""
+                            showLabsDialog = false
+                        },
+                        enabled = financialConsentSigned && labsInput.isNotBlank()
+                    ) {
+                        Text("Sign & Order Labs", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    OutlinedButton(onClick = { showLabsDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        // --- SUBMIT DIAGNOSIS & MANAGEMENT PLAN FORM ---
+        if (showDiagnosisDialog) {
+            Dialog(onDismissRequest = { showDiagnosisDialog = false }) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 24.dp)
+                        .wrapContentHeight(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Clinical Diagnostics Formulation",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        
+                        Text(
+                            text = "Provide your diagnostic findings & treatment plan based on clinical presentation. This updates Billing Receipts and submits for final evaluation scores.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        
+                        OutlinedTextField(
+                            value = diagnosisInput,
+                            onValueChange = { diagnosisInput = it },
+                            placeholder = { Text("Suspected Diagnosis (including ICD-10 if known)") },
+                            label = { Text("Diagnosis") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("diagnosis_field"),
+                            maxLines = 2
+                        )
+                        
+                        OutlinedTextField(
+                            value = treatmentPlanInput,
+                            onValueChange = { treatmentPlanInput = it },
+                            placeholder = { Text("E.g. Medications, dosages, referrals, guidelines...") },
+                            label = { Text("Treatment & Referrals Plan") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp)
+                                .testTag("treatment_field")
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Button(
+                            onClick = {
+                                if (diagnosisInput.isNotBlank()) {
+                                    viewModel.submitDiagnosisAndPlan(diagnosisInput, treatmentPlanInput)
+                                    showDiagnosisDialog = false
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp)
+                                .testTag("confirm_billing_button"),
+                            enabled = diagnosisInput.isNotBlank()
+                        ) {
+                            Text("📝 Proceed to Clinical Paperwork (Phase 4)", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+                        }
+
+                        OutlinedButton(
+                            onClick = { showDiagnosisDialog = false },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                        ) {
+                            Text("Cancel Submission", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- MODAL RESULTS CLINICAL RECORD SHEET ---
+        if (showBottomSheet) {
+            ResultsBottomSheet(
+                viewModel = viewModel,
+                onDismiss = { showBottomSheet = false },
+                initialTab = selectedSheetTab
+            )
+        }
+
+        // --- HPCSA LAWSUIT MALPRACTICE INTERACTIVE SIMULATOR DIALOG ---
+        if (lawsuitActive) {
+            Dialog(
+                onDismissRequest = { viewModel.dismissLawsuit() },
+                properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp)
+                    ) {
+                        // Header Bar
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("⚖️ HPCSA MALPRACTICE TRIAL", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = Color(0xFFC62828))
+                            }
+                            IconButton(onClick = { viewModel.dismissLawsuit() }) {
+                                Icon(Icons.Default.Close, contentDescription = "Close Court")
+                            }
+                        }
+                        
+                        // Status indicators: Tension & Aggression
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text("TRIBUNAL TENSION INDEX: $lawsuitTension%", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                                androidx.compose.material3.LinearProgressIndicator(
+                                    progress = lawsuitTension / 100f,
+                                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 12.dp),
+                                    color = if (lawsuitTension > 75) Color.Red else Color.Companion.Yellow,
+                                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                )
+                                Text("PROSECUTOR AGGRESSION LEVEL: $lawsuitProsecutorAggression%", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFFC62828))
+                                androidx.compose.material3.LinearProgressIndicator(
+                                    progress = lawsuitProsecutorAggression / 100f,
+                                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                                    color = Color(0xFFC62828),
+                                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                )
+                            }
+                        }
+                        
+                        Spacer(Modifier.height(8.dp))
+                        
+                        // Trial Logs content
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                .background(Color(0xFF1E1E1E))
+                                .padding(12.dp)
+                        ) {
+                            val logScrollState = rememberScrollState()
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(logScrollState)
+                            ) {
+                                lawsuitLog.forEach { paragraph ->
+                                    val isUser = paragraph.startsWith("🎒 DEFENSE SUBMITTED:")
+                                    val isVerdict = paragraph.contains("⚖️ FINAL COMMITTEE VERDICT:")
+                                    val isProsecution = paragraph.contains("🗣️ PROSECUTION")
+                                    
+                                    val bgColor = when {
+                                        isUser -> Color(0xFF1A237E)
+                                        isVerdict -> Color(0xFF1B5E20)
+                                        isProsecution -> Color(0xFF3E2723)
+                                        else -> Color.Transparent
+                                    }
+                                    
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp)
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(bgColor)
+                                            .padding(8.dp)
+                                    ) {
+                                        Text(
+                                            text = paragraph,
+                                            color = Color.White,
+                                            fontSize = 13.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            fontWeight = if (isVerdict) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        
+                        Spacer(Modifier.height(12.dp))
+                        
+                        // Interaction Actions Panel
+                        if (lawsuitCurrentStage == "verdict") {
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = if (lawsuitVerdict == "Exonerated") Color(0xFFE8F5E9) else Color(0xFFFFEBEE)),
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = "DISCIPLINARY HEARINGS CONCLUDED!",
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 13.sp,
+                                        color = if (lawsuitVerdict == "Exonerated") Color(0xFF2E7D32) else Color(0xFFC62828)
+                                    )
+                                    Text(
+                                        text = "Verdict: ${lawsuitVerdict?.uppercase() ?: "UNKNOWN"}",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        modifier = Modifier.padding(vertical = 4.dp)
+                                    )
+                                    if (lawsuitFine > 0.0) {
+                                        Text("Penalty Fine Levied: R${lawsuitFine} (Operating Balance Sanctioned)", fontWeight = FontWeight.Bold, color = Color(0xFFC62828))
+                                    }
+                                    if (lawsuitSuspension > 0) {
+                                        Text("Clinical Supervision Suspension Penalty: $lawsuitSuspension weeks", fontWeight = FontWeight.Bold, color = Color(0xFFC62828))
+                                    }
+                                }
+                            }
+                            
+                            Button(
+                                onClick = { viewModel.dismissLawsuit() },
+                                modifier = Modifier.fillMaxWidth().height(48.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                            ) {
+                                Text("Acknowledge & Return to Practice", fontWeight = FontWeight.Bold)
+                            }
+                        } else {
+                            // Defensive Strategy Selections
+                            Text("Select Disciplinary Defense & Plead Strategy:", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
+                            
+                            val defenses = listOf(
+                                "Resource Constraints: Blame structural clinic shortages & lack of medical reagent inventory.",
+                                "Acknowledge Shift Fatigue: Admit error due to clinical exhaustion and appeal for SAMA mercy.",
+                                "Primary Care Handbook Defense: Assert clinical care strictly met Standard Treatment Guidelines.",
+                                "Atypical Contextual Pathology: Claim patient presented with highly masked/misleading vitals."
+                            )
+                            
+                            defenses.forEach { choice ->
+                                Button(
+                                    onClick = { viewModel.submitLawsuitDefense(choice) },
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
+                                    enabled = !isLoading
+                                ) {
+                                    Text(choice, fontSize = 11.sp, textAlign = TextAlign.Left, modifier = Modifier.fillMaxWidth())
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+private fun formatCleanLabel(raw: String, suffix: String): String {
+    val trimmed = raw.trim()
+    if (trimmed.isEmpty()) return ""
+    if (trimmed.endsWith(suffix, ignoreCase = true)) {
+        return trimmed
+    }
+    if (suffix == "bpm" && (trimmed.contains("bpm", ignoreCase = true) || trimmed.contains("beats", ignoreCase = true))) {
+        return trimmed
+    }
+    if (suffix == "/min" && (trimmed.contains("/min", ignoreCase = true) || trimmed.contains("breaths", ignoreCase = true) || trimmed.contains("rpm", ignoreCase = true))) {
+        return trimmed
+    }
+    if (suffix == "mmHg" && (trimmed.contains("mmHg", ignoreCase = true) || trimmed.contains("bp", ignoreCase = true))) {
+        return trimmed
+    }
+    if (suffix == "%" && (trimmed.contains("%", ignoreCase = true) || trimmed.contains("percent", ignoreCase = true))) {
+        return trimmed
+    }
+    if (suffix == "°C" && (trimmed.contains("°", ignoreCase = true) || trimmed.contains("C", ignoreCase = true))) {
+        return trimmed
+    }
+    return "$trimmed $suffix"
+}
+
+@Composable
+fun VitalsLayout(vitals: Vitals?) {
+    if (vitals == null) return
+
+    val hrClean = vitals.hr.filter { it.isDigit() }.toIntOrNull() ?: 80
+    val rrClean = vitals.rr.filter { it.isDigit() }.toIntOrNull() ?: 16
+
+    val infiniteTransition = rememberInfiniteTransition(label = "vitals_pulse_anim")
+
+    // Smooth breathing visual (slower, typical cycle of 2000ms - 5000ms)
+    val breatheCycleMs = (60000 / rrClean).coerceIn(1500, 6000)
+    val breatheScale by infiniteTransition.animateFloat(
+        initialValue = 0.90f,
+        targetValue = 1.10f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(breatheCycleMs / 2, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "breathe_scale"
+    )
+
+    // Sharp heartbeat visual (faster, typical cycle of 400ms - 1000ms)
+    val pulseCycleMs = (60000 / hrClean).coerceIn(300, 1500)
+    val heartScale by infiniteTransition.animateFloat(
+        initialValue = 0.82f,
+        targetValue = 1.18f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(pulseCycleMs / 2, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "heart_scale"
+    )
+
+    val blinkAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.25f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(750, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "blink_alpha"
+    )
+
+    var isVitalsExpanded by remember { mutableStateOf(true) }
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+                    .padding(bottom = 8.dp)
+                    .clickable { isVitalsExpanded = !isVitalsExpanded }
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.MonitorHeart,
+                        contentDescription = null,
+                        tint = Color(0xFFC62828),
+                        modifier = Modifier
+                            .size(20.dp)
+                            .graphicsLayer(scaleX = heartScale, scaleY = heartScale)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        "💓 BEDSIDE VITALS MONITOR",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFFC62828)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = if (isVitalsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = if (isVitalsExpanded) "Collapse" else "Expand",
+                        tint = Color(0xFFC62828),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .background(Color(0xFFFFEBEE), shape = RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .background(Color.Red, shape = CircleShape)
+                            .graphicsLayer(alpha = blinkAlpha)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        "LIVE",
+                        color = Color.Red,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+            
+            AnimatedVisibility(visible = isVitalsExpanded) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    VitalModule(
+                        icon = Icons.Default.LocalHospital, 
+                        name = "BP", 
+                        value = formatCleanLabel(vitals.bp, "mmHg"), 
+                        color = Color(0xFF1565C0)
+                    )
+                    VitalModule(
+                        icon = Icons.Default.HeartBroken, 
+                        name = "HR", 
+                        value = formatCleanLabel(vitals.hr, "bpm"), 
+                        color = Color(0xFFC62828),
+                        scale = heartScale
+                    )
+                    VitalModule(
+                        icon = Icons.Default.Thermostat, 
+                        name = "Temp", 
+                        value = formatCleanLabel("${vitals.tempC}", "°C"), 
+                        color = Color(0xFFEF6C00)
+                    )
+                    VitalModule(
+                        icon = Icons.Default.WindPower, 
+                        name = "RR", 
+                        value = formatCleanLabel(vitals.rr, "/min"), 
+                        color = Color(0xFF37474F),
+                        scale = breatheScale
+                    )
+                    VitalModule(
+                        icon = Icons.Default.MonitorHeart, 
+                        name = "SpO₂", 
+                        value = formatCleanLabel(vitals.spo2, "%"), 
+                        color = Color(0xFF2E7D32),
+                        scale = heartScale
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun VitalModule(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    name: String,
+    value: String,
+    color: Color,
+    scale: Float = 1.0f
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+        modifier = Modifier.padding(6.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = color.copy(alpha = 0.8f),
+            modifier = Modifier
+                .size(22.dp)
+                .graphicsLayer(scaleX = scale, scaleY = scale)
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(name, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = Color.Gray)
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(value, fontSize = 16.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+@Composable
+fun ChatMessageRow(message: ChatMessage) {
+    val isDoctor = message.role == "doctor"
+    val isSystem = message.role == "system"
+
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = when {
+            isSystem -> Alignment.Center
+            isDoctor -> Alignment.CenterEnd
+            else -> Alignment.CenterStart
+        }
+    ) {
+        if (isSystem) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = message.text,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
+        } else {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isDoctor) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer
+                ),
+                shape = RoundedCornerShape(
+                    topStart = 16.dp,
+                    topEnd = 16.dp,
+                    bottomEnd = if (isDoctor) 0.dp else 16.dp,
+                    bottomStart = if (isDoctor) 16.dp else 0.dp
+                ),
+                modifier = Modifier
+                    .widthIn(max = 320.dp)
+                    .testTag(if (isDoctor) "doctor_chat_bubble" else "patient_chat_bubble")
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = if (isDoctor) "👨‍⚕️ Doctor" else "👤 Patient",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Black,
+                            color = if (isDoctor) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                        if (message.virtualTimestampStr != null) {
+                            Text(
+                                text = message.virtualTimestampStr,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Normal,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(bottom = 2.dp)
+                            )
+                        }
+                    }
+                    Text(
+                        text = message.text,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (isDoctor) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun ClinicalHubCard(
+    uiState: SimulationState,
+    hiddenCase: HiddenCaseProfile?,
+    isLoading: Boolean,
+    viewModel: SimulationViewModel
+) {
+    var isExpanded by remember { mutableStateOf(false) } // Default collapsed to keep the UI clean & spacious!
+    var activeTab by remember { mutableStateOf(0) } // 0: Vitals, 1: Patient Profile, 2: Interventions
+
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            // Header row: clickable to expand/collapse
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { isExpanded = !isExpanded }
+                    .padding(vertical = 4.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.LocalHospital,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "📋 Bedside Clinical Hub",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    
+                    // Pulse or live indicator
+                    if (uiState.vitals != null) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFFFFEBEE),
+                            modifier = Modifier.padding(horizontal = 4.dp)
+                        ) {
+                            Text(
+                                text = "MONITORING",
+                                color = Color.Red,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (isExpanded) "Collapse" else "Expand",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            AnimatedVisibility(visible = !isExpanded) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "🎯 Tap to open Vitals, Patient Demographics & Emergency Interventions.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            AnimatedVisibility(visible = isExpanded) {
+                Column(modifier = Modifier.padding(top = 12.dp)) {
+                    // Modern Tab Navigation inside the Clinical Hub
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp)
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        val tabOptions = listOf("📊 Vitals Signs", "👤 Patient File", "⚡ Emergency Desk")
+                        tabOptions.forEachIndexed { index, title ->
+                            val selected = activeTab == index
+                            AssistChip(
+                                onClick = { activeTab = index },
+                                label = { Text(title, fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                                    labelColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                ),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                                )
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(bottom = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
+
+                    // Subsections content
+                    when (activeTab) {
+                        0 -> {
+                            // Monitored Vitals
+                            VitalsLayout(uiState.vitals)
+                        }
+                        1 -> {
+                            // Patient Profile & File & Daily Challenge
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                if (hiddenCase != null) {
+                                    Text(
+                                        "Demographics & Case Flags:",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    FlowRow(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .background(MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(4.dp))
+                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        ) {
+                                            Text(
+                                                text = "🩺 ${hiddenCase.specialty.uppercase()}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Black,
+                                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                                            )
+                                        }
+
+                                        val isSevere = hiddenCase.severity.equals("Severe", ignoreCase = true)
+                                        val badgeColor = if (isSevere) Color(0xFFC62828) else Color(0xFF2E7D32)
+                                        Box(
+                                            modifier = Modifier
+                                                .background(badgeColor.copy(alpha = 0.12f), shape = RoundedCornerShape(4.dp))
+                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        ) {
+                                            Text(
+                                                text = if (isSevere) "🚨 CRITICAL SEVERITY" else "✅ ROUTINE PX",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Black,
+                                                color = badgeColor
+                                            )
+                                        }
+
+                                        Box(
+                                            modifier = Modifier
+                                                .background(Color(0xFFE3F2FD), shape = RoundedCornerShape(4.dp))
+                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        ) {
+                                            Text(
+                                                text = "💳 ${hiddenCase.insuranceStatus}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF1565C0)
+                                            )
+                                        }
+
+                                        Box(
+                                            modifier = Modifier
+                                                .background(MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(4.dp))
+                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        ) {
+                                            Text(
+                                                text = if (hiddenCase.patientDemographics.startsWith("Patient: ")) {
+                                                    val raw = hiddenCase.patientDemographics
+                                                    val nameAndMrn = raw.substring(9).substringBefore(" • ")
+                                                    val actualDemos = raw.substringAfter(" • ", "")
+                                                    "👤 $nameAndMrn | 📋 $actualDemos"
+                                                } else {
+                                                    "👤 ${hiddenCase.patientDemographics}"
+                                                },
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Black,
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(2.dp))
+
+                                    val stabilityColor = when (uiState.patientStability) {
+                                        "Stable", "Improving" -> Color(0xFF2E7D32)
+                                        "Critical" -> Color(0xFFC62828)
+                                        "Deteriorating" -> Color(0xFFD84315)
+                                        else -> Color(0xFFE65100)
+                                    }
+
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(modifier = Modifier.padding(10.dp)) {
+                                            Text(
+                                                text = "Patient Condition Status:",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                Text(
+                                                    text = "Mood: ${uiState.patientMood}",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                                Text(
+                                                    text = "•",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = Color.Gray
+                                                )
+                                                Text(
+                                                    text = "Stability: ${uiState.patientStability}",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = stabilityColor,
+                                                    fontWeight = FontWeight.ExtraBold
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Daily Objectives Banner
+                                if (!uiState.isEncounterComplete) {
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+                                        shape = RoundedCornerShape(10.dp),
+                                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(10.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = MaterialTheme.colorScheme.tertiary,
+                                                modifier = Modifier.size(24.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Flag,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.onTertiary,
+                                                    modifier = Modifier.padding(4.dp)
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.width(10.dp))
+                                            Column {
+                                                Text(
+                                                    "DAILY CHALLENGE",
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.Black,
+                                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                                )
+                                                Text(
+                                                    "Achieve 85% Score in this ${uiState.patientStability} case.",
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        2 -> {
+                            // Emergency Desk / Critical Interventions
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(
+                                    text = "🚨 EMERGENCY DESK INTERVENTIONS",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Black,
+                                    color = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.padding(bottom = 6.dp)
+                                )
+                                if (uiState.isEncounterComplete) {
+                                    Text(
+                                        "Case is closed. No further interventions necessary.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontStyle = FontStyle.Italic,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                } else {
+                                    FlowRow(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        listOf("O2 Supply", "IV Fluids", "Adrenaline", "Defibrillate").forEach { intervention ->
+                                            AssistChip(
+                                                onClick = { viewModel.applyIntervention(intervention) },
+                                                label = { Text(intervention, fontSize = 11.sp, fontWeight = FontWeight.Black) },
+                                                leadingIcon = {
+                                                    Icon(
+                                                        imageVector = when(intervention) {
+                                                            "O2 Supply" -> Icons.Default.Air
+                                                            "IV Fluids" -> Icons.Default.WaterDrop
+                                                            "Adrenaline" -> Icons.Default.FlashOn
+                                                            else -> Icons.Default.Bolt
+                                                        },
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(16.dp),
+                                                        tint = MaterialTheme.colorScheme.error
+                                                    )
+                                                },
+                                                enabled = !isLoading,
+                                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f))
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DailyPracticeClosureCard(
+    currentDay: Int,
+    patientsSeenToday: Int,
+    dailyRevenue: Double,
+    dailyExpenses: Double,
+    clinicBalance: Double,
+    syringeStock: Int,
+    salineStock: Int,
+    adrenalineStock: Int,
+    reagentsStock: Int,
+    medsStock: Int,
+    viewModel: SimulationViewModel
+) {
+    var isExpanded by remember { mutableStateOf(patientsSeenToday >= 5) }
+
+    LaunchedEffect(patientsSeenToday) {
+        if (patientsSeenToday >= 5) {
+            isExpanded = true
+        }
+    }
+
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = if (patientsSeenToday >= 5)
+                MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.95f)
+            else
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.60f)
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(12.dp)
+            .animateContentSize()
+            .testTag("daily_practice_closure_card"),
+        shape = RoundedCornerShape(16.dp),
+        border = if (patientsSeenToday >= 5) BorderStroke(2.dp, MaterialTheme.colorScheme.tertiary) else null
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = if (patientsSeenToday >= 5) Icons.Default.CheckCircle else Icons.Default.Description,
+                        contentDescription = null,
+                        tint = if (patientsSeenToday >= 5) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "🌅 Day $currentDay Practice Report",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (patientsSeenToday >= 5) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                IconButton(onClick = { isExpanded = !isExpanded }, modifier = Modifier.size(32.dp)) {
+                    Icon(
+                        imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = "Expand day report"
+                    )
+                }
+            }
+
+            if (isExpanded) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = "📊 SHIFT FINANCIAL AUDIT",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Consults Completed Today:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("$patientsSeenToday px seen", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                        }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Revenue Earned today:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("R ${String.format("%.2f", dailyRevenue)} ZAR", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
+                        }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Expenses Incurred today:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("R ${String.format("%.2f", dailyExpenses)} ZAR", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = Color(0xFFC62828))
+                        }
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            val surplus = dailyRevenue - dailyExpenses
+                            Text("Net Daily Profit Flow:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                            Text(
+                                text = "R ${String.format("%.2f", surplus)} ZAR",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = if (surplus >= 0) Color(0xFF2E7D32) else Color(0xFFC62828)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "📦 CLINIC RE-STOCKING DESK",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    InventoryRestockLine(itemName = "Syringes", currentStock = syringeStock, price = 100.0, quantity = 10, wallet = clinicBalance) {
+                        viewModel.restockInventory("Syringes", 10)
+                    }
+                    InventoryRestockLine(itemName = "Saline", currentStock = salineStock, price = 400.0, quantity = 5, wallet = clinicBalance) {
+                        viewModel.restockInventory("Saline", 5)
+                    }
+                    InventoryRestockLine(itemName = "Adrenaline", currentStock = adrenalineStock, price = 750.0, quantity = 5, wallet = clinicBalance) {
+                        viewModel.restockInventory("Adrenaline", 5)
+                    }
+                    InventoryRestockLine(itemName = "Reagents", currentStock = reagentsStock, price = 250.0, quantity = 10, wallet = clinicBalance) {
+                        viewModel.restockInventory("Reagents", 10)
+                    }
+                    InventoryRestockLine(itemName = "Meds", currentStock = medsStock, price = 1000.0, quantity = 5, wallet = clinicBalance) {
+                        viewModel.restockInventory("Meds", 5)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = { viewModel.advanceDayPrac() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("advance_day_button"),
+                    enabled = patientsSeenToday >= 5,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (patientsSeenToday >= 5) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+                        contentColor = if (patientsSeenToday >= 5) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.5f)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (patientsSeenToday >= 5) "🌅 ADVANCE TO DAY ${currentDay + 1}" else "⏳ COMPLETE 5 CONSULTATIONS TO ADVANCE SHIFT",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun InventoryRestockLine(
+    itemName: String,
+    currentStock: Int,
+    price: Double,
+    quantity: Int,
+    wallet: Double,
+    onRestock: () -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(itemName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                Text("Stock level: $currentStock left", style = MaterialTheme.typography.bodySmall, color = if (currentStock < 5) Color(0xFFC62828) else MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            Button(
+                onClick = onRestock,
+                enabled = wallet >= price,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                modifier = Modifier.height(32.dp).testTag("restock_${itemName.lowercase()}")
+            ) {
+                Text("Order +$quantity (R ${price.toInt()})", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+fun VisualPatientOutcomeBanner(outcome: String, modifier: Modifier = Modifier) {
+    val containerColor: Color
+    val contentColor: Color
+    val borderColor: Color
+    val icon: androidx.compose.ui.graphics.vector.ImageVector
+    val title: String
+    val text: String
+
+    when (outcome) {
+        "Deceased" -> {
+            containerColor = Color(0xFF1E1E1E)
+            contentColor = Color(0xFFE57373)
+            borderColor = Color(0xFFC62828)
+            icon = Icons.Default.Flag
+            title = "✝️ FATAL CLINICAL INCIDENT REPORT"
+            text = "Tragically, critical clinical deteriorations or misaligned diagnostics resulted in a fatal outcome for this patient. Case file filed under adverse medical incident records."
+        }
+        "Transferred Out" -> {
+            containerColor = Color(0xFFFFF3E0)
+            contentColor = Color(0xFFE65100)
+            borderColor = Color(0xFFEF6C00)
+            icon = Icons.Default.Description
+            title = "🚶 PATIENT WALKED OUT / TRANSFERRED CARE"
+            text = "Due to delays or mismatch in management design, the patient has chosen to seek an alternative professional opinion and transferred out of your general practice."
+        }
+        else -> {
+            containerColor = Color(0xFFE8F5E9)
+            contentColor = Color(0xFF2E7D32)
+            borderColor = Color(0xFF4CAF50)
+            icon = Icons.Default.CheckCircle
+            title = "🎉 CASE DISCHARGED & COMMENDED"
+            text = "Excellent care achieved! This clinical query is officially closed under stable, recovered conditions. Patient has been safely discharged with clear records."
+        }
+    }
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+        border = BorderStroke(2.dp, borderColor),
+        shape = RoundedCornerShape(12.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .testTag("patient_outcome_banner")
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = contentColor,
+                modifier = Modifier.size(28.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = contentColor
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = contentColor.copy(alpha = 0.9f),
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    }
+}
+

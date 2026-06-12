@@ -1,0 +1,192 @@
+package com.example.data
+
+import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+
+val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "clinical_engine_settings")
+
+class SettingsDataStore(private val context: Context) {
+
+    companion object {
+        private val API_KEY_KEY = stringPreferencesKey("api_key")
+        private val PROVIDER_KEY = stringPreferencesKey("provider")
+        private val MODEL_KEY = stringPreferencesKey("model")
+        private val CUSTOM_ENDPOINT_KEY = stringPreferencesKey("custom_endpoint")
+        private val PREF_SPECIALTY_KEY = stringPreferencesKey("pref_specialty")
+        private val PREF_SEVERITY_KEY = stringPreferencesKey("pref_severity")
+        private val CLINIC_BALANCE_KEY = androidx.datastore.preferences.core.doublePreferencesKey("clinic_balance")
+        private val REPUTATION_STARS_KEY = androidx.datastore.preferences.core.floatPreferencesKey("reputation_stars")
+        
+        private val CONSULTATION_FEE_KEY = androidx.datastore.preferences.core.doublePreferencesKey("consultation_fee")
+        private val LAB_COST_KEY = androidx.datastore.preferences.core.doublePreferencesKey("lab_cost")
+        private val SPECIALIST_COST_KEY = androidx.datastore.preferences.core.doublePreferencesKey("specialist_cost")
+        private val DOCTOR_XP_KEY = androidx.datastore.preferences.core.longPreferencesKey("doctor_xp")
+        
+        private val INVENTORY_SYRINGES_KEY = androidx.datastore.preferences.core.intPreferencesKey("inv_syringes")
+        private val INVENTORY_SALINE_KEY = androidx.datastore.preferences.core.intPreferencesKey("inv_saline")
+        private val INVENTORY_ADRENALINE_KEY = androidx.datastore.preferences.core.intPreferencesKey("inv_adrenaline")
+        private val INVENTORY_REAGENTS_KEY = androidx.datastore.preferences.core.intPreferencesKey("inv_reagents")
+        private val INVENTORY_MEDS_KEY = androidx.datastore.preferences.core.intPreferencesKey("inv_meds")
+        
+        private val CURRENT_DAY_KEY = androidx.datastore.preferences.core.intPreferencesKey("current_day")
+        private val PATIENTS_SEEN_TODAY_KEY = androidx.datastore.preferences.core.intPreferencesKey("patients_seen_today")
+        private val DAILY_REVENUE_KEY = androidx.datastore.preferences.core.doublePreferencesKey("daily_revenue")
+        private val DAILY_EXPENSES_KEY = androidx.datastore.preferences.core.doublePreferencesKey("daily_expenses")
+    }
+
+    val doctorXpFlow: Flow<Long> = context.dataStore.data
+        .map { preferences ->
+            preferences[DOCTOR_XP_KEY] ?: 0L
+        }
+
+    suspend fun addXp(xpPoints: Long) {
+        context.dataStore.edit { preferences ->
+            val currentXp = preferences[DOCTOR_XP_KEY] ?: 0L
+            preferences[DOCTOR_XP_KEY] = currentXp + xpPoints
+        }
+    }
+
+    val clinicBalanceFlow: Flow<Double> = context.dataStore.data
+        .map { preferences ->
+            preferences[CLINIC_BALANCE_KEY] ?: 50000.0 // Starting balance of R50,000
+        }
+
+    val reputationStarsFlow: Flow<Float> = context.dataStore.data
+        .map { preferences ->
+            preferences[REPUTATION_STARS_KEY] ?: 3.5f // Start with 3.5 stars
+        }
+
+    val consultationFeeFlow: Flow<Double> = context.dataStore.data
+        .map { preferences ->
+            preferences[CONSULTATION_FEE_KEY] ?: 850.0 // Default R850
+        }
+
+    val labCostFlow: Flow<Double> = context.dataStore.data
+        .map { preferences ->
+            preferences[LAB_COST_KEY] ?: 150.0 // Default R150
+        }
+
+    val specialistCostFlow: Flow<Double> = context.dataStore.data
+        .map { preferences ->
+            preferences[SPECIALIST_COST_KEY] ?: 800.0 // Default R800
+        }
+
+    suspend fun savePricing(consultFee: Double, labCost: Double, specialistCost: Double) {
+        context.dataStore.edit { preferences ->
+            preferences[CONSULTATION_FEE_KEY] = consultFee
+            preferences[LAB_COST_KEY] = labCost
+            preferences[SPECIALIST_COST_KEY] = specialistCost
+        }
+    }
+
+    suspend fun updateClinicStats(newBalance: Double, newReputation: Float) {
+        context.dataStore.edit { preferences ->
+            preferences[CLINIC_BALANCE_KEY] = newBalance
+            preferences[REPUTATION_STARS_KEY] = newReputation
+        }
+    }
+
+    val inventorySyringesFlow: Flow<Int> = context.dataStore.data.map { it[INVENTORY_SYRINGES_KEY] ?: 42 }
+    val inventorySalineFlow: Flow<Int> = context.dataStore.data.map { it[INVENTORY_SALINE_KEY] ?: 8 }
+    val inventoryAdrenalineFlow: Flow<Int> = context.dataStore.data.map { it[INVENTORY_ADRENALINE_KEY] ?: 5 }
+    val inventoryReagentsFlow: Flow<Int> = context.dataStore.data.map { it[INVENTORY_REAGENTS_KEY] ?: 25 }
+    val inventoryMedsFlow: Flow<Int> = context.dataStore.data.map { it[INVENTORY_MEDS_KEY] ?: 12 }
+
+    suspend fun saveInventory(syringes: Int, saline: Int, adrenaline: Int, reagents: Int, meds: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[INVENTORY_SYRINGES_KEY] = syringes
+            preferences[INVENTORY_SALINE_KEY] = saline
+            preferences[INVENTORY_ADRENALINE_KEY] = adrenaline
+            preferences[INVENTORY_REAGENTS_KEY] = reagents
+            preferences[INVENTORY_MEDS_KEY] = meds
+        }
+    }
+
+    val apiKeyFlow: Flow<String?> = context.dataStore.data
+        .map { preferences ->
+            preferences[API_KEY_KEY]
+        }
+
+    val providerFlow: Flow<String> = context.dataStore.data
+        .map { preferences ->
+            preferences[PROVIDER_KEY] ?: "Google"
+        }
+
+    val modelFlow: Flow<String> = context.dataStore.data
+        .map { preferences ->
+            preferences[MODEL_KEY] ?: "gemini-1.5-flash"
+        }
+
+    val customEndpointFlow: Flow<String> = context.dataStore.data
+        .map { preferences ->
+            preferences[CUSTOM_ENDPOINT_KEY] ?: ""
+        }
+
+    val prefSpecialtyFlow: Flow<String> = context.dataStore.data
+        .map { preferences ->
+            preferences[PREF_SPECIALTY_KEY] ?: "All"
+        }
+
+    val prefSeverityFlow: Flow<String> = context.dataStore.data
+        .map { preferences ->
+            preferences[PREF_SEVERITY_KEY] ?: "All"
+        }
+
+    suspend fun saveSettings(apiKey: String, provider: String, model: String, customEndpoint: String) {
+        context.dataStore.edit { preferences ->
+            preferences[API_KEY_KEY] = apiKey
+            preferences[PROVIDER_KEY] = provider
+            preferences[MODEL_KEY] = model
+            preferences[CUSTOM_ENDPOINT_KEY] = customEndpoint
+        }
+    }
+
+    suspend fun saveCurriculumPresets(specialty: String, severity: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PREF_SPECIALTY_KEY] = specialty
+            preferences[PREF_SEVERITY_KEY] = severity
+        }
+    }
+
+    val currentDayFlow: Flow<Int> = context.dataStore.data.map { it[CURRENT_DAY_KEY] ?: 1 }
+    val patientsSeenTodayFlow: Flow<Int> = context.dataStore.data.map { it[PATIENTS_SEEN_TODAY_KEY] ?: 0 }
+    val dailyRevenueFlow: Flow<Double> = context.dataStore.data.map { it[DAILY_REVENUE_KEY] ?: 0.0 }
+    val dailyExpensesFlow: Flow<Double> = context.dataStore.data.map { it[DAILY_EXPENSES_KEY] ?: 0.0 }
+
+    suspend fun addDailyRevenue(amount: Double) {
+        context.dataStore.edit { preferences ->
+            val prev = preferences[DAILY_REVENUE_KEY] ?: 0.0
+            preferences[DAILY_REVENUE_KEY] = prev + amount
+        }
+    }
+
+    suspend fun addDailyExpenses(amount: Double) {
+        context.dataStore.edit { preferences ->
+            val prev = preferences[DAILY_EXPENSES_KEY] ?: 0.0
+            preferences[DAILY_EXPENSES_KEY] = prev + amount
+        }
+    }
+
+    suspend fun incrementPatientsSeenToday() {
+        context.dataStore.edit { preferences ->
+            val prev = preferences[PATIENTS_SEEN_TODAY_KEY] ?: 0
+            preferences[PATIENTS_SEEN_TODAY_KEY] = prev + 1
+        }
+    }
+
+    suspend fun advanceDay() {
+        context.dataStore.edit { preferences ->
+            val prevDay = preferences[CURRENT_DAY_KEY] ?: 1
+            preferences[CURRENT_DAY_KEY] = prevDay + 1
+            preferences[PATIENTS_SEEN_TODAY_KEY] = 0
+            preferences[DAILY_REVENUE_KEY] = 0.0
+            preferences[DAILY_EXPENSES_KEY] = 0.0
+        }
+    }
+}

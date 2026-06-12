@@ -1,0 +1,146 @@
+name: Build & Publish Release APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name for the release (e.g. v1.0.1). If empty, one will be generated.'
+        required: false
+        default: ''
+      release_title:
+        description: 'Title for the release. If empty, the tag name will be used.'
+        required: false
+        default: ''
+      draft:
+        description: 'Create the release as a draft?'
+        type: boolean
+        required: false
+        default: false
+      prerelease:
+        description: 'Mark the release as a pre-release?'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    name: Build and Publish Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Determine Release Tag & Version
+        id: get_version
+        run: |
+          # Default fallback tag
+          TAG_NAME="v1.0.${{ github.run_number }}"
+          
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.tag_name }}" ]; then
+            TAG_NAME="${{ github.event.inputs.tag_name }}"
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG_NAME="${{ github.ref_name }}"
+          fi
+          
+          # Compute clean title
+          TITLE_NAME="${{ github.event.inputs.release_title }}"
+          if [ -z "$TITLE_NAME" ]; then
+            TITLE_NAME="Release $TAG_NAME"
+          fi
+          
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
+          echo "TITLE_NAME=$TITLE_NAME" >> $GITHUB_ENV
+          echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "title=$TITLE_NAME" >> $GITHUB_OUTPUT
+
+      - name: Prepare Android Secrets and Keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          # Copy .env.example to .env to satisfy the Secrets Gradle Plugin
+          if [ -f .env.example ]; then
+            echo "Copying .env.example to .env"
+            cp .env.example .env
+          else
+            echo "Creating a dummy .env file"
+            echo "GEMINI_API_KEY=dummy_key" > .env
+          fi
+
+          # Use production signing keystore if provided, otherwise reconstruct the debug.keystore
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "Using production upload keystore provided via secrets..."
+            echo "$KEYSTORE_BASE64" | base64 -d > my-upload-key.jks || echo "$KEYSTORE_BASE64" | base64 --decode > my-upload-key.jks
+          elif [ -f debug.keystore.base64 ]; then
+            echo "Decoding debug.keystore from base64 backup as fallback..."
+            base64 -d debug.keystore.base64 > debug.keystore || base64 --decode debug.keystore.base64 > debug.keystore
+          else
+            echo "No keystores found. Generating a generic keystore fallback..."
+            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Generate and Configure Gradle Wrapper
+        run: |
+          if [ ! -f gradlew ]; then
+            echo "Gradle wrapper scripts are missing from repository. Generating now..."
+            gradle wrapper
+          fi
+          chmod +x gradlew
+
+      - name: Build Debug & Release APKs
+        env:
+          KEYSTORE_PATH: "my-upload-key.jks"
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          ./gradlew assembleDebug assembleRelease
+
+      - name: Rename and Package APKs
+        run: |
+          mkdir -p build-artifacts
+          
+          # Handle Release APK
+          if [ -f app/build/outputs/apk/release/app-release.apk ]; then
+            cp app/build/outputs/apk/release/app-release.apk build-artifacts/Clinical-Sim-Engine-Release-${{ env.TAG_NAME }}.apk
+            echo "Release APK prepared."
+          else
+            # Fallback if unaligned or multiple APKs generated
+            find app/build/outputs/apk/release/ -maxdepth 2 -name "*.apk" -exec cp {} build-artifacts/Clinical-Sim-Engine-Release-${{ env.TAG_NAME }}.apk \;
+          fi
+          
+          # Handle Debug APK
+          if [ -f app/build/outputs/apk/debug/app-debug.apk ]; then
+            cp app/build/outputs/apk/debug/app-debug.apk build-artifacts/Clinical-Sim-Engine-Debug-${{ env.TAG_NAME }}.apk
+            echo "Debug APK prepared."
+          fi
+
+      - name: Create GitHub Release and Upload Artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: ${{ env.TITLE_NAME }}
+          draft: ${{ github.event.inputs.draft == 'true' || false }}
+          prerelease: ${{ github.event.inputs.prerelease == 'true' || false }}
+          files: |
+            build-artifacts/*.apk
+          generate_release_notes: true
+          token: ${{ secrets.GITHUB_TOKEN }}
