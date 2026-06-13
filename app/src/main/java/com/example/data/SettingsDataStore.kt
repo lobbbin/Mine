@@ -8,10 +8,17 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.Types
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "clinical_engine_settings")
 
 class SettingsDataStore(private val context: Context) {
+
+    private val moshi = Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build()
+    private val policiesType = Types.newParameterizedType(List::class.java, HealthPolicy::class.java)
+    private val policiesAdapter = moshi.adapter<List<HealthPolicy>>(policiesType)
 
     companion object {
         private val API_KEY_KEY = stringPreferencesKey("api_key")
@@ -38,6 +45,14 @@ class SettingsDataStore(private val context: Context) {
         private val PATIENTS_SEEN_TODAY_KEY = androidx.datastore.preferences.core.intPreferencesKey("patients_seen_today")
         private val DAILY_REVENUE_KEY = androidx.datastore.preferences.core.doublePreferencesKey("daily_revenue")
         private val DAILY_EXPENSES_KEY = androidx.datastore.preferences.core.doublePreferencesKey("daily_expenses")
+
+        private val ACTIVE_POLICIES_KEY = stringPreferencesKey("political_active_policies")
+        private val PRESIDENT_NAME_KEY = stringPreferencesKey("political_president_name")
+        private val PRESIDENT_PARTY_KEY = stringPreferencesKey("political_president_party")
+        private val PRESIDENT_APPROVAL_KEY = androidx.datastore.preferences.core.intPreferencesKey("political_president_approval")
+        private val POLITICAL_PRESTIGE_KEY = androidx.datastore.preferences.core.intPreferencesKey("political_prestige")
+        private val COUNTRY_NAME_KEY = stringPreferencesKey("political_country_name")
+        private val STICKY_POLITICIAN_SICK_KEY = androidx.datastore.preferences.core.booleanPreferencesKey("sticky_politician_sick")
     }
 
     val doctorXpFlow: Flow<Long> = context.dataStore.data
@@ -189,4 +204,66 @@ class SettingsDataStore(private val context: Context) {
             preferences[DAILY_EXPENSES_KEY] = 0.0
         }
     }
+
+    val countryNameFlow: Flow<String> = context.dataStore.data.map { it[COUNTRY_NAME_KEY] ?: "Federal Republic of Elysium" }
+    val presidentNameFlow: Flow<String> = context.dataStore.data.map { it[PRESIDENT_NAME_KEY] ?: "President Arthur Vance" }
+    val presidentPartyFlow: Flow<String> = context.dataStore.data.map { it[PRESIDENT_PARTY_KEY] ?: "Progressive Healthcare Alliance" }
+    val presidentApprovalFlow: Flow<Int> = context.dataStore.data.map { it[PRESIDENT_APPROVAL_KEY] ?: 68 }
+    val politicalPrestigeFlow: Flow<Int> = context.dataStore.data.map { it[POLITICAL_PRESTIGE_KEY] ?: 50 }
+    val stickyPoliticianSickFlow: Flow<Boolean> = context.dataStore.data.map { it[STICKY_POLITICIAN_SICK_KEY] ?: false }
+
+    val activePoliciesFlow: Flow<List<HealthPolicy>> = context.dataStore.data.map { preferences ->
+        val json = preferences[ACTIVE_POLICIES_KEY] ?: ""
+        if (json.isBlank()) {
+            listOf(
+                HealthPolicy(
+                    id = "starter_1",
+                    title = "Standard Diagnostic Vitals Directive",
+                    summary = "Requires essential clinical check of baseline parameters (vitals assessment) to prevent medical malpractice and clinical error in community settings.",
+                    extendedClauses = listOf(
+                        "Clause 1: Initial clinician interaction must measure core baseline vitals (blood pressure, temperature).",
+                        "Clause 2: Issuing medication prescriptions without active diagnostic examination triggers local safety warnings."
+                    ),
+                    economicImpact = "Stabilizes patient base safety, minimal fiscal friction.",
+                    clinicalRule = "Order vitals assessment.",
+                    status = "Approved"
+                )
+            )
+        } else {
+            try {
+                policiesAdapter.fromJson(json) ?: emptyList()
+            } catch (e: Exception) {
+                emptyList()
+            }
+        }
+    }
+
+    suspend fun saveCountryName(name: String) {
+        context.dataStore.edit { it[COUNTRY_NAME_KEY] = name }
+    }
+
+    suspend fun savePresidentName(name: String) {
+        context.dataStore.edit { it[PRESIDENT_NAME_KEY] = name }
+    }
+
+    suspend fun savePresidentParty(party: String) {
+        context.dataStore.edit { it[PRESIDENT_PARTY_KEY] = party }
+    }
+
+    suspend fun savePresidentApproval(approval: Int) {
+        context.dataStore.edit { it[PRESIDENT_APPROVAL_KEY] = approval }
+    }
+
+    suspend fun savePoliticalPrestige(prestige: Int) {
+        context.dataStore.edit { it[POLITICAL_PRESTIGE_KEY] = prestige }
+    }
+
+    suspend fun saveStickyPoliticianSick(sick: Boolean) {
+        context.dataStore.edit { it[STICKY_POLITICIAN_SICK_KEY] = sick }
+    }
+
+    suspend fun saveActivePolicies(policies: List<HealthPolicy>) {
+        context.dataStore.edit { it[ACTIVE_POLICIES_KEY] = policiesAdapter.toJson(policies) }
+    }
 }
+

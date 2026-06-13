@@ -10,6 +10,7 @@ import com.example.data.ChatMessage
 import com.example.data.EncounterEntity
 import com.example.data.EncounterRepository
 import com.example.data.GeneratedCaseWrapper
+import com.example.data.HealthPolicy
 import com.example.data.HiddenCaseProfile
 import com.example.data.SettingsDataStore
 import com.example.data.SimulationState
@@ -40,6 +41,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import java.util.regex.Pattern
 
 class SimulationViewModel(application: Application) : AndroidViewModel(application) {
@@ -140,6 +142,118 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             settingsDataStore.savePricing(consultFee, labCost, specCost)
         }
     }
+
+    // --- NATIONAL LEGISLATIVE HEALTH POLICIES AND SYSTEM STATE ---
+    val countryName: StateFlow<String> = settingsDataStore.countryNameFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "Federal Republic of Elysium")
+
+    val presidentName: StateFlow<String> = settingsDataStore.presidentNameFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "President Arthur Vance")
+
+    val presidentParty: StateFlow<String> = settingsDataStore.presidentPartyFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "Progressive Healthcare Alliance")
+
+    val presidentApproval: StateFlow<Int> = settingsDataStore.presidentApprovalFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, 68)
+
+    val politicalPrestige: StateFlow<Int> = settingsDataStore.politicalPrestigeFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, 50)
+
+    val activePolicies: StateFlow<List<HealthPolicy>> = settingsDataStore.activePoliciesFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val stickyPoliticianSick: StateFlow<Boolean> = settingsDataStore.stickyPoliticianSickFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    // Seating distribution in parliament (total 200 seats)
+    private val _progressiveSeats = MutableStateFlow(84)
+    val progressiveSeats: StateFlow<Int> = _progressiveSeats.asStateFlow()
+
+    private val _conservativeSeats = MutableStateFlow(76)
+    val conservativeSeats: StateFlow<Int> = _conservativeSeats.asStateFlow()
+
+    private val _independentSeats = MutableStateFlow(40)
+    val independentSeats: StateFlow<Int> = _independentSeats.asStateFlow()
+
+    // Temporary/transient state variables of legislative gameplay
+    private val _currentDraftPolicy = MutableStateFlow<HealthPolicy?>(null)
+    val currentDraftPolicy: StateFlow<HealthPolicy?> = _currentDraftPolicy.asStateFlow()
+
+    private val _progressiveLobbyBias = MutableStateFlow(0.0)
+    val progressiveLobbyBias: StateFlow<Double> = _progressiveLobbyBias.asStateFlow()
+
+    private val _conservativeLobbyBias = MutableStateFlow(0.0)
+    val conservativeLobbyBias: StateFlow<Double> = _conservativeLobbyBias.asStateFlow()
+
+    private val _independentLobbyBias = MutableStateFlow(0.0)
+    val independentLobbyBias: StateFlow<Double> = _independentLobbyBias.asStateFlow()
+
+    private val _lastLobbyReport = MutableStateFlow<String?>(null)
+    val lastLobbyReport: StateFlow<String?> = _lastLobbyReport.asStateFlow()
+
+    private val _isVotingActive = MutableStateFlow(false)
+    val isVotingActive: StateFlow<Boolean> = _isVotingActive.asStateFlow()
+
+    private val _voteProgress = MutableStateFlow(0f)
+    val voteProgress: StateFlow<Float> = _voteProgress.asStateFlow()
+
+    private val _currentVoteYes = MutableStateFlow(0)
+    val currentVoteYes: StateFlow<Int> = _currentVoteYes.asStateFlow()
+
+    private val _currentVoteNo = MutableStateFlow(0)
+    val currentVoteNo: StateFlow<Int> = _currentVoteNo.asStateFlow()
+
+    private val _currentVoteAbstain = MutableStateFlow(0)
+    val currentVoteAbstain: StateFlow<Int> = _currentVoteAbstain.asStateFlow()
+
+    private val _votingLog = MutableStateFlow<List<String>>(emptyList())
+    val votingLog: StateFlow<List<String>> = _votingLog.asStateFlow()
+
+    private val _isSickPoliticianNext = MutableStateFlow(false)
+    val isSickPoliticianNext: StateFlow<Boolean> = _isSickPoliticianNext.asStateFlow()
+
+    private val _sickPoliticianRole = MutableStateFlow("") // "President", "Senator", "MP"
+    val sickPoliticianRole: StateFlow<String> = _sickPoliticianRole.asStateFlow()
+
+    private val _sickPoliticianName = MutableStateFlow("")
+    val sickPoliticianName: StateFlow<String> = _sickPoliticianName.asStateFlow()
+
+    private val _sickPoliticianAlert = MutableStateFlow<String?>(null)
+    val sickPoliticianAlert: StateFlow<String?> = _sickPoliticianAlert.asStateFlow()
+
+    fun updateCountryName(name: String) {
+        viewModelScope.launch { settingsDataStore.saveCountryName(name) }
+    }
+
+    fun updatePresidentName(name: String) {
+        viewModelScope.launch { settingsDataStore.savePresidentName(name) }
+    }
+
+    fun updatePresidentParty(party: String) {
+        viewModelScope.launch { settingsDataStore.savePresidentParty(party) }
+    }
+
+    fun updatePresidentApproval(approval: Int) {
+        viewModelScope.launch { settingsDataStore.savePresidentApproval(approval) }
+    }
+
+    fun updatePoliticalPrestige(prestige: Int) {
+        viewModelScope.launch { settingsDataStore.savePoliticalPrestige(prestige) }
+    }
+
+    fun dismissCurrentDraft() {
+        _currentDraftPolicy.value = null
+        _isVotingActive.value = false
+        _voteProgress.value = 0f
+        _currentVoteYes.value = 0
+        _currentVoteNo.value = 0
+        _currentVoteAbstain.value = 0
+        _progressiveLobbyBias.value = 0.0
+        _conservativeLobbyBias.value = 0.0
+        _independentLobbyBias.value = 0.0
+        _lastLobbyReport.value = null
+    }
+
 
     private val _uiState = MutableStateFlow(SimulationState())
     val uiState: StateFlow<SimulationState> = _uiState.asStateFlow()
@@ -293,6 +407,24 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         document.add(headerPara)
                         document.add(com.itextpdf.text.Paragraph("Date: $dateString", normalFont))
                         document.add(com.itextpdf.text.Paragraph("Total Patients Seen: $totalSeen | Operating Clinic Balance: R$balance", normalFont))
+                        
+                        // Active Legislative Framework Sub-section
+                        val activeGovPolicies = activePolicies.value
+                        if (activeGovPolicies.isNotEmpty()) {
+                            document.add(com.itextpdf.text.Paragraph(" "))
+                            val govHeader = com.itextpdf.text.Paragraph("Sovereign Legislative Framework: ${countryName.value}", headerFont)
+                            govHeader.spacingBefore = 6f
+                            govHeader.spacingAfter = 3f
+                            document.add(govHeader)
+                            document.add(com.itextpdf.text.Paragraph("President: ${presidentName.value} (${presidentParty.value})", normalFont))
+                            document.add(com.itextpdf.text.Paragraph("The following clinical legislative policies have been enacted as clinic compliance mandates:", normalFont))
+                            document.add(com.itextpdf.text.Paragraph(" "))
+                            
+                            for (policy in activeGovPolicies) {
+                                val policyDesc = "📌 ${policy.title}: ${policy.summary}\n⚖️ Clinical Rule: ${policy.clinicalRule}\n📝 Clauses: ${policy.extendedClauses.joinToString("; ")}"
+                                document.add(createPdfShadedBox(policy.title, policyDesc, boldFont, normalFont))
+                            }
+                        }
                         document.add(com.itextpdf.text.Paragraph(" "))
 
                         // Transaction Ledger Table
@@ -798,7 +930,8 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         val scoreMatch = Regex("\"clinicalScore\":\\s*(\\d+)").find(currentEvaluation)
         val score = scoreMatch?.groupValues?.get(1)?.toIntOrNull()
         
-        if (score != null && score < 50 && activeEncounterId != lastLawsuitEncounterId && activeEncounterId != 0L) {
+        val hasViolations = _lawsuitViolatedPolicies.value.isNotEmpty()
+        if ((score != null && score < 50 || hasViolations) && activeEncounterId != lastLawsuitEncounterId && activeEncounterId != 0L) {
             lastLawsuitEncounterId = activeEncounterId
             val currentName = if (_uiState.value.patientDemographics.startsWith("Patient: ")) {
                 _uiState.value.patientDemographics.substring(9).substringBefore(" • ")
@@ -808,7 +941,8 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             startLawsuitSimulation(
                 patientName = currentName,
                 caseDiagnosis = _hiddenCase.value?.trueDiagnosis ?: "Unknown Case",
-                score = score
+                score = score ?: 100,
+                violations = _lawsuitViolatedPolicies.value
             )
             return
         }
@@ -878,11 +1012,24 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
 
                 if (activeKey.isNotBlank()) {
                     try {
+                        val isVIP = _isSickPoliticianNext.value
+                        val vipParameters = if (isVIP) {
+                            """
+                            CRITICAL ENFORCED PARAMETERS - SPECIAL VIP SICK POLITICIAN ADMISSION:
+                            - The patient demographics MUST be: "${_sickPoliticianRole.value}, named ${_sickPoliticianName.value}".
+                            - The chiefComplaint and trueDiagnosis must correspond to a high-profile political case matching: "${_sickPoliticianAlert.value ?: "Acute cardiac/sepsis symptoms"}".
+                            - Set targetSpecialty to "Emergency Medicine / Critical Care" and targetSeverity to "Severe".
+                            - Set insuranceStatus to "VIP State Treasury Sovereign Protection Coverage".
+                            """.trimIndent()
+                        } else ""
+
                         val prompt = """
                             You are the Advanced Clinical and Practice Case Generator.
                             Your task is to generate a completely unique, highly realistic medical patient profile for a General Practice training simulation.
-                            The context is a Private General Practitioner clinic in South Africa.
+                            The context is a Private General Practitioner clinic in ${countryName.value}.
                             
+                            $vipParameters
+
                             Parameters:
                             - Specialty: $targetSpecialty
                             - Severity: $targetSeverity 
@@ -895,7 +1042,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                               "chiefComplaint": "layman complaint (e.g., 'sharp throbbing pain in my big toe' or 'unexplained weight loss with sweat')",
                               "trueDiagnosis": "precise medical diagnosis",
                               "pathophysiology": "highly detailed master-level explanation of the mechanical and biological pathophysiology matching the diagnosis.",
-                              "expectedLabs": "detailed summary of realistic South African metric clinical lab investigations, pathology, or imaging findings. Blood chemistry, counts, CRP, Hb, electrolytes, urine, glucose, or imaging as relevant.",
+                              "expectedLabs": "detailed summary of realistic clinical lab investigations, pathology, or imaging findings. Blood chemistry, counts, CRP, Hb, electrolytes, urine, glucose, or imaging as relevant.",
                               "severity": "$targetSeverity",
                               "insuranceStatus": "randomly assign either: 'Private Medical Aid', 'State Funded / Uninsured', or 'Out-of-Pocket Cash'",
                               "initialVitals": {
@@ -911,6 +1058,12 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         val response = makeDirectApiCall(currentProvider, currentModel, activeKey, prompt)
                         val sanitized = extractJsonString(response)
                         generatedCase = generatedCaseAdapter.fromJson(sanitized)
+
+                        // Clear the VIP tick since we just initiated their case!
+                        if (isVIP) {
+                            _isSickPoliticianNext.value = false
+                            settingsDataStore.saveStickyPoliticianSick(false)
+                        }
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }
@@ -1148,28 +1301,47 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             }
         """.trimIndent()
 
+        val activePolList = activePolicies.value
+        val policyInstructions = if (activePolList.isNotEmpty()) {
+            val sb = java.lang.StringBuilder()
+            sb.append("\n\nCRITICAL CONTEXT - NATIONWIDE HEALTH LEGISLATION LAWS ACTIVE IN THE LAND:")
+            activePolList.forEachIndexed { i, p ->
+                sb.append("\nLAW ${i+1}: ${p.title}\n")
+                sb.append("- Summary: ${p.summary}\n")
+                sb.append("- Dynamic Clinical Requirement/Rule: ${p.clinicalRule}\n")
+                sb.append("- Mandated Clauses to observe:\n")
+                p.extendedClauses.forEach { clause ->
+                    sb.append("  * $clause\n")
+                }
+            }
+            sb.append("\nCRITICAL CLINICAL SCORECARD ENFORCEMENT RULES:")
+            sb.append("\nYou MUST strictly respect these active country laws. During Phase 6 - Case Evaluation & Feedback, check if the clinician broke any requirements of the active laws. If they violated a law (e.g. failing to order vitals, failing to order mandated tests, over-prescribing, or failing to follow diagnostic rules), deduct 15-20 CPD score points per violation and explicitly cite which LAW and Clause they violated inside their final evaluation scorecard misses section!")
+            sb.toString()
+        } else ""
+
         return """
             You are the Advanced Clinical and Practice Simulation Engine.
             CURRENT SIMULATION STATE:
             - CURRENT PHASE: ${_uiState.value.currentPhase}
             - HIDDEN CASE PROFILE (NEVER REVEAL UNTIL PHASE 6): $profileJson
-            - CLINICAL CONTEXT: General Practitioner Clinic in South Africa (Metric conversions, Celsius, kg/cm, mmol/L, ZAR (Rands R)).
+            - CLINICAL CONTEXT: General Practitioner Clinic in ${countryName.value} (Metric conversions, Celsius, kg/cm, mmol/L, local treasury currency represented by 'R' or '$' or dynamic currency, default 'R').
             - PRACTITIONER CONTEXT: The user is Dr. Tim, operating JB Consultation Practice (PR# 1234567). Use these specific details whenever referencing the doctor or practice in any generated paperwork, labs, or receipts. Do NOT use placeholders.
             
             $pastClinicalHistoryPrompt
+            $policyInstructions
             
             UNCOMPROMISING DIRECTIVES:
             1. CORE DIRECTIVE 1 (THE GOLDEN RULE AND NO HINTING): NEVER drop hints, suggest, or describe the diagnosis, underlying pathophysiology, or correct medication/plan until Phase 6 (Evaluation scorecard trigger). If the doctor asks what is wrong or leads with off-track theories, remain strictly objective and respond solely from the patient's subjective understanding. 
             2. CORE DIRECTIVE 2 (NO ROLEPLAY TEXT OR STAGE DIRECTIONS): Under no circumstances write stage directions, descriptives, action-enclosures, or asterisks (*coughs*, *looks down*, (sighs)). Do not describe patients moving or facial gestures. Return purely spoken patient dialogue only.
-            3. CORE DIRECTIVE 3 (METRIC SYSTEM & SOUTH AFRICAN CONTEXT): Do not mention standard US insurance, CPT codes, or Celsius conversions to Fahrenheit. All temperatures are in Degrees Celsius. Lab results must use modern metric units (mmol/L, umol/L, g/dL, kPa). Billing receipts must use ZAR Rands (R).
+            3. CORE DIRECTIVE 3 (METRIC SYSTEM & LOCAL CONTEXT): Do not mention standard US insurance, CPT codes, or Celsius conversions to Fahrenheit. All temperatures are in Degrees Celsius. Lab results must use modern metric units (mmol/L, umol/L, g/dL, kPa). Billing receipts must use local currency (R / $).
             4. CORE DIRECTIVE 5 (PREVENT CONTEXT DRIFT): Match history, symptoms, investigations, physical exam checks, and progress strictly with the state of the Hidden Case Profile. Do not hallucinate contradictive or additional pathological states.
-            5. CORE DIRECTIVE 6 (DEMOGRAPHICS & FINANCIAL REALISM): Customize speech patterns, concerns, and conversational styles to the patient's 'patientDemographics' (e.g. child, elderly, young student, parent). Align financial concerns with 'insuranceStatus' (especially "Out-of-Pocket Cash" or "State Funded / Uninsured"). Cash-paying or uninsured patients should actively worry about medical expenses and diagnostic charges, asking about fees or co-pays when tests are ordered.
+            5. CORE DIRECTIVE 6 (DEMOGRAPHICS & FINANCIAL REALISM): Customize speech patterns, concerns, and conversational styles to the patient's 'patientDemographics' (e.g. child, elderly, young student, parent). Align financial concerns with 'insuranceStatus' (especially "Out-of-Pocket Cash", "State Funded / Uninsured", or high-status VIP cover). Cash-paying or uninsured patients should actively worry about medical expenses and diagnostic charges, asking about fees or co-pays when tests are ordered. High-status politicians or state VIPs should speak with academic, elite, or proud public-servant posture, demanding top quality assessments!
             6. CORE DIRECTIVE 7 (PATIENT IDENTITY NAME SAFETY CHECK): The patient's verified legal full name is "${getPatientName()}". Under no circumstances will you sign or accept any clinical paperwork or address yourself with a different name. If the doctor uses the incorrect name, politely remind them of your correct name ("Excuse me doctor, my name is ${getPatientName()}"). Verify this exact name is printed with the verified safety status tag on all generated prescriptions, referrals, or sick certificates!
             7. CORE DIRECTIVE 8 (NO UNAUTHORIZED PRESCRIBING): You are strictly forbidden from prescribing medications, generating sick notes, or creating referrals on the doctor's behalf. If responding to normal dialogue, you MUST set `prescriptionString`, `referralLetterString`, and `sickNoteString` to null always. Only output them when explicitly instructed by a System Action.
             
             Every patient encounter strictly follows these 6 phases:
             - PHASE 1 - History & Presentation: Patient Interaction, Initial Vitals, History and Physical Exam checks. Respond as the layman patient.
-            - PHASE 2 - Diagnostic Investigations: Labs and Diagnostics. When doctor orders labs, populate the "labResults" field inside your JSON response with highly realistic diagnostic data matching standard South African parameters.
+            - PHASE 2 - Diagnostic Investigations: Labs and Diagnostics. When doctor orders labs, populate the "labResults" field inside your JSON response with highly realistic diagnostic data matching standard parameters.
             - PHASE 3 - Clinical Diagnosis & Treatment: Working diagnosis and management design. Acknowledge instructions and proceed the practitioner to compile paperwork.
             - PHASE 4 - Prescription, Referral & Sick Note: When requested, generate highly formatted documents in "prescriptionString", "referralLetterString", and "sickNoteString".
             - PHASE 5 - Medical Billing & Collection: Reworked billing receipts showing total clinic invoice breakdown, insurance medical aid coverage, co-payments and inventory items. Return this in "billingReceipt".
@@ -1190,11 +1362,11 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
               "patientStability": "Determine trajectory: e.g. Stable, Deteriorating, Improving, Critical",
               "currentPhase": "updated phase name",
               "physicalExamResults": "detailed string of physical examination findings (ONLY when requested), or null",
-              "labResults": "South African metric laboratory results detail string (Phase 2), or null",
-              "prescriptionString": "Formatted HPCSA regulation prescription with GP signature block (Phase 4), or null",
+              "labResults": "metric laboratory results detail string (Phase 2), or null",
+              "prescriptionString": "Formatted regulation prescription with GP signature block (Phase 4), or null",
               "referralLetterString": "Formatted clinical advisory referral letter (Phase 4), or null",
               "sickNoteString": "Formatted official medical certificate of illness (Phase 4), or null",
-              "billingReceipt": "ZAR rands itemized medical fee invoice with co-pays and ICD-10 codes (Phase 5), or null",
+              "billingReceipt": "itemized medical fee invoice with co-pays and diagnostic codes (Phase 5), or null",
               "evaluation": "unfolded clinical feedback score sheet /100 and pathophysiology (Phase 6), or null",
               "isEncounterComplete": boolean,
               "additionalExpenses": double_value_optional,
@@ -1874,6 +2046,94 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         }
                     }
 
+                    var finalEvaluation = update.evaluation?.takeIf { it.isNotBlank() } ?: _uiState.value.evaluation
+                    var finalScore = update.clinicalScore
+                    var violationsList = emptyList<PolicyAuditResult>()
+
+                    val checkPhase6 = (update.currentPhase ?: _uiState.value.currentPhase).contains("Phase 6", ignoreCase = true)
+                    
+                    if (finalEvaluation != null && finalEvaluation.isNotBlank() && checkPhase6) {
+                        val simStateForAudit = _uiState.value.copy(
+                            prescriptionString = update.prescriptionString?.takeIf { it.isNotBlank() } ?: _uiState.value.prescriptionString,
+                            labResults = update.labResults?.takeIf { it.isNotBlank() } ?: _uiState.value.labResults,
+                            vitals = update.vitals ?: _uiState.value.vitals,
+                            chatHistory = currentHistory,
+                            patientOutcome = finalOutcome,
+                            patientStability = finalStability,
+                            expensesIncurred = _uiState.value.expensesIncurred + (update.additionalExpenses ?: 0.0)
+                        )
+                        
+                        val auditResults = auditEncounterForActivePolicies(simStateForAudit, _hiddenCase.value)
+                        val violations = auditResults.filter { it.isViolation }
+                        violationsList = violations
+                        
+                        if (violations.isNotEmpty()) {
+                            var totalFine = 0.0
+                            var totalDeduction = 0
+                            val reportBuilder = java.lang.StringBuilder()
+                            reportBuilder.append("\n\n=========================================\n")
+                            reportBuilder.append("🏛️ STATE POLICY COMPLIANCE & PENALTY AUDIT\n")
+                            reportBuilder.append("=========================================\n")
+                            reportBuilder.append("Elysium National Health Inspectorate Review:\n\n")
+                            
+                            violations.forEach { v ->
+                                totalFine += v.penaltyAmount
+                                totalDeduction += v.scoreDeduction
+                                reportBuilder.append("• ${v.auditMessage} [-${v.scoreDeduction} CPD pts, R${v.penaltyAmount} fine]\n")
+                            }
+                            
+                            reportBuilder.append("\n📈 TOTAL PENALTY SUMMARY:\n")
+                            reportBuilder.append("   - Regulatory Fines Imposed: R${String.format("%.2f", totalFine)}\n")
+                            reportBuilder.append("   - Score Penalty Deductions: -${totalDeduction} CPD points\n")
+                            reportBuilder.append("   - Compliance Verdict: FAIL / NON-COMPLIANT\n")
+                            reportBuilder.append("=========================================\n")
+                            
+                            finalEvaluation = finalEvaluation + reportBuilder.toString()
+                            
+                            val currentScore = finalScore ?: extractScoreFromEvaluation(update.evaluation ?: "")?.toDoubleOrNull() ?: 100.0
+                            val adjustedScore = (currentScore - totalDeduction).coerceAtLeast(0.0)
+                            finalScore = adjustedScore
+                            
+                            val oldScoreStr = "${currentScore.toInt()}/100"
+                            val newScoreStr = "${adjustedScore.toInt()}/100 (State Policy Adjusted: -${totalDeduction} pts)"
+                            if (finalEvaluation.contains(oldScoreStr)) {
+                                finalEvaluation = finalEvaluation.replace(oldScoreStr, newScoreStr)
+                            } else {
+                                finalEvaluation = "CPD SCORE: ${adjustedScore.toInt()}/100\n" + finalEvaluation
+                            }
+
+                            val calculatedFine = totalFine
+                            viewModelScope.launch {
+                                val currentBal = clinicBalance.value
+                                val newBal = (currentBal - calculatedFine).coerceAtLeast(0.0)
+                                settingsDataStore.updateClinicStats(newBal, (reputationStars.value - 0.2f).coerceIn(1.0f, 5.0f))
+                                settingsDataStore.addDailyExpenses(calculatedFine)
+                                _votingLog.value = _votingLog.value + "🚨 Treasury Inspectorate deducted R$calculatedFine in regulatory fines details: ${violations.first().policyTitle}!"
+                            }
+                        } else if (activePolicies.value.isNotEmpty()) {
+                            val complianceBonus = 250.0
+                            val reportBuilder = java.lang.StringBuilder()
+                            reportBuilder.append("\n\n=========================================\n")
+                            reportBuilder.append("🏛️ STATE POLICY COMPLIANCE & PENALTY AUDIT\n")
+                            reportBuilder.append("=========================================\n")
+                            reportBuilder.append("Elysium National Health Inspectorate Review:\n\n")
+                            reportBuilder.append("✅ ALL LAW CLAUSES INSPECTED: FULLY COMPLIANT!\n")
+                            reportBuilder.append("• Outstanding professional compliance and regulatory safety standards observed.\n")
+                            reportBuilder.append("\n🎉 STATE CLINIC INCENTIVE REWARD:\n")
+                            reportBuilder.append("   - Practice Excellence Grant: +R250.00 cash credit\n")
+                            reportBuilder.append("   - Compliance Verdict: SUCCESS / FULLY COMPLIANT\n")
+                            reportBuilder.append("=========================================\n")
+                            
+                            finalEvaluation = finalEvaluation + reportBuilder.toString()
+                            
+                            viewModelScope.launch {
+                                val currentBal = clinicBalance.value
+                                settingsDataStore.updateClinicStats(currentBal + complianceBonus, (reputationStars.value + 0.15f).coerceAtMost(5.0f))
+                                settingsDataStore.addDailyRevenue(complianceBonus)
+                            }
+                        }
+                    }
+
                     _uiState.value = _uiState.value.copy(
                         chatHistory = currentHistory,
                         vitals = update.vitals ?: _uiState.value.vitals,
@@ -1882,7 +2142,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         physicalExamResults = update.physicalExamResults?.takeIf { it.isNotBlank() } ?: _uiState.value.physicalExamResults,
                         billingReceipt = newBillingReceipt ?: _uiState.value.billingReceipt,
                         dailyRevenue = _uiState.value.dailyRevenue + addedRevenue,
-                        evaluation = update.evaluation?.takeIf { it.isNotBlank() } ?: _uiState.value.evaluation,
+                        evaluation = finalEvaluation,
                         prescriptionString = update.prescriptionString?.takeIf { it.isNotBlank() } ?: _uiState.value.prescriptionString,
                         referralLetterString = update.referralLetterString?.takeIf { it.isNotBlank() } ?: _uiState.value.referralLetterString,
                         sickNoteString = update.sickNoteString?.takeIf { it.isNotBlank() } ?: _uiState.value.sickNoteString,
@@ -1899,18 +2159,22 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         }
                         
                         var newRep = reputationStars.value
-                        update.clinicalScore?.let { score ->
+                        finalScore?.let { score ->
                             settingsDataStore.addXp(score.toLong() * 5)
                             val normScore = score.coerceIn(0.0, 100.0) / 20.0f
                             newRep = ((reputationStars.value * 0.9f) + (normScore.toFloat() * 0.1f)).coerceIn(1.0f, 5.0f)
                             
                             val isCompleting = update.isEncounterComplete == true || _uiState.value.isEncounterComplete
-                            if (score < 50.0 && isCompleting) {
-                                startLawsuitSimulation(
-                                    patientName = getPatientName(),
-                                    caseDiagnosis = _hiddenCase.value?.trueDiagnosis ?: "Unknown",
-                                    score = score.toInt()
-                                )
+                            if (isCompleting) {
+                                val hasViolations = violationsList.isNotEmpty()
+                                if (score < 50.0 || hasViolations) {
+                                    startLawsuitSimulation(
+                                        patientName = getPatientName(),
+                                        caseDiagnosis = _hiddenCase.value?.trueDiagnosis ?: "Unknown",
+                                        score = score.toInt(),
+                                        violations = violationsList
+                                    )
+                                }
                             }
                         }
                         
@@ -2281,11 +2545,20 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
     private val _lawsuitCurrentStage = MutableStateFlow("init") // "init", "charges", "cross_exam", "verdict"
     val lawsuitCurrentStage: StateFlow<String> = _lawsuitCurrentStage.asStateFlow()
 
+    private val _lawsuitViolatedPolicies = MutableStateFlow<List<PolicyAuditResult>>(emptyList())
+    val lawsuitViolatedPolicies: StateFlow<List<PolicyAuditResult>> = _lawsuitViolatedPolicies.asStateFlow()
+
     fun dismissLawsuit() {
         _lawsuitActive.value = false
+        _lawsuitViolatedPolicies.value = emptyList()
     }
 
-    fun startLawsuitSimulation(patientName: String = "", caseDiagnosis: String = "", score: Int = 45) {
+    fun startLawsuitSimulation(
+        patientName: String = "", 
+        caseDiagnosis: String = "", 
+        score: Int = 45,
+        violations: List<PolicyAuditResult> = emptyList()
+    ) {
         _lawsuitActive.value = true
         _lawsuitVerdict.value = null
         _lawsuitFine.value = 0.0
@@ -2300,15 +2573,28 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
 
         _lawsuitPatientName.value = targetName
         _lawsuitCaseDiag.value = targetDiag
-        _lawsuitCharges.value = listOf(
-            "1. Clinical Mismanagement (Competency Score: $targetScore/100) infringing HPCSA Guideline Booklets.",
-            "2. Inappropriate or missing critical therapeutics (e.g., misdiagnosed $targetDiag).",
-            "3. Breach of Ethical Rule 16 or safety standards in private general practice.",
-            "4. Gross professional negligence failing to protect vulnerable clinical life."
-        )
+        _lawsuitViolatedPolicies.value = violations
+
+        val chargesList = mutableListOf<String>()
+        if (violations.isNotEmpty()) {
+            violations.forEachIndexed { index, v ->
+                val details = v.auditMessage.replace("🚨 VIOLATION: ", "")
+                chargesList.add("${index + 1}. STATUTORY BREACH [${v.policyTitle}]: Failed clinical compliance mandate. Violation: \"${v.triggeredClause}\". details: $details")
+            }
+        } else {
+            chargesList.add("1. Clinical Mismanagement: Received a deficient medical simulation score of $targetScore/100 failing statutory professional standards.")
+            chargesList.add("2. Treatment Inadequacy: Inappropriate clinical therapy and drug selection for $targetDiag.")
+            chargesList.add("3. Breach of general patient safety regulations and health standards.")
+        }
+        _lawsuitCharges.value = chargesList
 
         val initialLog = mutableListOf<String>()
-        initialLog.add("⚖️ HPCSA MEDICAL MALPRACTICE DISCIPLINARY HEARING\nLocation: HPCSA Headquarters, Pretoria, RSA\n\nRegistrar: 'Practitioner, you have been summoned to face a formal Professional Conduct Committee. A complaint has been lodged regarding your care of patient $targetName, who was treated for $targetDiag with an audited score of only $targetScore/100.'\n\nState Prosecutor: 'Mr. Chairman, we claim severe clinical negligence. The practitioner's interventions fell far below acceptable professional standards, causing unnecessary risks. How does the practitioner plead, and what is their defense?'")
+        val initialLine = if (violations.isNotEmpty()) {
+            "🏛️ HIGH COURT OF ${countryName.value.uppercase()} - SOVEREIGN JUDICIARY DEPT\nLocation: Supreme Inquest division, Pretoria, Royal District\n\nPresiding Judge: 'Practitioner, this sovereign court has convened a formal compliance trial. The National Health Inspectorate has logged clinical violations under our actively enacted legislative policies during your treatment of patient $targetName for $targetDiag.'\n\nState Prosecutor: 'Your Honor, the State charges the practitioner with ${violations.size} counted violations of our nation's sovereign health statutes. The clinic bypassed mandatory legislative guidelines, failing public safety! How does the defense plead?'"
+        } else {
+            "🏛️ HIGH COURT OF ${countryName.value.uppercase()} - SOVEREIGN JUDICIARY DEPT\nLocation: Supreme Inquest division, Pretoria, Royal District\n\nPresiding Judge: 'Practitioner, you have been summoned to face this sovereign judicial inquest. A civil malpractice and negligence complaint has been filed regarding your care of patient $targetName for $targetDiag with a clinical competency rating of only $targetScore/100.'\n\nState Prosecutor: 'Your Honor, we charge the accused with clinical negligence and gross malpractice failing the baseline treaties of ${countryName.value}. How does the practitioner plead?'"
+        }
+        initialLog.add(initialLine)
         _lawsuitLog.value = initialLog
     }
 
@@ -2317,29 +2603,59 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         _isLoading.value = true
 
         val currentHistoryLog = _lawsuitLog.value.joinToString("\n\n")
+        val activePolList = activePolicies.value
+        val policyDetailsStr = if (activePolList.isNotEmpty()) {
+            val sb = java.lang.StringBuilder()
+            sb.append("\nACTLY ENACTED SOVEREIGN HEALTH LAWS OF THE COUNTRY:")
+            activePolList.forEachIndexed { idx, p ->
+                sb.append("\n[LAW ${idx+1}] TITLE: ${p.title}\n")
+                sb.append("  - Requirements: ${p.clinicalRule}\n")
+                sb.append("  - Clauses: ${p.extendedClauses.joinToString("; ")}\n")
+            }
+            sb.toString()
+        } else "No clinical laws are currently enacted."
+
+        val violatedPolStr = if (_lawsuitViolatedPolicies.value.isNotEmpty()) {
+            val sb = java.lang.StringBuilder()
+            sb.append("\nOFFICIALLY LOGGED STATUTORY VIOLATIONS BEING TRIED:")
+            _lawsuitViolatedPolicies.value.forEach { v ->
+                sb.append("\n- Law: ${v.policyTitle} | Triggered Clause: ${v.triggeredClause} | Details: ${v.auditMessage}")
+            }
+            sb.toString()
+        } else "Accused of overall malpractice and poor competency score (${_lawsuitCharges.value.firstOrNull() ?: ""})."
 
         val prompt = """
-            We are simulating an interactive Health Professions Council of South Africa (HPCSA) Disciplinary Tribunal/Medical Malpractice Lawsuit trial against a general practitioner.
+            We are simulating an interactive trial in the Supreme Medical Court / Sovereign Judiciary Department of the Republic of ${countryName.value} under President ${presidentName.value} (${presidentParty.value}).
             
-            - Accused Practitioner's Clinical Infraction: Treated patient "${_lawsuitPatientName.value}" for "${_lawsuitCaseDiag.value}".
-            - Current Trial Record State:
+            SOVEREIGN CONTEXT:
+            - Accused: Dr. Tim, General Practitioner of JB Consultation Practice (PR# 1234567)
+            - Patient Case: Treated patient "${_lawsuitPatientName.value}" for "${_lawsuitCaseDiag.value}" under Pretoria Jurisdiction.
+            - Current Judiciary Trial Record:
             $currentHistoryLog
             
-            - Defensive Strategy Choice Selected by Practitioner: "$strategy"
+            POLICIES & LEGAL STATUTES FOR JUDGMENT:
+            $policyDetailsStr
+            $violatedPolStr
             
-            Simulate the fierce legal cross-examination by the State Prosecutor and the Panel's questioning in Pretoria Court, debating the chosen defense. Rebut their arguments using high-intensity legal/medical jargon.
-            Then deliver a formal judgment and disciplinary sanction.
+            PRACTITIONER'S CHOSEN DEFENSE STRATEGY:
+            "$strategy"
             
-            Return your response STRICTLY as a valid JSON object matching this schema. Write nothing else except this JSON:
+            INSTRUCTIONS FOR THE MODEL:
+            1. Roleplay the intellectual, sharp dialogue of the Presiding Judge and the fast-talking State Prosecutor in Pretoria Court.
+            2. Analyze if the doctor's defense strategy addresses the active health policies (laws) of the nation, and their specific violations.
+            3. If they violated any of the enacted laws and presented an excuse, the prosecutor should dismantle their defense using law clauses and medical/legal terminology, referencing the specific enacted policies!
+            4. If the laws have rigid fines or suspension instructions (e.g. R500 fine, R1000 fine, or license suspension mentioned in the policy clauses), the Judge MUST sentence the doctor to pay those specific statutory fines + damages!
+            5. Determine the final verdict type ("Exonerated", "Warning", "Suspension", "Fined") based on compliance level. If they are standard compliant or have no registered violations, offer exoneration. Or if they had severe violations, enforce heavier fines (R1000 - R5000) or license suspension (1 to 4 weeks).
+            6. Return your response STRICTLY as a valid JSON object matching this schema. Write nothing else except this JSON:
             {
-               "courtDialogue": "Cross-examination rebuttal by the State Prosecutor, challenging the doctor's defense. Speak in the voice of a professional prosecuting advocate.",
+               "courtDialogue": "The prosecutor's aggressive cross-examination, and the Judge's legal questioning, citing the sovereign laws. Speak with formal legislative language.",
                "tensionAdjustment": 15,
                "aggressionAdjustment": 10,
                "judgmentStageReached": true,
                "verdictType": "Fined",
-               "fineAmount": 5000.0,
-               "suspensionWeeks": 3,
-               "finalVerdictText": "Disciplinary Sanction & Rationale. State the outcome clearly (Exonerated, Warning, Suspension, or Fined) and detail how this strategy influenced the committee's final ruling under ethical guidelines."
+               "fineAmount": 1500.0,
+               "suspensionWeeks": 2,
+               "finalVerdictText": "Chief Justice's Formal Judicial Decree. Detail the legal and clinical reasons, cite which Enacted Policies were violated, and outline the penalty sanction (e.g., Warning, Suspension, or Fined)."
             }
         """.trimIndent()
 
@@ -2439,4 +2755,820 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         
         return lastValidAmount
     }
+
+    // --- NEW GEOPOLITICAL GAMEPLAY FUNCTIONS ---
+
+    private suspend fun makeFreshDirectApiCall(
+        provider: String,
+        modelName: String,
+        apiKey: String,
+        systemPrompt: String,
+        customUrl: String = customEndpoint.value
+    ): String {
+        return when (provider) {
+            "Cerebras", "OpenAI", "Nvidia", "Ollama", "vLLM", "Custom (OpenAI-compatible)" -> {
+                val activeKey = if (apiKey.isBlank()) "sk-no-key-required" else apiKey
+                val messages = listOf(OpenAIMessage("system", systemPrompt))
+                val isCustomUrl = customUrl.isNotBlank()
+                val request = OpenAIRequest(
+                    model = modelName,
+                    messages = messages,
+                    response_format = if (isCustomUrl || provider in listOf("Cerebras", "Nvidia", "Ollama", "vLLM", "Custom (OpenAI-compatible)")) null else OpenAIResponseFormat("json_object"),
+                    temperature = 0.7,
+                    stream = false
+                )
+                val activeUrl = getActiveUrl(provider, modelName, apiKey, customUrl)
+                if (provider == "Nvidia") {
+                    val streamRequest = request.copy(stream = true)
+                    val response = RetrofitClient.service.callOpenAIStream(
+                        url = activeUrl,
+                        authorization = "Bearer $activeKey",
+                        accept = "text/event-stream",
+                        body = streamRequest
+                    )
+                    val source = response.source()
+                    val sb = java.lang.StringBuilder()
+                    while (!source.exhausted()) {
+                        val line = source.readUtf8Line()
+                        if (line != null && line.startsWith("data: ") && !line.contains("[DONE]")) {
+                            val jsonString = line.substring(6)
+                            try {
+                                val json = org.json.JSONObject(jsonString)
+                                val choices = json.optJSONArray("choices")
+                                if (choices != null && choices.length() > 0) {
+                                    val delta = choices.getJSONObject(0).optJSONObject("delta")
+                                    if (delta != null && delta.has("content") && !delta.isNull("content")) {
+                                        sb.append(delta.optString("content", ""))
+                                    }
+                                }
+                            } catch (e: Exception) {}
+                        }
+                    }
+                    sb.toString()
+                } else {
+                    val response = RetrofitClient.service.callOpenAI(
+                        url = activeUrl,
+                        authorization = "Bearer $activeKey",
+                        body = request
+                    )
+                    response.choices.firstOrNull()?.message?.content ?: ""
+                }
+            }
+            "Anthropic" -> {
+                val activeKey = if (apiKey.isBlank()) "sk-no-key-required" else apiKey
+                val messages = listOf(AnthropicMessage("user", "Draft requested details under following instruction: $systemPrompt"))
+                val request = AnthropicRequest(
+                    model = modelName,
+                    system = "You are a professional legislative designer for the country's treasury.",
+                    messages = messages,
+                    temperature = 0.7
+                )
+                val activeUrl = getActiveUrl("Anthropic", modelName, apiKey, customUrl)
+                val response = RetrofitClient.service.callAnthropic(
+                    url = activeUrl,
+                    apiKey = activeKey,
+                    version = "2023-06-01",
+                    body = request
+                )
+                response.content.firstOrNull()?.text ?: ""
+            }
+            else -> { // Google Gemini
+                val activeKey = if (apiKey.isBlank()) "sk-no-key-required" else apiKey
+                val contents = listOf(GeminiContent(null, listOf(GeminiPart("Execute following instruction: $systemPrompt"))))
+                val request = GeminiRequest(
+                    contents = contents,
+                    systemInstruction = GeminiSystemInstruction(listOf(GeminiPart("You are a legislative text draftsman. Return only valid raw JSON."))),
+                    generationConfig = GeminiGenerationConfig(
+                        responseMimeType = "application/json",
+                        temperature = 0.7
+                    )
+                )
+                val activeUrl = "https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$activeKey"
+                val response = RetrofitClient.service.callGemini(activeUrl, request)
+                response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: ""
+            }
+        }
+    }
+
+    fun generateHealthPolicyDraft(focusText: String) {
+        viewModelScope.launch {
+            _progressiveLobbyBias.value = 0.0
+            _conservativeLobbyBias.value = 0.0
+            _independentLobbyBias.value = 0.0
+            _lastLobbyReport.value = null
+            _isLoading.value = true
+            try {
+                val currentProvider = provider.value
+                val currentModel = model.value
+                val userKey = apiKey.value ?: ""
+                val activeKey = if (userKey.isBlank()) {
+                    when {
+                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
+                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
+                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
+                        else -> ""
+                    }
+                } else {
+                    userKey
+                }
+
+                if (activeKey.isBlank()) {
+                    logAndEmitError("API Key missing! Configure your credentials in settings to formulate legislation.")
+                    _isLoading.value = false
+                    return@launch
+                }
+
+                val systemPrompt = """
+                    You are the Head Healthcare Legislative Draftsman for the sovereign nation of ${countryName.value}.
+                    Your job is to draft a highly realistic, complete national health policy based on the clinician's draft focus query: "$focusText".
+                    You MUST return STRICTLY a valid, raw, unformatted single JSON object matching this schema. Do not include markdown wraps (```json), headings, or trailing commentary.
+                    
+                    Schema:
+                    {
+                      "title": "A short, formal name of the clinical legislative act (e.g., 'Emergency Cardiac Assessment Protocol Code')",
+                      "summary": "An executive summary analyzing why this is critical and detailing how it acts as clinical law.",
+                      "extendedClauses": [
+                        "Clause 1: Specific legal directive (e.g. 'Clinic staff must perform diagnostic assessments for cardiac pain cases')",
+                        "Clause 2: Regulatory guideline (e.g. 'Prescriptions for NSAIDs require a concurrent gastro-protective directive')",
+                        "Clause 3: Penalty or financial benefit details if clinician observes this clause"
+                      ],
+                      "economicImpact": "Analytic report of the fiscal impact of this act on clinic treasury reserves and patient out-of-pocket pricing.",
+                      "clinicalRule": "A concise runtime directive that the Dr simulation must adhere to (e.g., 'Order diagnostic screening before treatment')"
+                    }
+                """.trimIndent()
+
+                val apiResponse = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, systemPrompt)
+                val sanitized = extractJsonString(apiResponse)
+                
+                val json = org.json.JSONObject(sanitized)
+                val title = json.optString("title", "Proposed Draft Sovereign Healthcare Act")
+                val summary = json.optString("summary", "A pending legislative clinical protocol draft.")
+                val clausesArray = json.optJSONArray("extendedClauses")
+                val clauses = mutableListOf<String>()
+                if (clausesArray != null) {
+                    for (i in 0 until clausesArray.length()) {
+                        clauses.add(clausesArray.getString(i))
+                    }
+                } else {
+                    clauses.add("Clause 1: Adherence to general clinical guidelines in primary care is mandated.")
+                }
+                val economicImpact = json.optString("economicImpact", "Minor operational budget and consultation fee adjustments.")
+                val clinicalRule = json.optString("clinicalRule", "Adhere to the policy directives.")
+
+                val draft = HealthPolicy(
+                    id = java.util.UUID.randomUUID().toString(),
+                    title = title,
+                    summary = summary,
+                    extendedClauses = clauses,
+                    economicImpact = economicImpact,
+                    clinicalRule = clinicalRule,
+                    status = "Draft"
+                )
+                _currentDraftPolicy.value = draft
+                _votingLog.value = listOf("✨ Draft Healthcare Bill formulated successfully and loaded into active memory!")
+            } catch (e: java.lang.Exception) {
+                logAndEmitError("Failed to draft legislation: ${e.localizedMessage}")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun runParliamentVoteSim(policy: HealthPolicy) {
+        viewModelScope.launch {
+            if (_isVotingActive.value) return@launch
+            _isVotingActive.value = true
+            _voteProgress.value = 0f
+            _currentVoteYes.value = 0
+            _currentVoteNo.value = 0
+            _currentVoteAbstain.value = 0
+            
+            _votingLog.value = listOf(
+                "🗳️ Parliament Speaker triggers assembly chamber bell...",
+                "📢 Reading draft health items to Representatives...",
+                "⚖️ Proposed Act: '${policy.title}'"
+            )
+            delay(1200)
+
+            val totalSeats = 200
+            val progSeats = _progressiveSeats.value
+            val consSeats = _conservativeSeats.value
+            val indSeats = _independentSeats.value
+
+            // Progressive align with safety laws, Conservative with low costs.
+            val baseProgProb = if (policy.clinicalRule.contains("vitals", ignoreCase = true) || policy.title.contains("subsid", ignoreCase = true)) 0.88 else 0.76
+            val baseConsProb = if (policy.title.contains("cap", ignoreCase = true) || policy.extendedClauses.any { it.contains("discount", ignoreCase = true) }) 0.22 else 0.45
+            val baseIndProb = 0.52
+
+            val progYesProbability = (baseProgProb + _progressiveLobbyBias.value).coerceIn(0.05, 0.98)
+            val consYesProbability = (baseConsProb + _conservativeLobbyBias.value).coerceIn(0.05, 0.98)
+            val indYesProbability = (baseIndProb + _independentLobbyBias.value).coerceIn(0.05, 0.98)
+
+            _votingLog.value = _votingLog.value + "🗣️ General political debates commenced. Representatives argue clinical impacts..."
+            delay(1500)
+
+            val steps = 5
+            for (step in 1..steps) {
+                val fraction = step.toFloat() / steps
+                _voteProgress.value = fraction
+
+                // Calculate incremental seats accounted
+                val countedProg = (progSeats * fraction).toInt()
+                val yesProg = (countedProg * progYesProbability).toInt()
+                val noProg = (countedProg * (0.95 - progYesProbability)).toInt().coerceAtLeast(0)
+                val absProg = countedProg - yesProg - noProg
+
+                val countedCons = (consSeats * fraction).toInt()
+                val yesCons = (countedCons * consYesProbability).toInt()
+                val noCons = (countedCons * (0.95 - consYesProbability)).toInt().coerceAtLeast(0)
+                val absCons = countedCons - yesCons - noCons
+
+                val countedInd = (indSeats * fraction).toInt()
+                val yesInd = (countedInd * indYesProbability).toInt()
+                val noInd = (countedInd * (0.90 - indYesProbability)).toInt().coerceAtLeast(0)
+                val absInd = countedInd - yesInd - noInd
+
+                _currentVoteYes.value = yesProg + yesCons + yesInd
+                _currentVoteNo.value = noProg + noCons + noInd
+                _currentVoteAbstain.value = absProg + absCons + absInd
+
+                when (step) {
+                    2 -> _votingLog.value = _votingLog.value + "🟣 Faction leaders negotiating clinical funding allocations..."
+                    3 -> _votingLog.value = _votingLog.value + "📢 Progressive bloc demands mandatory diagnostic safety standards..."
+                    4 -> _votingLog.value = _votingLog.value + "🤨 Conservative assembly warns of excessive government interference in practice management..."
+                    5 -> _votingLog.value = _votingLog.value + "🔔 Assembly Speaker sounds the final gavel! Counting completed."
+                }
+                delay(1200)
+            }
+
+            val finalYes = _currentVoteYes.value
+            val finalNo = _currentVoteNo.value
+            val finalAbs = _currentVoteAbstain.value
+            val passed = finalYes > finalNo
+
+            val updatedDraft = policy.copy(
+                status = if (passed) "PresidentDesk" else "Defeated",
+                yesVotes = finalYes,
+                noVotes = finalNo,
+                abstainVotes = finalAbs
+            )
+
+            _currentDraftPolicy.value = updatedDraft
+            _isVotingActive.value = false
+
+            if (passed) {
+                _votingLog.value = _votingLog.value + "🎉 PARLIAMENT HAS COMMITTED AND PASSED THE ACT ($finalYes YES vs $finalNo NO)! Sent directly to the President's Mansion for sign-off."
+                updatePoliticalPrestige((politicalPrestige.value + 8).coerceAtMost(100))
+            } else {
+                _votingLog.value = _votingLog.value + "❌ THE HEALTH DRAFT WAS DEFEATED IN PARLIAMENT ($finalYes YES vs $finalNo NO). The proposal is rejected."
+                updatePoliticalPrestige((politicalPrestige.value - 6).coerceAtLeast(0))
+            }
+        }
+    }
+
+    fun presidentialSignDraft() {
+        val draft = _currentDraftPolicy.value ?: return
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val currentProvider = provider.value
+                val currentModel = model.value
+                val userKey = apiKey.value ?: ""
+                val activeKey = if (userKey.isBlank()) {
+                    when {
+                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
+                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
+                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
+                        else -> ""
+                    }
+                } else {
+                    userKey
+                }
+
+                val prompt = """
+                    You are the Executive Head of State, "${presidentName.value}". 
+                    Your legislative faction and philosophy is: "${presidentParty.value}".
+                    Review this health bill passed by the Parliament:
+                    - Title: ${draft.title}
+                    - Direct Rule: ${draft.clinicalRule}
+                    
+                    Write a short, professional presidential executive memo (max 3 sentences) commenting on your decision to sign this into active clinical law. Start with "I have decided to sign this act..."
+                """.trimIndent()
+
+                val apiResponse = if (activeKey.isNotBlank()) {
+                    try {
+                        val resp = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt)
+                        if (resp.length > 15) resp else "I have decided to sign this act to secure the health and safety checks across all private and public practices."
+                    } catch (e: Exception) {
+                        "I have decided to sign this act to secure the health and safety checks across all private and public practices."
+                    }
+                } else {
+                    "I have decided to sign this act to secure the health and safety checks across all private and public practices."
+                }
+
+                val finalPolicy = draft.copy(
+                    status = "Approved",
+                    summary = "${draft.summary}\n\nPresidential Memorandum: $apiResponse"
+                )
+
+                val currentPolicies = activePolicies.value.toMutableList()
+                currentPolicies.add(finalPolicy)
+                _currentDraftPolicy.value = finalPolicy
+                
+                settingsDataStore.saveActivePolicies(currentPolicies)
+                
+                // Reward player
+                settingsDataStore.updateClinicStats(clinicBalance.value + 2000.0, (reputationStars.value + 0.25f).coerceAtMost(5.0f))
+                updatePoliticalPrestige((politicalPrestige.value + 12).coerceAtMost(100))
+                updatePresidentApproval((presidentApproval.value + 6).coerceAtMost(100))
+                
+                _votingLog.value = _votingLog.value + "✍️ President signs the legislation! It is now active nationwide clinical law!"
+            } catch (e: Exception) {
+                logAndEmitError("Veto/Sign failed: ${e.localizedMessage}")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun presidentialVetoDraft() {
+        val draft = _currentDraftPolicy.value ?: return
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val currentProvider = provider.value
+                val currentModel = model.value
+                val userKey = apiKey.value ?: ""
+                val activeKey = if (userKey.isBlank()) {
+                    when {
+                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
+                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
+                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
+                        else -> ""
+                    }
+                } else {
+                    userKey
+                }
+
+                val prompt = """
+                    You are the Executive Head of State, "${presidentName.value}". 
+                    Your legislative faction and philosophy is: "${presidentParty.value}".
+                    Review this health bill passed by the Parliament:
+                    - Title: ${draft.title}
+                    
+                    Write a short, professional presidential veto memo (max 3 sentences) explaining why you are vetoing this and returning it to Parliament.
+                """.trimIndent()
+
+                val apiResponse = if (activeKey.isNotBlank()) {
+                    try {
+                        val resp = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt)
+                        if (resp.length > 15) resp else "I am vetoing this act due to concerns of financial burden on clinics and over-regulating patient-doctor interactions."
+                    } catch (e: Exception) {
+                        "I am vetoing this act due to concerns of financial burden on clinics and over-regulating patient-doctor interactions."
+                    }
+                } else {
+                    "I am vetoing this act due to concerns of financial burden on clinics and over-regulating patient-doctor interactions."
+                }
+
+                val finalPolicy = draft.copy(
+                    status = "Vetoed",
+                    summary = "${draft.summary}\n\nPresidential Veto Reason:\n$apiResponse"
+                )
+
+                _currentDraftPolicy.value = finalPolicy
+                updatePoliticalPrestige((politicalPrestige.value - 10).coerceAtLeast(0))
+                updatePresidentApproval((presidentApproval.value - 5).coerceAtLeast(10))
+                _votingLog.value = _votingLog.value + "🚫 President Arthur Vance vetoed the bill! Sent back to the assembly."
+            } catch (e: Exception) {
+                logAndEmitError("Presidential Veto failed: ${e.localizedMessage}")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun attemptParliamentOverride() {
+        val draft = _currentDraftPolicy.value ?: return
+        viewModelScope.launch {
+            if (politicalPrestige.value < 40) {
+                logAndEmitError("Overriding a Presidential Veto requires at least 40 Political Prestige!")
+                return@launch
+            }
+            _isVotingActive.value = true
+            _voteProgress.value = 0f
+            _votingLog.value = listOf(
+                "🗳️ Convening emergency joint caucus session...",
+                "📋 Standard of law requires 2/3 supermajority (66.6% -- 134 seats) to override veto..."
+            )
+            delay(1500)
+
+            _voteProgress.value = 0.5f
+            // Success depends on prestige
+            val randomFactor = Math.random()
+            val overridePassed = (politicalPrestige.value > 65 && randomFactor < 0.8) || (politicalPrestige.value >= 40 && randomFactor < 0.5)
+            val yesCount = if (overridePassed) (134 + (Math.random() * 20).toInt()) else (110 + (Math.random() * 20).toInt())
+            val noCount = 200 - yesCount - 5
+            
+            _currentVoteYes.value = yesCount
+            _currentVoteNo.value = noCount
+            _currentVoteAbstain.value = 5
+            _voteProgress.value = 1f
+            delay(1200)
+
+            val passed = yesCount >= 134
+            _isVotingActive.value = false
+
+            if (passed) {
+                val finalPolicy = draft.copy(status = "Approved")
+                val currentPolicies = activePolicies.value.toMutableList()
+                currentPolicies.add(finalPolicy)
+                _currentDraftPolicy.value = finalPolicy
+                settingsDataStore.saveActivePolicies(currentPolicies)
+                
+                settingsDataStore.updateClinicStats(clinicBalance.value + 1500.0, reputationStars.value)
+                updatePoliticalPrestige((politicalPrestige.value + 15).coerceAtMost(100))
+                _votingLog.value = _votingLog.value + "🔥 VETO OVERRIDDEN SUCCESSFULLY! ($yesCount YES vs $noCount NO). The act is immediately enacted as binding supreme law."
+            } else {
+                val finalPolicy = draft.copy(status = "Defeated")
+                _currentDraftPolicy.value = finalPolicy
+                updatePoliticalPrestige((politicalPrestige.value - 12).coerceAtLeast(0))
+                _votingLog.value = _votingLog.value + "❌ OVERRIDE ATTEMPTED BUT FAILED ($yesCount YES vs $noCount NO). The assembly was unable to mobilize a supermajority. Veto stands."
+            }
+        }
+    }
+
+    fun clearApprovedPolicies() {
+        viewModelScope.launch {
+            settingsDataStore.saveActivePolicies(emptyList())
+            _votingLog.value = listOf("🧹 Active health regulations lists successfully swept.")
+            _infoEvents.emit("All active healthcare laws and policies have been reset.")
+        }
+    }
+
+    // --- POLITICIAN SICKNESS AND EMERGENCY ALERT GENERATION ---
+
+    fun triggerPoliticianSickness() {
+        val firstNames = listOf("Representative Sarah", "Senator Marcus", "Representative Julia", "Minister Eleanor", "Speaker Douglas", "President Arthur")
+        val lastNames = listOf("Brody", "Sterlings", "Verghese", "Crest", "Hale", "Vance")
+        val isFirstPersonPresident = (0..5).random() == 5
+        
+        val role = if (isFirstPersonPresident) "President" else "Member of Parliament"
+        val name = if (isFirstPersonPresident) presidentName.value else "${firstNames.random()} ${lastNames.random()}"
+
+        val ailments = listOf(
+            "crushing retrosternal chest tightness radiating down the arm, signaling a major cardiac infraction (Acute STEMI Myocardial Infarction)",
+            "sudden-onset extreme hyperpyrexia of 40.5°C with disorientation and septic status (Sepsis / Pneumonitis)",
+            "agonizing epigastric pain with continuous nauseating distress and clinical shock signs (Acute Pancreatitis)",
+            "unstable breathing attacks with rapid arterial oxygen levels crashing to 84% (Pulmonary Embolism)"
+        )
+        val description = ailments.random()
+
+        _sickPoliticianRole.value = role
+        _sickPoliticianName.value = name
+        _isSickPoliticianNext.value = true
+        _sickPoliticianAlert.value = "🚨 EMERGENCY CONTEXT: $role $name has been rushed into severe clinical distress with $description! They demand immediate admission into JB consultation VIP suite."
+        
+        viewModelScope.launch {
+            settingsDataStore.saveStickyPoliticianSick(true)
+        }
+    }
+
+    fun dismissPoliticianSicknessAlert() {
+        _sickPoliticianAlert.value = null
+    }
+
+    fun admitPoliticianToClinic() {
+        _isSickPoliticianNext.value = true
+        _sickPoliticianAlert.value = null
+        
+        activeEncounterId = 0L
+        lastLawsuitEncounterId = 0L
+        lastExtractedBillingAmount = 0.0
+        
+        startNextPatientInternal()
+    }
+
+    fun dismissLobbyReport() {
+        _lastLobbyReport.value = null
+    }
+
+    fun lobbyFaction(faction: String, pitchAngle: String, customMessage: String) {
+        viewModelScope.launch {
+            if (_isLoading.value) return@launch
+            _isLoading.value = true
+            try {
+                val currentBal = clinicBalance.value
+                val currentPrest = politicalPrestige.value
+                
+                if (currentBal < 500.0 && currentPrest < 5) {
+                    logAndEmitError("Insufficient funds or political prestige to run a professional lobbying campaign!")
+                    _isLoading.value = false
+                    return@launch
+                }
+                
+                if (currentPrest >= 5) {
+                    updatePoliticalPrestige(currentPrest - 5)
+                    _votingLog.value = _votingLog.value + "📢 Expended 5 Political Prestige for professional outreach to the $faction."
+                } else {
+                    settingsDataStore.updateClinicStats(currentBal - 500.0, reputationStars.value)
+                    _votingLog.value = _votingLog.value + "💸 Paid R500 in practice consultant fees for outreach dinner with $faction."
+                }
+
+                val draft = _currentDraftPolicy.value
+                val draftTitle = draft?.title ?: "Proposed Health Reform"
+                val draftSummary = draft?.summary ?: "Health Bill"
+
+                val prompt = """
+                    You are the faction leader spokesperson for the '$faction' bloc in the Parliament of ${countryName.value}.
+                    The Parliamentary seat distribution is: Progressives (84 seats, safety-focused), Conservatives (76 seats, free market/cost-focused), Independents (40 seats, pragmatic swing votes).
+                    
+                    Current Draft Bill Under Consideration:
+                    - Title: $draftTitle
+                    - Summary: $draftSummary
+                    
+                    The clinician (Dr. Tim of JB Consultation Practice) is lobbying your faction to support this bill!
+                    Lobbyist Pitch Angle selected: '$pitchAngle'
+                    Lobbyist Custom Written Statement: "$customMessage"
+                    
+                    Write a spoken, realistic parliamentary response explaining whether your caucus is swayed by this specific pitch.
+                    Keep it short, professional, and full of political theme.
+                    Then, you MUST output a final JSON block matching this EXACT schema:
+                    {
+                      "leaderResponse": "The written spoken response from the faction leader.",
+                      "isSwayed": true,
+                      "biasAdjustment": 0.15
+                    }
+                """.trimIndent()
+
+                val currentProvider = provider.value
+                val currentModel = model.value
+                val userKey = apiKey.value ?: ""
+                val activeKey = if (userKey.isBlank()) {
+                    when {
+                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
+                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
+                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
+                        else -> ""
+                    }
+                } else {
+                    userKey
+                }
+
+                if (activeKey.isNotBlank()) {
+                    val apiResponse = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt)
+                    val sanitized = extractJsonString(apiResponse)
+                    
+                    val json = org.json.JSONObject(sanitized)
+                    val leadResp = json.optString("leaderResponse", "We hear your concerns and will deliberate in committee.")
+                    val swayed = json.optBoolean("isSwayed", true)
+                    val biasAdj = json.optDouble("biasAdjustment", 0.15).coerceIn(0.0, 0.4)
+
+                    val finalBias = if (swayed) biasAdj else -biasAdj / 2.0
+                    
+                    when (faction) {
+                        "Progressives" -> {
+                            _progressiveLobbyBias.value = (_progressiveLobbyBias.value + finalBias).coerceIn(-0.3, 0.5)
+                        }
+                        "Conservatives" -> {
+                            _conservativeLobbyBias.value = (_conservativeLobbyBias.value + finalBias).coerceIn(-0.3, 0.5)
+                        }
+                        "Independents" -> {
+                            _independentLobbyBias.value = (_independentLobbyBias.value + finalBias).coerceIn(-0.3, 0.5)
+                        }
+                    }
+
+                    _lastLobbyReport.value = "🗣️ Faction Spokesperson Response ($faction):\n\"$leadResp\"\n\n📈 Influence Level: ${if (finalBias >= 0) "+" else ""}${String.format("%.0f", finalBias * 100)}% vote probability."
+                    _votingLog.value = _votingLog.value + "🗳️ Lobby campaign shifted $faction caucus by ${String.format("%.0f", finalBias * 100)}%!"
+                } else {
+                    val fallbackBias = if (pitchAngle == "Clinical Safety & Standards" && faction == "Progressives") 0.20 else 0.15
+                    _progressiveLobbyBias.value = 0.20
+                    _lastLobbyReport.value = "Democratic caucus members reacted supportively to the pitch! Confidence bias adjusted."
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                logAndEmitError("Lobby failure: ${e.localizedMessage}")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun auditEncounterForActivePolicies(
+        encounter: SimulationState, 
+        hiddenCase: HiddenCaseProfile?
+    ): List<PolicyAuditResult> {
+        val results = mutableListOf<PolicyAuditResult>()
+        val policies = activePolicies.value
+        
+        for (policy in policies) {
+            val rule = policy.clinicalRule.lowercase()
+            val summary = policy.summary.lowercase()
+            val clauses = policy.extendedClauses.map { it.lowercase() }
+            
+            var penaltyAmt = 0.0
+            var scoreDeduct = 0
+            
+            val allText = (policy.title + " " + policy.summary + " " + policy.extendedClauses.joinToString(" ")).lowercase()
+            val rMatch = Regex("r(\\s)?(\\d+)").find(allText)
+            if (rMatch != null) {
+                penaltyAmt = rMatch.groupValues[2].toDoubleOrNull() ?: 0.0
+            } else {
+                if (allText.contains("fine of r500") || allText.contains("r500 fine") || allText.contains("500 rands")) penaltyAmt = 500.0
+                else if (allText.contains("fine of r1000") || allText.contains("r1000 fine") || allText.contains("1000 rands")) penaltyAmt = 1000.0
+                else if (allText.contains("fine of r1500") || allText.contains("r1500 fine") || allText.contains("1500 rands")) penaltyAmt = 1500.0
+                else if (allText.contains("fine of r2000") || allText.contains("r2000 fine") || allText.contains("2000 rands")) penaltyAmt = 2000.0
+                else if (allText.contains("fine of r250") || allText.contains("r250 fine")) penaltyAmt = 250.0
+                else if (allText.contains("fine") || allText.contains("penalty")) penaltyAmt = 350.0
+            }
+            
+            if (allText.contains("score") || allText.contains("cpd") || allText.contains("points")) {
+                val ptsMatch = Regex("(\\d+)(\\s)?(points|cpd|score)").find(allText)
+                scoreDeduct = ptsMatch?.groupValues[1]?.toIntOrNull() ?: 15
+            } else {
+                scoreDeduct = 15
+            }
+
+            // 1. baseline vitals
+            if (allText.contains("vital") || rule.contains("vital")) {
+                val hasPrescription = !encounter.prescriptionString.isNullOrBlank()
+                val hasLabs = !encounter.labResults.isNullOrBlank()
+                val hasPhysical = !encounter.physicalExamResults.isNullOrBlank()
+                val checkedVitals = encounter.vitals != null && 
+                                    encounter.vitals.bp != "..." && 
+                                    encounter.vitals.hr != "..." && 
+                                    encounter.vitals.bp != ""
+                
+                if ((hasPrescription || hasLabs || hasPhysical) && !checkedVitals) {
+                    results.add(
+                        PolicyAuditResult(
+                            policyId = policy.id,
+                            policyTitle = policy.title,
+                            triggeredClause = "Initial clinical vitals assessment mandate",
+                            isViolation = true,
+                            penaltyAmount = penaltyAmt.coerceAtLeast(350.0),
+                            scoreDeduction = scoreDeduct,
+                            auditMessage = "🚨 VIOLATION: Prescribed medications or ordered labs without conducting a baseline vital signs assessment in JB consultation practice. Government levy penalty enforced."
+                        )
+                    )
+                    continue
+                }
+            }
+            
+            // 2. brand vs generic
+            if (allText.contains("generic") || allText.contains("brand")) {
+                val rxStr = encounter.prescriptionString ?: ""
+                val brands = listOf("Augmentin", "Voltaren", "Lipitor", "Nexium", "Ventolin")
+                val usedBrands = brands.filter { rxStr.contains(it, ignoreCase = true) }
+                if (usedBrands.isNotEmpty()) {
+                    results.add(
+                        PolicyAuditResult(
+                            policyId = policy.id,
+                            policyTitle = policy.title,
+                            triggeredClause = "Generic substitution safety acts",
+                            isViolation = true,
+                            penaltyAmount = penaltyAmt.coerceAtLeast(500.0),
+                            scoreDeduction = scoreDeduct,
+                            auditMessage = "🚨 VIOLATION: Issued expensive branded chronic medication (${usedBrands.joinToString(", ")}) instead of HPCSA-approved generic alternatives. Direct penalty deducted."
+                        )
+                    )
+                    continue
+                }
+            }
+            
+            // 3. consent
+            if (allText.contains("consent") || allText.contains("signature")) {
+                val hasLabs = !encounter.labResults.isNullOrBlank()
+                val hasMeds = !encounter.prescriptionString.isNullOrBlank()
+                val hasConsentSigned = encounter.chatHistory.any { 
+                    it.text.contains("INFORMED FINANCIAL CONSENT SIGNED", ignoreCase = true) || 
+                    it.text.contains("FINANCIAL CONSENT", ignoreCase = true) 
+                }
+                if ((hasLabs || hasMeds) && !hasConsentSigned) {
+                    results.add(
+                        PolicyAuditResult(
+                            policyId = policy.id,
+                            policyTitle = policy.title,
+                            triggeredClause = "Informed financial consent mandate",
+                            isViolation = true,
+                            penaltyAmount = penaltyAmt.coerceAtLeast(400.0),
+                            scoreDeduction = scoreDeduct,
+                            auditMessage = "🚨 VIOLATION: High-cost clinical/diagnostic tasks ordered without receiving official informed financial consent signature from the patient first. Penalty applied."
+                        )
+                    )
+                    continue
+                }
+            }
+
+            // 4. severe/labs/ecg
+            if (allText.contains("severe") || allText.contains("ecg") || allText.contains("labs")) {
+                val isSevere = hiddenCase?.severity?.contains("Severe", ignoreCase = true) == true
+                if (isSevere) {
+                    val hasLabs = !encounter.labResults.isNullOrBlank()
+                    val complaint = hiddenCase?.chiefComplaint?.lowercase() ?: ""
+                    val isChestPain = complaint.contains("chest") || complaint.contains("heart") || complaint.contains("breathing")
+                    
+                    if (allText.contains("ecg") && isChestPain) {
+                        val orderedEcg = encounter.physicalExamResults?.lowercase()?.contains("ecg") == true ||
+                                         encounter.labResults?.lowercase()?.contains("ecg") == true ||
+                                         encounter.physicalExamResults?.lowercase()?.contains("electrocardiogram") == true
+                        if (!orderedEcg) {
+                            results.add(
+                                PolicyAuditResult(
+                                    policyId = policy.id,
+                                    policyTitle = policy.title,
+                                    triggeredClause = "Mandatory ECG diagnostics for severe cardiothoracic indicators",
+                                    isViolation = true,
+                                    penaltyAmount = penaltyAmt.coerceAtLeast(800.0),
+                                    scoreDeduction = scoreDeduct,
+                                    auditMessage = "🚨 VIOLATION: Severe chest pain indicators observed but practitioner failed to run a 12-lead ECG assessment. Penalty enforced."
+                                )
+                            )
+                            continue
+                        }
+                    }
+                    
+                    if ((allText.contains("lab") || allText.contains("pathology")) && !hasLabs) {
+                        results.add(
+                            PolicyAuditResult(
+                                policyId = policy.id,
+                                policyTitle = policy.title,
+                                triggeredClause = "Essential lab diagnostic rules",
+                                isViolation = true,
+                                penaltyAmount = penaltyAmt.coerceAtLeast(600.0),
+                                scoreDeduction = scoreDeduct,
+                                auditMessage = "🚨 VIOLATION: Patient is clinically Severe, but clinician did not order essential metric laboratory blood count / diagnostic reports. Penalty applied."
+                            )
+                        )
+                        continue
+                    }
+                }
+            }
+
+            // 5. Deceased outcome
+            if (allText.contains("decease") || allText.contains("die") || allText.contains("death") || allText.contains("fatal")) {
+                val isDeceased = encounter.patientOutcome.contains("Deceased", ignoreCase = true) || 
+                                 encounter.patientOutcome.contains("Fatal", ignoreCase = true) ||
+                                 encounter.patientStability.contains("Critical", ignoreCase = true)
+                if (isDeceased) {
+                    results.add(
+                        PolicyAuditResult(
+                            policyId = policy.id,
+                            policyTitle = policy.title,
+                            triggeredClause = "Malpractice negligence response code",
+                            isViolation = true,
+                            penaltyAmount = penaltyAmt.coerceAtLeast(2000.0),
+                            scoreDeduction = scoreDeduct.coerceAtLeast(25),
+                            auditMessage = "🚨 VIOLATION: Critical patient stability/fatality occurred under clinical custody. Public Health Inspectorate penalty executed."
+                        )
+                    )
+                    continue
+                }
+            }
+
+            // 6. consult fee ceiling
+            if (allText.contains("fee") || allText.contains("ceiling") || allText.contains("price")) {
+                val consultFee = consultationFee.value
+                if (allText.contains("consultation") && consultFee > 800.0) {
+                    results.add(
+                        PolicyAuditResult(
+                            policyId = policy.id,
+                            policyTitle = policy.title,
+                            triggeredClause = "Executive Consultation Fee Ceiling (R800)",
+                            isViolation = true,
+                            penaltyAmount = penaltyAmt.coerceAtLeast(300.0),
+                            scoreDeduction = scoreDeduct,
+                            auditMessage = "🚨 VIOLATION: Clinic settings consultation fee (R$consultFee) exceeds the statutory ceiling. Immediate state pricing fine applied."
+                        )
+                    )
+                    continue
+                }
+            }
+
+            // Default compliance success!
+            results.add(
+                PolicyAuditResult(
+                    policyId = policy.id,
+                    policyTitle = policy.title,
+                    triggeredClause = "General Compliance Audit",
+                    isViolation = false,
+                    penaltyAmount = 0.0,
+                    scoreDeduction = 0,
+                    auditMessage = "✅ COMPLIANT: Standard audit complete. Adhered strictly to '${policy.title}'."
+                )
+            )
+        }
+        
+        return results
+    }
 }
+
+data class PolicyAuditResult(
+    val policyId: String,
+    val policyTitle: String,
+    val triggeredClause: String,
+    val isViolation: Boolean,
+    val penaltyAmount: Double,
+    val scoreDeduction: Int,
+    val auditMessage: String
+)
+

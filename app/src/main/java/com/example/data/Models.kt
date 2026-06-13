@@ -103,4 +103,20 @@ data class LawsuitResponse(
     val finalVerdictText: String
 )
 
+@JsonClass(generateAdapter = true)
+data class HealthPolicy(
+    val id: String,
+    val title: String,
+    val summary: String,
+    val extendedClauses: List<String> = emptyList(),
+    val economicImpact: String,
+    val clinicalRule: String,
+    val status: String, // "Draft", "Voting", "PresidentDesk", "Approved", "Vetoed", "Defeated"
+    val yesVotes: Int = 0,
+    val noVotes: Int = 0,
+    val abstainVotes: Int = 0,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+
 

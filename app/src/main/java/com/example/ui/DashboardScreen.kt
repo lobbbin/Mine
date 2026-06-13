@@ -118,6 +118,7 @@ import com.example.data.ChatMessage
 import com.example.data.Vitals
 import com.example.data.SimulationState
 import com.example.data.HiddenCaseProfile
+import com.example.data.HealthPolicy
 import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
@@ -192,6 +193,26 @@ fun DashboardScreen(
 
     var referralSpecialityInput by remember { mutableStateOf("") }
     var referralReasonInput by remember { mutableStateOf("") }
+
+    // --- LEGISLATIVE AND GEOPOLITICAL FLOW COLLECTIONS ---
+    val countryName by viewModel.countryName.collectAsStateWithLifecycle()
+    val presidentName by viewModel.presidentName.collectAsStateWithLifecycle()
+    val presidentParty by viewModel.presidentParty.collectAsStateWithLifecycle()
+    val presidentApproval by viewModel.presidentApproval.collectAsStateWithLifecycle()
+    val politicalPrestige by viewModel.politicalPrestige.collectAsStateWithLifecycle()
+    val activePolicies by viewModel.activePolicies.collectAsStateWithLifecycle()
+    
+    val currentDraftPolicy by viewModel.currentDraftPolicy.collectAsStateWithLifecycle()
+    val isVotingActive by viewModel.isVotingActive.collectAsStateWithLifecycle()
+    val voteProgress by viewModel.voteProgress.collectAsStateWithLifecycle()
+    val currentVoteYes by viewModel.currentVoteYes.collectAsStateWithLifecycle()
+    val currentVoteNo by viewModel.currentVoteNo.collectAsStateWithLifecycle()
+    val currentVoteAbstain by viewModel.currentVoteAbstain.collectAsStateWithLifecycle()
+    val votingLog by viewModel.votingLog.collectAsStateWithLifecycle()
+    val sickPoliticianAlert by viewModel.sickPoliticianAlert.collectAsStateWithLifecycle()
+
+    var activeMainTab by remember { mutableStateOf(0) }
+
 
     var sickNoteReasonInput by remember { mutableStateOf("") }
     var sickNoteDaysInput by remember { mutableStateOf("0") }
@@ -454,8 +475,82 @@ fun DashboardScreen(
                 .padding(innerPadding)
                 .background(MaterialTheme.colorScheme.background)
         ) {
-            // --- Collapsible Bedside Clinical Hub Card (Vitals, Demographics, and Emergency Interventions under one clean tabbed subsection drawer) ---
-            ClinicalHubCard(
+            // --- CUSTOM GEOPOLITICAL TAB SELECTOR ROW ---
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .padding(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Surface(
+                    onClick = { activeMainTab = 0 },
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (activeMainTab == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                    contentColor = if (activeMainTab == 0) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f).height(44.dp),
+                    tonalElevation = 2.dp
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.LocalHospital, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Clinical Hub", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                }
+                
+                Surface(
+                    onClick = { activeMainTab = 1 },
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (activeMainTab == 1) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surface,
+                    contentColor = if (activeMainTab == 1) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f).height(44.dp),
+                    tonalElevation = 2.dp
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Flag, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Health Politics & Laws", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                }
+            }
+
+            if (activeMainTab == 0) {
+                // --- Ambient Sick Politician Banner inside Clinical Hub ---
+                if (sickPoliticianAlert != null) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp)
+                            .clickable { activeMainTab = 1 },
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.MonitorHeart, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "🚨 DISTRESS WARNING: The $presidentName or MP is critically ill! Tap to switch and ADMIT them immediately.",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
+                }
+
+                // --- Collapsible Bedside Clinical Hub Card (Vitals, Demographics, and Emergency Interventions under one clean tabbed subsection drawer) ---
+                ClinicalHubCard(
                 uiState = uiState,
                 hiddenCase = hiddenCase,
                 isLoading = isLoading,
@@ -1039,6 +1134,12 @@ fun DashboardScreen(
                     }
                 }
             }
+            } else {
+                StateAndLegislationTab(
+                    viewModel = viewModel,
+                    onAdmittedClicked = { activeMainTab = 0 }
+                )
+            }
         }
     }
 }
@@ -1419,7 +1520,7 @@ fun DashboardScreen(
             )
         }
 
-        // --- HPCSA LAWSUIT MALPRACTICE INTERACTIVE SIMULATOR DIALOG ---
+        // --- SOVEREIGN JUDICIARY COMPLIANCE COURT TRIAL DIALOG ---
         if (lawsuitActive) {
             Dialog(
                 onDismissRequest = { viewModel.dismissLawsuit() },
@@ -1434,37 +1535,80 @@ fun DashboardScreen(
                             .fillMaxSize()
                             .padding(16.dp)
                     ) {
-                        // Header Bar
+                        // Sovereign High Court Header
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("⚖️ HPCSA MALPRACTICE TRIAL", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = Color(0xFFC62828))
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                Icon(Icons.Default.Flag, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text(
+                                        text = "🏛️ SUPREME COURT OF ${countryName.uppercase()}", 
+                                        style = MaterialTheme.typography.titleMedium, 
+                                        fontWeight = FontWeight.Black, 
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                    Text(
+                                        text = "HIGH JUDICIARY DEPARTMENT • EXECUTIVE COMPLIANCE DIVISION", 
+                                        style = MaterialTheme.typography.labelSmall, 
+                                        fontWeight = FontWeight.Bold, 
+                                        color = MaterialTheme.colorScheme.outline
+                                    )
+                                }
                             }
                             IconButton(onClick = { viewModel.dismissLawsuit() }) {
-                                Icon(Icons.Default.Close, contentDescription = "Close Court")
+                                Icon(Icons.Default.Close, contentDescription = "Dismiss Courtroom")
                             }
                         }
                         
-                        // Status indicators: Tension & Aggression
+                        // Active statutes and political leadership banner
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Ruling Administration: ${presidentName} (${presidentParty})",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                            Text(
+                                text = "Enacted Clinical Laws: ${activePolicies.size} Active",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+
+                        // Court Status Metrics: Tension & Aggression
                         Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
-                                Text("TRIBUNAL TENSION INDEX: $lawsuitTension%", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("HIGH TRIBUNAL CLIMATE TENSION: $lawsuitTension%", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+                                    if (lawsuitTension > 75) {
+                                        Text("🚨 EXTREME JEOPARDY", fontWeight = FontWeight.ExtraBold, fontSize = 10.sp, color = Color.Red)
+                                    }
+                                }
                                 androidx.compose.material3.LinearProgressIndicator(
-                                    progress = lawsuitTension / 100f,
-                                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 12.dp),
-                                    color = if (lawsuitTension > 75) Color.Red else Color.Companion.Yellow,
+                                    progress = { lawsuitTension / 100f },
+                                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 12.dp).height(6.dp).clip(RoundedCornerShape(3.dp)),
+                                    color = if (lawsuitTension > 75) Color.Red else Color(0xFFFFD54F),
                                     trackColor = MaterialTheme.colorScheme.surfaceVariant
                                 )
-                                Text("PROSECUTOR AGGRESSION LEVEL: $lawsuitProsecutorAggression%", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFFC62828))
+                                Text("STATE PROSECUTOR AGGRESSION BIAS: $lawsuitProsecutorAggression%", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color(0xFFC62828))
                                 androidx.compose.material3.LinearProgressIndicator(
-                                    progress = lawsuitProsecutorAggression / 100f,
-                                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                                    progress = { lawsuitProsecutorAggression / 100f },
+                                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp).height(6.dp).clip(RoundedCornerShape(3.dp)),
                                     color = Color(0xFFC62828),
                                     trackColor = MaterialTheme.colorScheme.surfaceVariant
                                 )
@@ -1472,6 +1616,37 @@ fun DashboardScreen(
                         }
                         
                         Spacer(Modifier.height(8.dp))
+
+                        // Formal Grand Jury Indictments block
+                        Text("📜 FORMAL CONSTITUTIONAL INDICTMENTS & ACCUSATIONS:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.error)
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f)),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f))
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                lawsuitCharges.forEach { charge ->
+                                    val isStatuteBreach = charge.contains("STATUTORY BREACH")
+                                    Row(verticalAlignment = Alignment.Top) {
+                                        Text(
+                                            text = if (isStatuteBreach) "⚖️ " else "📌 ", 
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                        Text(
+                                            text = charge,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = if (isStatuteBreach) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onBackground,
+                                            fontWeight = if (isStatuteBreach) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+                        Text("🗣️ COURT TRIAL TRANSCRIPT & FORENSIC DIALOGUE:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.outline)
                         
                         // Trial Logs content
                         Box(
@@ -1479,7 +1654,7 @@ fun DashboardScreen(
                                 .weight(1f)
                                 .fillMaxWidth()
                                 .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
-                                .background(Color(0xFF1E1E1E))
+                                .background(Color(0xFF121212))
                                 .padding(12.dp)
                         ) {
                             val logScrollState = rememberScrollState()
@@ -1490,28 +1665,35 @@ fun DashboardScreen(
                             ) {
                                 lawsuitLog.forEach { paragraph ->
                                     val isUser = paragraph.startsWith("🎒 DEFENSE SUBMITTED:")
-                                    val isVerdict = paragraph.contains("⚖️ FINAL COMMITTEE VERDICT:")
-                                    val isProsecution = paragraph.contains("🗣️ PROSECUTION")
+                                    val isVerdict = paragraph.contains("⚖️ FINAL COMMITTEE VERDICT:") || paragraph.contains("⚖️ FINAL") || paragraph.contains("Chief Justice's")
+                                    val isProsecution = paragraph.contains("🗣️ PROSECUTION") || paragraph.contains("State Prosecutor:") || paragraph.contains("Presiding Judge:")
                                     
                                     val bgColor = when {
-                                        isUser -> Color(0xFF1A237E)
+                                        isUser -> Color(0xFF0D47A1)
                                         isVerdict -> Color(0xFF1B5E20)
-                                        isProsecution -> Color(0xFF3E2723)
+                                        isProsecution -> Color(0xFF2C1C1C)
                                         else -> Color.Transparent
+                                    }
+                                    
+                                    val fontColor = when {
+                                        isUser -> Color.White
+                                        isVerdict -> Color(0xFFC8E6C9)
+                                        isProsecution -> Color(0xFFFFCDD2)
+                                        else -> Color.White
                                     }
                                     
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(vertical = 4.dp)
-                                            .clip(RoundedCornerShape(6.dp))
+                                            .clip(RoundedCornerShape(8.dp))
                                             .background(bgColor)
-                                            .padding(8.dp)
+                                            .padding(10.dp)
                                     ) {
                                         Text(
                                             text = paragraph,
-                                            color = Color.White,
-                                            fontSize = 13.sp,
+                                            color = fontColor,
+                                            fontSize = 12.1.sp,
                                             fontFamily = FontFamily.Monospace,
                                             fontWeight = if (isVerdict) FontWeight.Bold else FontWeight.Normal
                                         )
@@ -1526,26 +1708,29 @@ fun DashboardScreen(
                         if (lawsuitCurrentStage == "verdict") {
                             Card(
                                 colors = CardDefaults.cardColors(containerColor = if (lawsuitVerdict == "Exonerated") Color(0xFFE8F5E9) else Color(0xFFFFEBEE)),
-                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(1.2.dp, if (lawsuitVerdict == "Exonerated") Color(0xFF2E7D32) else Color(0xFFC62828))
                             ) {
                                 Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
-                                        text = "DISCIPLINARY HEARINGS CONCLUDED!",
+                                        text = "🏛️ SOVEREIGN JUDICIAL COURT DECREE RENDERED",
                                         fontWeight = FontWeight.Black,
-                                        fontSize = 13.sp,
+                                        fontSize = 12.sp,
                                         color = if (lawsuitVerdict == "Exonerated") Color(0xFF2E7D32) else Color(0xFFC62828)
                                     )
                                     Text(
-                                        text = "Verdict: ${lawsuitVerdict?.uppercase() ?: "UNKNOWN"}",
+                                        text = "Verdict: ${lawsuitVerdict?.uppercase() ?: "JUDGMENT GIVEN"}",
                                         style = MaterialTheme.typography.titleLarge,
                                         fontWeight = FontWeight.ExtraBold,
+                                        color = if (lawsuitVerdict == "Exonerated") Color(0xFF1B5E20) else Color(0xFFC62828),
                                         modifier = Modifier.padding(vertical = 4.dp)
                                     )
                                     if (lawsuitFine > 0.0) {
-                                        Text("Penalty Fine Levied: R${lawsuitFine} (Operating Balance Sanctioned)", fontWeight = FontWeight.Bold, color = Color(0xFFC62828))
+                                        Text("Statutory Fine Levied: R${lawsuitFine} (Toll Penalty deducted from clinic balance)", fontWeight = FontWeight.Bold, color = Color(0xFFC62828), style = MaterialTheme.typography.bodySmall)
                                     }
                                     if (lawsuitSuspension > 0) {
-                                        Text("Clinical Supervision Suspension Penalty: $lawsuitSuspension weeks", fontWeight = FontWeight.Bold, color = Color(0xFFC62828))
+                                        Text("Clinical Supervision Penalty Order: $lawsuitSuspension weeks of suspended operations", fontWeight = FontWeight.Bold, color = Color(0xFFC62828), style = MaterialTheme.typography.bodySmall)
                                     }
                                 }
                             }
@@ -1553,13 +1738,14 @@ fun DashboardScreen(
                             Button(
                                 onClick = { viewModel.dismissLawsuit() },
                                 modifier = Modifier.fillMaxWidth().height(48.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                shape = RoundedCornerShape(10.dp)
                             ) {
-                                Text("Acknowledge & Return to Practice", fontWeight = FontWeight.Bold)
+                                Text("Acknowledge Decree & Resume Clinical Practice", fontWeight = FontWeight.Bold)
                             }
                         } else {
                             // Defensive Strategy Selections
-                            Text("Select Disciplinary Defense & Plead Strategy:", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
+                            Text("Select Disciplinary Defense & Plead Strategy:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(bottom = 6.dp))
                             
                             val defenses = listOf(
                                 "Resource Constraints: Blame structural clinic shortages & lack of medical reagent inventory.",
@@ -1573,9 +1759,10 @@ fun DashboardScreen(
                                     onClick = { viewModel.submitLawsuitDefense(choice) },
                                     modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
-                                    enabled = !isLoading
+                                    enabled = !isLoading,
+                                    shape = RoundedCornerShape(8.dp)
                                 ) {
-                                    Text(choice, fontSize = 11.sp, textAlign = TextAlign.Left, modifier = Modifier.fillMaxWidth())
+                                    Text(choice, fontSize = 10.5.sp, textAlign = TextAlign.Left, modifier = Modifier.fillMaxWidth())
                                 }
                             }
                         }
@@ -2488,4 +2675,774 @@ fun VisualPatientOutcomeBanner(outcome: String, modifier: Modifier = Modifier) {
         }
     }
 }
+
+@Composable
+fun StateAndLegislationTab(
+    viewModel: SimulationViewModel,
+    onAdmittedClicked: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val countryName by viewModel.countryName.collectAsStateWithLifecycle()
+    val presidentName by viewModel.presidentName.collectAsStateWithLifecycle()
+    val presidentParty by viewModel.presidentParty.collectAsStateWithLifecycle()
+    val presidentApproval by viewModel.presidentApproval.collectAsStateWithLifecycle()
+    val politicalPrestige by viewModel.politicalPrestige.collectAsStateWithLifecycle()
+    val activePolicies by viewModel.activePolicies.collectAsStateWithLifecycle()
+    
+    val currentDraftPolicy by viewModel.currentDraftPolicy.collectAsStateWithLifecycle()
+    val isVotingActive by viewModel.isVotingActive.collectAsStateWithLifecycle()
+    val voteProgress by viewModel.voteProgress.collectAsStateWithLifecycle()
+    val currentVoteYes by viewModel.currentVoteYes.collectAsStateWithLifecycle()
+    val currentVoteNo by viewModel.currentVoteNo.collectAsStateWithLifecycle()
+    val currentVoteAbstain by viewModel.currentVoteAbstain.collectAsStateWithLifecycle()
+    val votingLog by viewModel.votingLog.collectAsStateWithLifecycle()
+    val sickPoliticianAlert by viewModel.sickPoliticianAlert.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+
+    val progressiveLobbyBias by viewModel.progressiveLobbyBias.collectAsStateWithLifecycle()
+    val conservativeLobbyBias by viewModel.conservativeLobbyBias.collectAsStateWithLifecycle()
+    val independentLobbyBias by viewModel.independentLobbyBias.collectAsStateWithLifecycle()
+    val lastLobbyReport by viewModel.lastLobbyReport.collectAsStateWithLifecycle()
+
+    var selectedLobbyFaction by remember { mutableStateOf("Progressives") }
+    var selectedLobbyPitch by remember { mutableStateOf("Clinical Safety & Standards") }
+    var lobbyCustomMessage by remember { mutableStateOf("") }
+
+    var showEditCountryDialog by remember { mutableStateOf(false) }
+    var draftFocusText by remember { mutableStateOf("") }
+
+    var editCountryName by remember { mutableStateOf(countryName) }
+    var editPresidentName by remember { mutableStateOf(presidentName) }
+    var editPresidentParty by remember { mutableStateOf(presidentParty) }
+
+    LaunchedEffect(showEditCountryDialog) {
+        if (showEditCountryDialog) {
+            editCountryName = countryName
+            editPresidentName = presidentName
+            editPresidentParty = presidentParty
+        }
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // --- 1. SOVEREIGN COUNTRY PROFILE CARD ---
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "👑 SOVEREIGN STATE POLICY CONTROL",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Administer health codes and execute executive mandates",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    IconButton(onClick = { showEditCountryDialog = true }) {
+                        Icon(Icons.Default.Settings, contentDescription = "Edit Country Specs")
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Nation State", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        Text(countryName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("President Persona", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        Text(presidentName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Ruling Party / Bloc", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        Text(presidentParty, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Executive Approval", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        Text("$presidentApproval%", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Black)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            "Political Prestige Score:",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "$politicalPrestige / 100",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Black,
+                            color = if (politicalPrestige >= 50) Color(0xFF2E7D32) else Color(0xFFC62828)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    androidx.compose.material3.LinearProgressIndicator(
+                        progress = { politicalPrestige.toFloat() / 100f },
+                        modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                        color = if (politicalPrestige >= 50) Color(0xFF2E7D32) else Color(0xFFC62828),
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                }
+            }
+        }
+
+        // --- 2. SICK POLITICIAN CRITICAL ALERT CARD ---
+        if (sickPoliticianAlert != null) {
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.MonitorHeart,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "VIP PATIENT DISTRESS DIRECTIVE",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = sickPoliticianAlert ?: "",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Button(
+                            onClick = {
+                                onAdmittedClicked()
+                                viewModel.admitPoliticianToClinic()
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = Color.White
+                            ),
+                            modifier = Modifier.weight(1.5f)
+                        ) {
+                            Text("🏥 ADMIT & CURE NOW", fontWeight = FontWeight.Black)
+                        }
+                        OutlinedButton(
+                            onClick = { viewModel.dismissPoliticianSicknessAlert() },
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.onErrorContainer
+                            ),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Postpone")
+                        }
+                    }
+                }
+            }
+        } else {
+            OutlinedButton(
+                onClick = { viewModel.triggerPoliticianSickness() },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                Icon(Icons.Default.MonitorHeart, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("🚨 SIMULATE VIP SICKNESS ALERT", fontWeight = FontWeight.Bold)
+            }
+        }
+
+        // --- 3. DRAFT NEW HEALTH POLICY FORM ---
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "✍ " + "FORMULATE LEGISLATIVE DEMAND",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    text = "Prompt the AI to draft a dynamic health code policy bill with extended clauses. Once voted by Parliament and signed by the President, this law is immediately live and enforced.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                OutlinedTextField(
+                    value = draftFocusText,
+                    onValueChange = { draftFocusText = it },
+                    placeholder = { Text("e.g. Ensure all severe cases get ECG, mandate full blood count labs, reduce diagnostics cost, check clinical vitals before prescribing") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
+                    maxLines = 4,
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = {
+                        if (draftFocusText.isNotBlank()) {
+                            viewModel.generateHealthPolicyDraft(draftFocusText)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = draftFocusText.isNotBlank() && !isLoading,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary)
+                    } else {
+                        Text("🖋️ DRAFT CONSTITUTIONAL ACT", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        // --- 4. ACTIVE BILL PARLIAMENT REVIEW BOARD ---
+        if (currentDraftPolicy != null) {
+            val draft = currentDraftPolicy!!
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(2.dp, MaterialTheme.colorScheme.secondary, RoundedCornerShape(16.dp))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            color = when (draft.status) {
+                                "Draft" -> MaterialTheme.colorScheme.secondaryContainer
+                                "PresidentDesk" -> MaterialTheme.colorScheme.primaryContainer
+                                "Vetoed" -> MaterialTheme.colorScheme.errorContainer
+                                else -> MaterialTheme.colorScheme.surfaceVariant
+                            },
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                text = "BILL STAGE: ${draft.status.uppercase()}",
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
+                        
+                        IconButton(onClick = { viewModel.dismissCurrentDraft() }) {
+                            Icon(Icons.Default.Close, contentDescription = "Close Proposal")
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = draft.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = draft.summary,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "📜 EXTENDED CODES & CONTRACTS:",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    draft.extendedClauses.forEach { clause ->
+                        Text(
+                            text = "• $clause",
+                            modifier = Modifier.padding(start = 8.dp, top = 4.dp),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "🔧 SIMULATOR SCORECARD ENFORCEMENT RULES:",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                    Text(
+                        text = "System active translation: '${draft.clinicalRule}'",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontStyle = FontStyle.Italic,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "📈 ESTIMATED CLINIC TREASURY IMPACT:",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = draft.economicImpact,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+
+                    if (isVotingActive) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        HorizontalDivider()
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            text = "🗳️ PROGRESSIVE PARLIAMENTARY ROLL CALL...",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        androidx.compose.material3.LinearProgressIndicator(
+                            progress = { voteProgress },
+                            modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp))
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("🟢 YES (Voted): $currentVoteYes", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
+                            Text("🔴 NO (Opposed): $currentVoteNo", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = Color(0xFFC62828))
+                            Text("⚪ ABSTAIN: $currentVoteAbstain", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = Color(0xFF757575))
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    votingLog.takeLast(3).forEach { logLine ->
+                        Text(
+                            text = logLine,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.padding(vertical = 2.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    when (draft.status) {
+                        "Draft" -> {
+                            // Lobbying Dashboard Cards & Actions
+                            Text(
+                                text = "📢 PARLIAMENTARY LOBBYING CENTER",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                            )
+                            Text(
+                                text = "Influence vote counts by presenting clinical arguments to Parliamentary party caucus leadership. Each lobbying attempt costs 5 Political Prestige or R500 consultant fee.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            // Displays biases
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(8.dp)) {
+                                    Text("Current Stances & Outreach Biases:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    
+                                    val progBiasPct = String.format("%+.0f%%", progressiveLobbyBias * 100)
+                                    Text("🔵 Progressives (84 seats): Safety-aligned | Lobby Bias: $progBiasPct", style = MaterialTheme.typography.bodySmall)
+                                    
+                                    val consBiasPct = String.format("%+.0f%%", conservativeLobbyBias * 100)
+                                    Text("🔴 Conservatives (76 seats): Cost-aligned | Lobby Bias: $consBiasPct", style = MaterialTheme.typography.bodySmall)
+                                    
+                                    val indBiasPct = String.format("%+.0f%%", independentLobbyBias * 100)
+                                    Text("⚪ Independents (40 seats): Pragmatic | Lobby Bias: $indBiasPct", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            // Select target faction
+                            Text("Select Target Caucus:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                val factionsList = listOf("Progressives", "Conservatives", "Independents")
+                                factionsList.forEach { f ->
+                                    val isSel = selectedLobbyFaction == f
+                                    AssistChip(
+                                        onClick = { selectedLobbyFaction = f },
+                                        label = { Text(f, style = MaterialTheme.typography.bodySmall) },
+                                        colors = AssistChipDefaults.assistChipColors(
+                                            containerColor = if (isSel) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                                            labelColor = if (isSel) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    )
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(4.dp))
+                            
+                            // Select pitch angle
+                            Text("Select Pitch Angle Argument:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                val angles = listOf("Safety & Vitals", "Cost Reduction", "Sovereign Welfare")
+                                angles.forEach { a ->
+                                    val realAngle = when(a) {
+                                        "Safety & Vitals" -> "Clinical Safety & Standards"
+                                        "Cost Reduction" -> "Economic Cost Reduction & Efficiency"
+                                        else -> "Pragmatic Balance & Local Standards"
+                                    }
+                                    val isSel = selectedLobbyPitch == realAngle
+                                    AssistChip(
+                                        onClick = { selectedLobbyPitch = realAngle },
+                                        label = { Text(a, style = MaterialTheme.typography.bodySmall) },
+                                        colors = AssistChipDefaults.assistChipColors(
+                                            containerColor = if (isSel) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+                                            labelColor = if (isSel) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    )
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(4.dp))
+                            
+                            // Free-form message input
+                            OutlinedTextField(
+                                value = lobbyCustomMessage,
+                                onValueChange = { lobbyCustomMessage = it },
+                                label = { Text("Outline custom argument context...", style = MaterialTheme.typography.bodySmall) },
+                                modifier = Modifier.fillMaxWidth(),
+                                maxLines = 2,
+                                textStyle = MaterialTheme.typography.bodySmall
+                            )
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            // Lobby Trigger Button
+                            Button(
+                                onClick = { 
+                                    viewModel.lobbyFaction(selectedLobbyFaction, selectedLobbyPitch, lobbyCustomMessage)
+                                    lobbyCustomMessage = "" 
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.secondary,
+                                    contentColor = MaterialTheme.colorScheme.onSecondary
+                                ),
+                                enabled = !isVotingActive && !isLoading
+                            ) {
+                                Text("📢 CONVINCE CAUCUS LEADERSHIP", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+                            }
+                            
+                            // Show last lobby response transcript memo
+                            lastLobbyReport?.let { report ->
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Card(
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = Color(0xFFFFF9C4), // Golden paper alert background
+                                        contentColor = Color.Black
+                                    ),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp)) {
+                                        Text(
+                                            text = report,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Color.Black
+                                        )
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Button(
+                                            onClick = { viewModel.dismissLobbyReport() },
+                                            modifier = Modifier.align(Alignment.End),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = Color.Black,
+                                                contentColor = Color.White
+                                            )
+                                        ) {
+                                            Text("Dismiss Stance", style = MaterialTheme.typography.bodySmall)
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(12.dp))
+                            HorizontalDivider()
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            // Voting dispatch
+                            Button(
+                                onClick = { viewModel.runParliamentVoteSim(draft) },
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = !isVotingActive
+                            ) {
+                                Text("🗳️ DISPATCH TO GENERAL PARLIAMENT FOR VOTE", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        "PresidentDesk" -> {
+                            Text(
+                                text = "PRESIDENT PERSONA DESK MEMO:",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = { viewModel.presidentialSignDraft() },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFF2E7D32),
+                                        contentColor = Color.White
+                                    ),
+                                    modifier = Modifier.weight(1.2f)
+                                ) {
+                                    Text("✍️ APPROVE & SIGN", fontWeight = FontWeight.Bold)
+                                }
+                                Button(
+                                    onClick = { viewModel.presidentialVetoDraft() },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFFC62828),
+                                        contentColor = Color.White
+                                    ),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("🚫 VETO BILL", fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                        "Vetoed" -> {
+                            Text(
+                                text = "President vetoed this health bill. If you have at least 40 Prestige and mobilize political caucus groupings, you can override with a 2/3 supermajority.",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontStyle = FontStyle.Italic,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                            Button(
+                                onClick = { viewModel.attemptParliamentOverride() },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.tertiary
+                                ),
+                                enabled = politicalPrestige >= 40 && !isVotingActive,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("🔥 MOBILIZE ASSEMBLY OVERRIDE", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- 5. APPROVED CONSTITUTION ARCHIVE ---
+        Text(
+            text = "⚖️ APPROVED CODES & SUPREME HEALTH LAWS (${activePolicies.size})",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.ExtraBold,
+            modifier = Modifier.padding(top = 8.dp)
+        )
+
+        if (activePolicies.isEmpty()) {
+            Card(shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+                Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                    Text(
+                        "No dynamic health codes signed yet. Design and pass health bills above to build the nation!",
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                }
+            }
+        } else {
+            activePolicies.forEach { policy ->
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "📜 ACT: ${policy.title}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                            Surface(
+                                color = Color(0xFF2E7D32),
+                                contentColor = Color.White,
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = "ENFORCED",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = policy.summary,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "🔧 Live Operational Constraint: '${policy.clinicalRule}'",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            OutlinedButton(
+                onClick = { viewModel.clearApprovedPolicies() },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text("🧹 CLEAR ACTIVE STATUTES", fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+
+    if (showEditCountryDialog) {
+        AlertDialog(
+            onDismissRequest = { showEditCountryDialog = false },
+            title = { Text("Configure Sovereign State") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = editCountryName,
+                        onValueChange = { editCountryName = it },
+                        label = { Text("Country Name") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = editPresidentName,
+                        onValueChange = { editPresidentName = it },
+                        label = { Text("President Persona Name") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = editPresidentParty,
+                        onValueChange = { editPresidentParty = it },
+                        label = { Text("Ruling Faction Party") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    if (editCountryName.isNotBlank()) viewModel.updateCountryName(editCountryName)
+                    if (editPresidentName.isNotBlank()) viewModel.updatePresidentName(editPresidentName)
+                    if (editPresidentParty.isNotBlank()) viewModel.updatePresidentParty(editPresidentParty)
+                    showEditCountryDialog = false
+                }) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showEditCountryDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+}
+
 
