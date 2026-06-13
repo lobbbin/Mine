@@ -268,29 +268,98 @@ When you author or activate a custom clause targeting patient **vitals**:
 
 ## 7. Forensic Judiciary Courtroom & Tribunal Engine
 
-When a clinical case evaluation finishes with verified statutory policy violations or a deficient clinical competency rating (e.g. low CPD score), the practitioner face consequences under the **Supreme Medical Court / Sovereign Inquest Division**.
+When a clinical case evaluation finishes with verified statutory policy violations or a deficient clinical competency rating (e.g., low CPD score, state penalty adjustments, or failing safety directives), the practitioner is formally summoned to face consequences under the **Supreme Medical Court / Sovereign Inquest Division**.
 
 ### A. Litigation Escalation Mechanics
-* **Summons & Indictment:** If you register critical compliance violations during a shift checkout, a Sovereign Judiciary Trial is initiated. The system compiles your statutory breaches into high-consequence prosecution counts.
-* **The Courtroom Environment:** The courtroom state (`_lawsuitCurrentStage`, `_lawsuitTension`, and `_lawsuitProsecutorAggression`) is spun up with an interactive hearing dialogue panel. The **Presiding Judge** and a high-tempo **State Prosecutor** deliver formal indictments with legal citations.
+* **Summons & Indictment:** If you register critical compliance violations during clinical checkout, a Sovereign Judiciary Trial is programmatically triggered. The system compiles your specific statutory and regulatory breaches into high-consequence prosecution counts.
+* **The Courtroom Environment:** The courtroom state is controlled by three main variables:
+  - `_lawsuitCurrentStage` ("pleading" vs "verdict" phase)
+  - `_lawsuitTension` (A metric from 10% to 100% affecting the visual volatility of the trial)
+  - `_lawsuitProsecutorAggression` (A metric signifying the intensity of cross-examinations and prosecution claims)
+  The dialog itself renders as an immersive high-contrast legal transcript panel.
 
 ### B. The Trial Dialogue & Defense Loop
-1. **Pleading Strategy:** The user is prompted to type an interactive, custom Legal Defense strategy detailing why the clinical guidelines were bypassed or how the patient was treated under pressure.
-2. **The Forensic LLM Turn:** Under submission, the system dispatches a tailored legal-roleplay prompt containing:
-   * Case demographics, clinical diagnoses, and final scores.
-   * Active national health laws and documented programmatic violations.
-   * The practitioner's defense argument.
-3. **Cross-Examination & Sentencing:** The AI model roleplays both the **State Prosecutor** (dismantling excuses, analyzing the defense, referencing statutory clauses, and demands license suspension) and the **Presiding Judge** (delivering formal decrees, warnings, and statutory fines matching the strict guidelines in active policies).
+1. **Interactive Pleading Strategy:** The clinician is presented with an active court summons indicating the laws violated. The user has an entry buffer where they must draft a formal custom Legal Defense strategy justifying their triage errors, resource limitations, or emergency context.
+2. **Forensic LLM Analysis API Turn:** Once submitted, the system calls your configured LLM (e.g. OpenAI / Nvidia endpoint) inside `submitLawsuitDefense(strategy)` with comprehensive contextual prompts:
+   * Clinical diagnoses, patient demographics, and actual achieved competency scores.
+   * Explicit national health laws violated and programmatic OSCE breaches recorded.
+   * The developer-provided defense text.
+3. **Cross-Examination & Decree Rendering:** The model roleplays:
+   - **The State Prosecutor:** Dismantles defenses, cites sovereign health statutes, demands medical registry deletions, and presses for maximum fines.
+   - **The Presiding Judge:** Delivers formal rulings, warnings, and commands judicial financial sanctions.
 
 ### C. Financial Sanctions & Penalties
-If the tribunal sentences the practitioner to a fine, the penalty is deducted directly from your **clinic's operating balance sheet**:
+If the tribunal decrees a physical financial fine, the penalty is adjusted directly out of your global **clinic operating balance**:
 ```kotlin
-if (reply.fineAmount > 0.0) {
-    settingsDataStore.updateClinicStats(clinicBalance.value - reply.fineAmount, reputationStars.value)
-    registerDailyExpense(reply.fineAmount)
+if (fine > 0.0) {
+    settingsDataStore.updateClinicStats(clinicBalance.value - fine, reputationStars.value)
+    registerDailyExpense(fine)
 }
 ```
-If the practitioner is suspended, their license is temporarily frozen according to the court decree.
+If suspended, your license is put on active freeze based on the court's decree length.
+
+---
+
+## 8. Sovereign State Policy Control & Parliamentary Simulator
+
+The **Health Politics & Laws Hub** is a separate, sophisticated administrative simulation that lets you formulate, lobby, vote on, and sign realistic medical bills into actual active clinical statutes. This creates a fully dynamic, self-reinforcing legal loop where your political actions directly govern the local programmatic clinical audits.
+
+```
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                      1. CHOOSE FORMULATION METHOD                                │
+│   • "AI Assisted Draft": Type a goal (e.g. "mandate baseline vitals checks")    │
+│   • "Manual Designer": Manually customize fields: Titles, Rules, Fees, CPDs     │
+└────────────────────────────────────────┬─────────────────────────────────────────┘
+                                         │
+                                         ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                      2. THE PARLIAMENTARY LOBBY CENTER                           │
+│   • Progressives (84 seats): Focus on clinical safety, patient outcomes          │
+│   • Conservatives (76 seats): Focus on free market, cost, tax constraints        │
+│   • Independents (40 seats): Pragmatic swing votes who watch public feedback     │
+└────────────────────────────────────────┬─────────────────────────────────────────┘
+                                         │ Runs Lobbying Campaign
+                                         ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                      3. INTRODUCE BILL & PARLIAMENTARY DEBATE                    │
+│   • Introduce the Draft Bill for official voting in Parliament                   │
+│   • A multi-step debate with progress indicators determines final vote tally     │
+└────────────────────────────────────────┬─────────────────────────────────────────┘
+                                         │ Passes Parliament
+                                         ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                      4. EXECUTIVE ACCORD (PRESIDENT SIGN/VETO)                   │
+│   • The President (e.g., President of Pretoria) signs or vetos the act           │
+│   • Generates a professional Presidential Executive Memo justifying the action   │
+└────────────────────────────────────────┬─────────────────────────────────────────┘
+                                         │ Signed into Active Law
+                                         ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                      5. DYNAMIC CLINICAL COMPLIANCE LAW IS LIVE                  │
+│   • Local compliance engine programmatically registers the new active law       │
+│   • Future clinical checkout scorecards will audit against the new rules         │
+│   • Low compliance now triggers Courtroom Trials under section 7                 │
+└──────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### A. Bill Formulation Mechanics
+The developer can craft new public policy using two distinct interfaces:
+1. **AI-Assisted Draft:** Type a prompt or brief clinical guidance note (e.g. *"generic drug substitution directives with 15 cpd penalty"*). A direct API call is routed to your configured LLM (Nvidia / OpenAI) where it dynamically crafts a fully qualified, multi-clause, parliamentary bill JSON containing real rules, CPD penalties, and custom estimated treasury impacts.
+2. **Manual Designer:** An offline control console to adjust the Policy Title, specific clinical audit directives, dynamic consultation fee changes (-50% to +100%), and exact CPD point deduction bounds.
+
+### B. Parliamentary Coalitions & Lobbying Campaigns
+Parliament consists of 200 sovereign legislative seats partitioned across:
+* **The Progressives (84 seats):** Staunch supporters of strict clinical protocols, safety compliance, and comprehensive diagnostic procedures.
+* **The Conservatives (76 seats):** Advocates of operational efficiency, cost-reductions, and private clinic financial freedom.
+* **The Independents (40 seats):** Unaligned pragmatists whose behavior is driven by current presidential popularity levels and clinical effectiveness ratings.
+
+**The Lobby Strategy:**
+Spend a portion of your operating capital or political prestige to execute highly target pitching campaigns (e.g. *"Clinical Safety Argument"*, *"Economic Viability pitch"*, or custom pitches). The simulation calculates dynamic parliamentary bias based on your selected faction, your pitch angle, and custom arguments, generating active feedback letters from key parliamentary spokespersons.
+
+### C. The Executive Accord (The Presidential Stage)
+Once a bill successfully obtains a simple majority support (>100 votes) in Parliament, it is sent to the desk of the **Sovereign Executive Head of State**:
+* **Presidential Signature:** The President signs the legislative act, generating an executive memo validating the policy. The act is immediately codified into the country's live statutes, updating the local state engine. This increases the President's public approval rating.
+* **Executive Veto:** The President exercises executive veto power, returning the rejected draft back to Parliament with a formal veto memo citing policy mismatch. This decreases the President's approval.
 
 ---
 *Created and validated for clinical simulation and training.*
