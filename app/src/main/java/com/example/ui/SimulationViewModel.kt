@@ -2309,49 +2309,13 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
 
                 val activeUrl = getActiveUrl(provider, modelName, apiKey, customUrl)
                 
-                if (provider == "Nvidia") {
-                    val streamRequest = request.copy(stream = true)
-                    val response = RetrofitClient.service.callOpenAIStream(
-                        url = activeUrl,
-                        authorization = "Bearer $activeKey",
-                        accept = "text/event-stream",
-                        body = streamRequest
-                    )
-                    
-                    val source = response.source()
-                    val sb = StringBuilder()
-                    // Track if we are inside a think block natively just in case
-                    while (!source.exhausted()) {
-                        val line = source.readUtf8Line()
-                        if (line != null && line.startsWith("data: ") && !line.contains("[DONE]")) {
-                            val jsonString = line.substring(6)
-                            try {
-                                val json = JSONObject(jsonString)
-                                val choices = json.optJSONArray("choices")
-                                if (choices != null && choices.length() > 0) {
-                                    val delta = choices.getJSONObject(0).optJSONObject("delta")
-                                    if (delta != null && delta.has("content") && !delta.isNull("content")) {
-                                        val content = delta.optString("content", "")
-                                        if (content != "null") {
-                                            sb.append(content)
-                                        }
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                // Ignore
-                            }
-                        }
-                    }
-                    sb.toString()
-                } else {
-                    val response = RetrofitClient.service.callOpenAI(
-                        url = activeUrl,
-                        authorization = "Bearer $activeKey",
-                        accept = "application/json",
-                        body = request
-                    )
-                    response.choices.firstOrNull()?.message?.content ?: "{}"
-                }
+                val response = RetrofitClient.service.callOpenAI(
+                    url = activeUrl,
+                    authorization = "Bearer $activeKey",
+                    accept = "application/json",
+                    body = request
+                )
+                response.choices.firstOrNull()?.message?.content ?: "{}"
             }
             "Anthropic" -> {
                 val messages = mutableListOf<AnthropicMessage>()
@@ -2681,7 +2645,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     return@launch
                 }
 
-                val responseRaw = makeDirectApiCall(currentProvider, currentModel, activeKey, prompt)
+                val responseRaw = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt)
                 val sanitized = extractJsonString(responseRaw)
 
                 val reply = try {
@@ -2693,20 +2657,22 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 if (reply != null) {
                     val newLog = _lawsuitLog.value.toMutableList()
                     newLog.add("🎒 DEFENSE SUBMITTED: $strategy")
-                    newLog.add("🗣️ PROSECUTION CROSS-EXAMINATION:\n${reply.courtDialogue}")
-                    newLog.add("⚖️ FINAL COMMITTEE VERDICT:\n${reply.finalVerdictText}")
+                    newLog.add("🗣️ PROSECUTION CROSS-EXAMINATION:\n${reply.courtDialogue ?: "The prosecution presents their cross-examination arguments."}")
+                    newLog.add("⚖️ FINAL COMMITTEE VERDICT:\n${reply.finalVerdictText ?: "A verdict was reached by the supreme compliance committee."}")
 
                     _lawsuitLog.value = newLog
-                    _lawsuitTension.value = (_lawsuitTension.value + reply.tensionAdjustment).coerceIn(10, 100)
-                    _lawsuitProsecutorAggression.value = (_lawsuitProsecutorAggression.value + reply.aggressionAdjustment).coerceIn(10, 100)
+                    _lawsuitTension.value = (_lawsuitTension.value + (reply.tensionAdjustment ?: 0)).coerceIn(10, 100)
+                    _lawsuitProsecutorAggression.value = (_lawsuitProsecutorAggression.value + (reply.aggressionAdjustment ?: 0)).coerceIn(10, 100)
                     
-                    _lawsuitVerdict.value = reply.verdictType
-                    _lawsuitFine.value = reply.fineAmount
-                    _lawsuitSuspension.value = reply.suspensionWeeks
+                    _lawsuitVerdict.value = reply.verdictType ?: "Warning"
+                    val fine = reply.fineAmount ?: 0.0
+                    _lawsuitFine.value = fine
+                    val suspension = reply.suspensionWeeks ?: 0
+                    _lawsuitSuspension.value = suspension
                     
-                    if (reply.fineAmount > 0.0) {
-                        settingsDataStore.updateClinicStats(clinicBalance.value - reply.fineAmount, reputationStars.value)
-                        registerDailyExpense(reply.fineAmount)
+                    if (fine > 0.0) {
+                        settingsDataStore.updateClinicStats(clinicBalance.value - fine, reputationStars.value)
+                        registerDailyExpense(fine)
                     }
 
                     _lawsuitCurrentStage.value = "verdict"
@@ -2768,7 +2734,10 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         return when (provider) {
             "Cerebras", "OpenAI", "Nvidia", "Ollama", "vLLM", "Custom (OpenAI-compatible)" -> {
                 val activeKey = if (apiKey.isBlank()) "sk-no-key-required" else apiKey
-                val messages = listOf(OpenAIMessage("system", systemPrompt))
+                val messages = listOf(
+                    OpenAIMessage("system", "You are a professional legislative text draftsman. Return strictly valid raw JSON matching the requested schema. Write nothing else except valid JSON."),
+                    OpenAIMessage("user", "Draft the constitutional health policy bill based on the instructions:\n\n$systemPrompt")
+                )
                 val isCustomUrl = customUrl.isNotBlank()
                 val request = OpenAIRequest(
                     model = modelName,
@@ -2778,41 +2747,12 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     stream = false
                 )
                 val activeUrl = getActiveUrl(provider, modelName, apiKey, customUrl)
-                if (provider == "Nvidia") {
-                    val streamRequest = request.copy(stream = true)
-                    val response = RetrofitClient.service.callOpenAIStream(
-                        url = activeUrl,
-                        authorization = "Bearer $activeKey",
-                        accept = "text/event-stream",
-                        body = streamRequest
-                    )
-                    val source = response.source()
-                    val sb = java.lang.StringBuilder()
-                    while (!source.exhausted()) {
-                        val line = source.readUtf8Line()
-                        if (line != null && line.startsWith("data: ") && !line.contains("[DONE]")) {
-                            val jsonString = line.substring(6)
-                            try {
-                                val json = org.json.JSONObject(jsonString)
-                                val choices = json.optJSONArray("choices")
-                                if (choices != null && choices.length() > 0) {
-                                    val delta = choices.getJSONObject(0).optJSONObject("delta")
-                                    if (delta != null && delta.has("content") && !delta.isNull("content")) {
-                                        sb.append(delta.optString("content", ""))
-                                    }
-                                }
-                            } catch (e: Exception) {}
-                        }
-                    }
-                    sb.toString()
-                } else {
-                    val response = RetrofitClient.service.callOpenAI(
-                        url = activeUrl,
-                        authorization = "Bearer $activeKey",
-                        body = request
-                    )
-                    response.choices.firstOrNull()?.message?.content ?: ""
-                }
+                val response = RetrofitClient.service.callOpenAI(
+                    url = activeUrl,
+                    authorization = "Bearer $activeKey",
+                    body = request
+                )
+                response.choices.firstOrNull()?.message?.content ?: ""
             }
             "Anthropic" -> {
                 val activeKey = if (apiKey.isBlank()) "sk-no-key-required" else apiKey
@@ -2834,7 +2774,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             }
             else -> { // Google Gemini
                 val activeKey = if (apiKey.isBlank()) "sk-no-key-required" else apiKey
-                val contents = listOf(GeminiContent(null, listOf(GeminiPart("Execute following instruction: $systemPrompt"))))
+                val contents = listOf(GeminiContent("user", listOf(GeminiPart("Execute following instruction: $systemPrompt"))))
                 val request = GeminiRequest(
                     contents = contents,
                     systemInstruction = GeminiSystemInstruction(listOf(GeminiPart("You are a legislative text draftsman. Return only valid raw JSON."))),

@@ -1533,6 +1533,7 @@ fun DashboardScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
                             .padding(16.dp)
                     ) {
                         // Sovereign High Court Header
@@ -1649,19 +1650,17 @@ fun DashboardScreen(
                         Text("🗣️ COURT TRIAL TRANSCRIPT & FORENSIC DIALOGUE:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.outline)
                         
                         // Trial Logs content
-                        Box(
+                        Card(
                             modifier = Modifier
-                                .weight(1f)
                                 .fillMaxWidth()
-                                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
-                                .background(Color(0xFF121212))
-                                .padding(12.dp)
+                                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), RoundedCornerShape(8.dp)),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF121212)),
+                            shape = RoundedCornerShape(8.dp)
                         ) {
-                            val logScrollState = rememberScrollState()
                             Column(
                                 modifier = Modifier
-                                    .fillMaxSize()
-                                    .verticalScroll(logScrollState)
+                                    .fillMaxWidth()
+                                    .padding(12.dp)
                             ) {
                                 lawsuitLog.forEach { paragraph ->
                                     val isUser = paragraph.startsWith("🎒 DEFENSE SUBMITTED:")

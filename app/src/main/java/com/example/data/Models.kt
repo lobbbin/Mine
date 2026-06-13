@@ -93,14 +93,14 @@ data class AIResponseStateUpdate(
 
 @JsonClass(generateAdapter = true)
 data class LawsuitResponse(
-    val courtDialogue: String,
-    val tensionAdjustment: Int,
-    val aggressionAdjustment: Int,
-    val judgmentStageReached: Boolean,
-    val verdictType: String, // "Exonerated", "Warning", "Suspension", "Fined"
-    val fineAmount: Double,
-    val suspensionWeeks: Int,
-    val finalVerdictText: String
+    val courtDialogue: String? = null,
+    val tensionAdjustment: Int? = null,
+    val aggressionAdjustment: Int? = null,
+    val judgmentStageReached: Boolean? = null,
+    val verdictType: String? = null, // "Exonerated", "Warning", "Suspension", "Fined"
+    val fineAmount: Double? = null,
+    val suspensionWeeks: Int? = null,
+    val finalVerdictText: String? = null
 )
 
 @JsonClass(generateAdapter = true)
