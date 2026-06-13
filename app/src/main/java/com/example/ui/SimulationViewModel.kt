@@ -3072,7 +3072,12 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 )
 
                 val currentPolicies = activePolicies.value.toMutableList()
-                currentPolicies.add(finalPolicy)
+                val idx = currentPolicies.indexOfFirst { it.id == finalPolicy.id }
+                if (idx >= 0) {
+                    currentPolicies[idx] = finalPolicy
+                } else {
+                    currentPolicies.add(finalPolicy)
+                }
                 _currentDraftPolicy.value = finalPolicy
                 
                 settingsDataStore.saveActivePolicies(currentPolicies)
@@ -3181,7 +3186,12 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             if (passed) {
                 val finalPolicy = draft.copy(status = "Approved")
                 val currentPolicies = activePolicies.value.toMutableList()
-                currentPolicies.add(finalPolicy)
+                val idx = currentPolicies.indexOfFirst { it.id == finalPolicy.id }
+                if (idx >= 0) {
+                    currentPolicies[idx] = finalPolicy
+                } else {
+                    currentPolicies.add(finalPolicy)
+                }
                 _currentDraftPolicy.value = finalPolicy
                 settingsDataStore.saveActivePolicies(currentPolicies)
                 
@@ -3203,6 +3213,41 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             _votingLog.value = listOf("🧹 Active health regulations lists successfully swept.")
             _infoEvents.emit("All active healthcare laws and policies have been reset.")
         }
+    }
+
+    fun createOrUpdateDraftPolicy(
+        title: String,
+        summary: String,
+        clinicalRule: String,
+        economicImpact: String,
+        clauses: List<String>,
+        id: String? = null
+    ) {
+        val draftId = id ?: java.util.UUID.randomUUID().toString()
+        val draft = HealthPolicy(
+            id = draftId,
+            title = title,
+            summary = summary,
+            extendedClauses = clauses,
+            economicImpact = economicImpact,
+            clinicalRule = clinicalRule,
+            status = "Draft"
+        )
+        _currentDraftPolicy.value = draft
+        _votingLog.value = listOf("✨ Custom Legislative Bill formulated and loaded in active chamber memory!")
+    }
+
+    fun draftAmendment(policy: HealthPolicy) {
+        val draft = policy.copy(
+            status = "Draft",
+            title = if (policy.title.contains("[Amendment]")) policy.title else "${policy.title} [Amendment]"
+        )
+        _currentDraftPolicy.value = draft
+        _votingLog.value = listOf("✏️ Proposing amendment for active statute '${policy.title}'...")
+    }
+
+    fun deleteDraftPolicy() {
+        _currentDraftPolicy.value = null
     }
 
     // --- POLITICIAN SICKNESS AND EMERGENCY ALERT GENERATION ---
@@ -3538,6 +3583,82 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                             penaltyAmount = penaltyAmt.coerceAtLeast(300.0),
                             scoreDeduction = scoreDeduct,
                             auditMessage = "🚨 VIOLATION: Clinic settings consultation fee (R$consultFee) exceeds the statutory ceiling. Immediate state pricing fine applied."
+                        )
+                    )
+                    continue
+                }
+            }
+
+            // 7. Sick Note/Medical Certificate Mandate
+            if (allText.contains("sick note") || allText.contains("medical certificate") || allText.contains("leave")) {
+                val hasSickNote = !encounter.sickNoteString.isNullOrBlank()
+                if (!hasSickNote) {
+                    results.add(
+                        PolicyAuditResult(
+                            policyId = policy.id,
+                            policyTitle = policy.title,
+                            triggeredClause = "Statutory medical certificate & sick note issuance mandate",
+                            isViolation = true,
+                            penaltyAmount = penaltyAmt.coerceAtLeast(300.0),
+                            scoreDeduction = scoreDeduct,
+                            auditMessage = "🚨 VIOLATION: Compliant clinical outcome requires issuing a statutory medical certificate or sick note, which was omitted under '${policy.title}'."
+                        )
+                    )
+                    continue
+                }
+            }
+
+            // 8. Specialist Referral Mandate
+            if (allText.contains("referral") || allText.contains("specialist") || allText.contains("refer ")) {
+                val hasReferral = !encounter.referralLetterString.isNullOrBlank()
+                if (!hasReferral) {
+                    results.add(
+                        PolicyAuditResult(
+                            policyId = policy.id,
+                            policyTitle = policy.title,
+                            triggeredClause = "Essential specialist clinical referral directive",
+                            isViolation = true,
+                            penaltyAmount = penaltyAmt.coerceAtLeast(400.0),
+                            scoreDeduction = scoreDeduct,
+                            auditMessage = "🚨 VIOLATION: Failed to issue the mandated specialist clinical referral advisory letter for this patient case under '${policy.title}'."
+                        )
+                    )
+                    continue
+                }
+            }
+
+            // 9. Mandatory Pathology/Blood Count Labs
+            if (allText.contains("blood count") || allText.contains("fbc") || allText.contains("cbc") || allText.contains("pathology") || allText.contains("laboratory")) {
+                val hasLabs = !encounter.labResults.isNullOrBlank()
+                if (!hasLabs) {
+                    results.add(
+                        PolicyAuditResult(
+                            policyId = policy.id,
+                            policyTitle = policy.title,
+                            triggeredClause = "Mandatory clinical pathology/laboratory metrics directive",
+                            isViolation = true,
+                            penaltyAmount = penaltyAmt.coerceAtLeast(500.0),
+                            scoreDeduction = scoreDeduct,
+                            auditMessage = "🚨 VIOLATION: Failed to order laboratory diagnostic blood tests or pathology reports under active law '${policy.title}'."
+                        )
+                    )
+                    continue
+                }
+            }
+
+            // 10. Prescription therapeutic directive
+            if (allText.contains("prescribe") || allText.contains("medication") || allText.contains("drug")) {
+                val hasPrescription = !encounter.prescriptionString.isNullOrBlank()
+                if (!hasPrescription) {
+                    results.add(
+                        PolicyAuditResult(
+                            policyId = policy.id,
+                            policyTitle = policy.title,
+                            triggeredClause = "Clinical prescription & therapeutic drug delivery mandate",
+                            isViolation = true,
+                            penaltyAmount = penaltyAmt.coerceAtLeast(350.0),
+                            scoreDeduction = scoreDeduct,
+                            auditMessage = "🚨 VIOLATION: Active health law requires issuing therapeutic prescription drugs, but no prescription was completed under '${policy.title}'."
                         )
                     )
                     continue

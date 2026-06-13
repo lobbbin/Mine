@@ -2715,6 +2715,22 @@ fun StateAndLegislationTab(
     var editPresidentName by remember { mutableStateOf(presidentName) }
     var editPresidentParty by remember { mutableStateOf(presidentParty) }
 
+    var draftMode by remember { mutableStateOf("AI") } // "AI" or "Manual"
+    var manualTitle by remember { mutableStateOf("") }
+    var manualSummary by remember { mutableStateOf("") }
+    var manualClinicalRule by remember { mutableStateOf("") }
+    var manualEconomicImpact by remember { mutableStateOf("") }
+    var clauseInputText by remember { mutableStateOf("") }
+    var manualClausesList by remember { mutableStateOf(emptyList<String>()) }
+
+    var isAmendingDraft by remember { mutableStateOf(false) }
+    var amendTitle by remember { mutableStateOf("") }
+    var amendSummary by remember { mutableStateOf("") }
+    var amendClinicalRule by remember { mutableStateOf("") }
+    var amendEconomicImpact by remember { mutableStateOf("") }
+    var amendClausesList by remember { mutableStateOf(emptyList<String>()) }
+    var amendNewClauseInput by remember { mutableStateOf("") }
+
     LaunchedEffect(showEditCountryDialog) {
         if (showEditCountryDialog) {
             editCountryName = countryName
@@ -2911,40 +2927,233 @@ fun StateAndLegislationTab(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.ExtraBold
                 )
-                Text(
-                    text = "Prompt the AI to draft a dynamic health code policy bill with extended clauses. Once voted by Parliament and signed by the President, this law is immediately live and enforced.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
                 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 
-                OutlinedTextField(
-                    value = draftFocusText,
-                    onValueChange = { draftFocusText = it },
-                    placeholder = { Text("e.g. Ensure all severe cases get ECG, mandate full blood count labs, reduce diagnostics cost, check clinical vitals before prescribing") },
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    minLines = 2,
-                    maxLines = 4,
-                    shape = RoundedCornerShape(12.dp)
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Button(
-                    onClick = {
-                        if (draftFocusText.isNotBlank()) {
-                            viewModel.generateHealthPolicyDraft(draftFocusText)
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = draftFocusText.isNotBlank() && !isLoading,
-                    shape = RoundedCornerShape(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary)
+                    Button(
+                        onClick = { draftMode = "AI" },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (draftMode == "AI") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = if (draftMode == "AI") MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("🤖 AI Assisted Draft", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Button(
+                        onClick = { draftMode = "Manual" },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (draftMode == "Manual") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = if (draftMode == "Manual") MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("✍️ Manual Designer", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(12.dp))
+
+                if (draftMode == "AI") {
+                    Text(
+                        text = "Prompt the AI to draft a dynamic health code policy bill with extended clauses. Once voted by Parliament and signed by the President, this law is immediately live and enforced.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    OutlinedTextField(
+                        value = draftFocusText,
+                        onValueChange = { draftFocusText = it },
+                        placeholder = { Text("e.g. Ensure all severe cases get ECG, mandate full blood count labs, reduce diagnostics cost, check clinical vitals before prescribing") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2,
+                        maxLines = 4,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Button(
+                        onClick = {
+                            if (draftFocusText.isNotBlank()) {
+                                viewModel.generateHealthPolicyDraft(draftFocusText)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = draftFocusText.isNotBlank() && !isLoading,
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary)
+                        } else {
+                            Text("🖋️ DRAFT CONSTITUTIONAL ACT", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                } else {
+                    Text(
+                        text = "Flesh out custom statutory clauses, clinical runtime constraints, and economic consequences directly.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = manualTitle,
+                        onValueChange = { manualTitle = it },
+                        label = { Text("Bill Title") },
+                        placeholder = { Text("e.g. Mandatory Pathology Assessment Act") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = manualSummary,
+                        onValueChange = { manualSummary = it },
+                        label = { Text("Presidential / Executive Summary") },
+                        placeholder = { Text("e.g. This statute ensures clinicians verify blood pathologies before concluding diagnosis.") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = manualClinicalRule,
+                        onValueChange = { manualClinicalRule = it },
+                        label = { Text("Simulation Enforcement Keyword Rule") },
+                        placeholder = { Text("e.g. blood count / vitals / generic / sick note / referral") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    Text(
+                        text = "💡 Dynamic trigger keyword: use 'vitals', 'generic', 'consent', 'ecg', 'blood count', 'sick note', or 'referral' to engage automated compliance audits in the sim.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.padding(start = 4.dp, top = 2.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = manualEconomicImpact,
+                        onValueChange = { manualEconomicImpact = it },
+                        label = { Text("Estimated Economic/Treasury Impact") },
+                        placeholder = { Text("e.g. Fine of R500 for non-compliance, R15 save") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Clauses collection
+                    Text(
+                        text = "📜 EXTENDED STATUTORY CLAUSES (${manualClausesList.size}):",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    
+                    if (manualClausesList.isEmpty()) {
+                        Text(
+                            text = "No clauses added yet. Add at least one clause below to make it an active bill.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline,
+                            fontStyle = FontStyle.Italic,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
                     } else {
-                        Text("🖋️ DRAFT CONSTITUTIONAL ACT", fontWeight = FontWeight.Bold)
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            manualClausesList.forEachIndexed { idx, clause ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "${idx + 1}. $clause",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    IconButton(
+                                        onClick = {
+                                            manualClausesList = manualClausesList.toMutableList().apply { removeAt(idx) }
+                                        },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Remove Clause",
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = clauseInputText,
+                            onValueChange = { clauseInputText = it },
+                            placeholder = { Text("Enter a realistic legal clause text...") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        Button(
+                            onClick = {
+                                if (clauseInputText.isNotBlank()) {
+                                    manualClausesList = manualClausesList + clauseInputText.trim()
+                                    clauseInputText = ""
+                                }
+                            },
+                            enabled = clauseInputText.isNotBlank(),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text("Add")
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Button(
+                        onClick = {
+                            viewModel.createOrUpdateDraftPolicy(
+                                title = manualTitle,
+                                summary = manualSummary,
+                                clinicalRule = manualClinicalRule,
+                                economicImpact = manualEconomicImpact,
+                                clauses = manualClausesList
+                            )
+                            // Clean up
+                            manualTitle = ""
+                            manualSummary = ""
+                            manualClinicalRule = ""
+                            manualEconomicImpact = ""
+                            manualClausesList = emptyList()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = manualTitle.isNotBlank() && manualClausesList.isNotEmpty() && !isLoading,
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("🖋️ DEPOSIT MANUALLY FORMULATED ACT", fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -2990,63 +3199,237 @@ fun StateAndLegislationTab(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    if (isAmendingDraft && draft.status == "Draft") {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    text = "✏️ IN-CHAMBER AMENDMENT EDITOR",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
 
-                    Text(
-                        text = draft.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.secondary
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = draft.summary,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                                OutlinedTextField(
+                                    value = amendTitle,
+                                    onValueChange = { amendTitle = it },
+                                    label = { Text("Amend Title") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
 
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "📜 EXTENDED CODES & CONTRACTS:",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    draft.extendedClauses.forEach { clause ->
+                                OutlinedTextField(
+                                    value = amendSummary,
+                                    onValueChange = { amendSummary = it },
+                                    label = { Text("Amend Summary") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    minLines = 2
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                OutlinedTextField(
+                                    value = amendClinicalRule,
+                                    onValueChange = { amendClinicalRule = it },
+                                    label = { Text("Amend Enforcement Rule") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                OutlinedTextField(
+                                    value = amendEconomicImpact,
+                                    onValueChange = { amendEconomicImpact = it },
+                                    label = { Text("Amend Treasury Impact") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Text(
+                                    text = "📜 EDIT INDIVIDUAL CLAUSES (${amendClausesList.size}):",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                                    amendClausesList.forEachIndexed { i, clause ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "${i+1}. $clause",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            IconButton(
+                                                onClick = {
+                                                    amendClausesList = amendClausesList.toMutableList().apply { removeAt(i) }
+                                                },
+                                                modifier = Modifier.size(24.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Close,
+                                                    contentDescription = "Delete Clause",
+                                                    tint = MaterialTheme.colorScheme.error,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    OutlinedTextField(
+                                        value = amendNewClauseInput,
+                                        onValueChange = { amendNewClauseInput = it },
+                                        placeholder = { Text("Add new clause...") },
+                                        modifier = Modifier.weight(1f),
+                                        singleLine = true
+                                    )
+                                    Button(
+                                        onClick = {
+                                            if (amendNewClauseInput.isNotBlank()) {
+                                                amendClausesList = amendClausesList + amendNewClauseInput.trim()
+                                                amendNewClauseInput = ""
+                                            }
+                                        },
+                                        enabled = amendNewClauseInput.isNotBlank(),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text("Add")
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Button(
+                                        onClick = {
+                                            viewModel.createOrUpdateDraftPolicy(
+                                                title = amendTitle,
+                                                summary = amendSummary,
+                                                clinicalRule = amendClinicalRule,
+                                                economicImpact = amendEconomicImpact,
+                                                clauses = amendClausesList,
+                                                id = draft.id
+                                            )
+                                            isAmendingDraft = false
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        enabled = amendTitle.isNotBlank() && amendClausesList.isNotEmpty()
+                                    ) {
+                                        Text("💾 COMMIT AMENDMENTS", fontWeight = FontWeight.Bold)
+                                    }
+                                    
+                                    OutlinedButton(
+                                        onClick = { isAmendingDraft = false },
+                                        modifier = Modifier.weight(0.5f)
+                                    ) {
+                                        Text("Dismiss")
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = draft.title,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (draft.status == "Draft") {
+                                OutlinedButton(
+                                    onClick = {
+                                        isAmendingDraft = true
+                                        amendTitle = draft.title
+                                        amendSummary = draft.summary
+                                        amendClinicalRule = draft.clinicalRule
+                                        amendEconomicImpact = draft.economicImpact
+                                        amendClausesList = draft.extendedClauses
+                                    },
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text("✏️ AMEND BILL", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "• $clause",
-                            modifier = Modifier.padding(start = 8.dp, top = 4.dp),
-                            style = MaterialTheme.typography.bodySmall
+                            text = draft.summary,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "📜 EXTENDED CODES & CONTRACTS:",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        draft.extendedClauses.forEach { clause ->
+                            Text(
+                                text = "• $clause",
+                                modifier = Modifier.padding(start = 8.dp, top = 4.dp),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "🔧 SIMULATOR SCORECARD ENFORCEMENT RULES:",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                        Text(
+                            text = "System active translation: '${draft.clinicalRule}'",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontStyle = FontStyle.Italic,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "📈 ESTIMATED CLINIC TREASURY IMPACT:",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = draft.economicImpact,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(start = 8.dp)
                         )
                     }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "🔧 SIMULATOR SCORECARD ENFORCEMENT RULES:",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.secondary
-                    )
-                    Text(
-                        text = "System active translation: '${draft.clinicalRule}'",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontStyle = FontStyle.Italic,
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "📈 ESTIMATED CLINIC TREASURY IMPACT:",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = draft.economicImpact,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
 
                     if (isVotingActive) {
                         Spacer(modifier = Modifier.height(12.dp))
@@ -3382,6 +3765,27 @@ fun StateAndLegislationTab(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        OutlinedButton(
+                            onClick = {
+                                viewModel.draftAmendment(policy)
+                                isAmendingDraft = true
+                                amendTitle = policy.title
+                                amendSummary = policy.summary
+                                amendClinicalRule = policy.clinicalRule
+                                amendEconomicImpact = policy.economicImpact
+                                amendClausesList = policy.extendedClauses
+                            },
+                            modifier = Modifier.align(Alignment.End),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                        ) {
+                            Text("✏️ PROPOSE AMENDMENT ACT", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
