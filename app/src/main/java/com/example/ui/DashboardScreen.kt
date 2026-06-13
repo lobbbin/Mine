@@ -76,6 +76,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.filled.Article
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -91,6 +92,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -354,6 +356,19 @@ fun DashboardScreen(
                     icon = { Icon(Icons.AutoMirrored.Filled.Send, null) },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
+                
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+                NavigationDrawerItem(
+                    label = { Text("📰 NATIONAL HEALTH NEWS", fontWeight = FontWeight.Bold) },
+                    selected = false,
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        viewModel.generateDailyNews()
+                    },
+                    icon = { Icon(Icons.Default.Article, null) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
+
                 Spacer(Modifier.height(24.dp))
             }
         }
@@ -658,6 +673,42 @@ fun DashboardScreen(
                     }
                 }
             } else {
+                val cmoAdvice by viewModel.currentCmoAdvice.collectAsState()
+                val pres by viewModel.politicalPrestige.collectAsState()
+                
+                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+                    if (cmoAdvice == null) {
+                        OutlinedButton(
+                            onClick = { viewModel.askCmoConsult() },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isLoading && pres >= 2,
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.secondary),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("💡 Ask Chief Medical Officer for Advice (-2 Prestige, R50)", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                    } else {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Healing, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("CMO'S ADVICE", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.secondary)
+                                }
+                                Text(cmoAdvice!!, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.padding(top = 4.dp))
+                                TextButton(onClick = { viewModel.clearCmoAdvice() }, modifier = Modifier.align(Alignment.End)) {
+                                    Text("Dismiss", fontSize = 10.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1512,6 +1563,19 @@ fun DashboardScreen(
         }
 
         // --- MODAL RESULTS CLINICAL RECORD SHEET ---
+        
+        val newsReport by viewModel.currentNewsReport.collectAsState()
+        if (newsReport != null) {
+            AlertDialog(
+                onDismissRequest = { viewModel.clearDailyNews() },
+                title = { Text("📰 THE SOVEREIGN HEALTH TIMES", fontWeight = FontWeight.Black) },
+                text = { Text(newsReport!!, style = MaterialTheme.typography.bodyMedium) },
+                confirmButton = {
+                    Button(onClick = { viewModel.clearDailyNews() }) { Text("Close Details") }
+                }
+            )
+        }
+
         if (showBottomSheet) {
             ResultsBottomSheet(
                 viewModel = viewModel,
@@ -2245,6 +2309,30 @@ fun ClinicalHubCard(
                                                 fontWeight = FontWeight.Black,
                                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                                             )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(2.dp))
+
+                                    val legalRiskReport by viewModel.currentLegalRiskReport.collectAsState()
+                                    if (legalRiskReport == null) {
+                                        OutlinedButton(
+                                            onClick = { viewModel.assessLegalRiskBeforeConsult() },
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Text("🤖 AI LEGAL SCAN (Scan laws vs Case Profile)", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                                        }
+                                    } else {
+                                        Card(
+                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)),
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Column(modifier = Modifier.padding(12.dp)) {
+                                                Text("⚖️ PRE-CONSULTATION LEGAL RISK BRIEF", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.error)
+                                                Text(legalRiskReport!!, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.padding(top = 4.dp))
+                                            }
                                         }
                                     }
 

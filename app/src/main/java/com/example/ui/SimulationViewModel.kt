@@ -191,6 +191,15 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
     private val _lastLobbyReport = MutableStateFlow<String?>(null)
     val lastLobbyReport: StateFlow<String?> = _lastLobbyReport.asStateFlow()
 
+    private val _currentLegalRiskReport = MutableStateFlow<String?>(null)
+    val currentLegalRiskReport: StateFlow<String?> = _currentLegalRiskReport.asStateFlow()
+
+    private val _currentNewsReport = MutableStateFlow<String?>(null)
+    val currentNewsReport: StateFlow<String?> = _currentNewsReport.asStateFlow()
+
+    private val _currentCmoAdvice = MutableStateFlow<String?>(null)
+    val currentCmoAdvice: StateFlow<String?> = _currentCmoAdvice.asStateFlow()
+
     private val _isVotingActive = MutableStateFlow(false)
     val isVotingActive: StateFlow<Boolean> = _isVotingActive.asStateFlow()
 
@@ -2786,6 +2795,212 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val activeUrl = "https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$activeKey"
                 val response = RetrofitClient.service.callGemini(activeUrl, request)
                 response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: ""
+            }
+        }
+    }
+
+    fun generateDailyNews() {
+        if (_isLoading.value) return
+        
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val currentProvider = provider.value
+                val currentModel = model.value
+                val userKey = apiKey.value ?: ""
+                val activeKey = if (userKey.isBlank()) {
+                    when {
+                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
+                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
+                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
+                        else -> ""
+                    }
+                } else {
+                    userKey
+                }
+
+                if (activeKey.isBlank()) {
+                    logAndEmitError("API Key missing! Cannot generate National News Broadcast.")
+                    _isLoading.value = false
+                    return@launch
+                }
+                
+                val activePolList = activePolicies.value
+                val policyDetailsStr = if (activePolList.isNotEmpty()) {
+                    "Recently Enacted Key Health Laws: " + activePolList.takeLast(2).joinToString(", ") { it.title }
+                } else "No major healthcare laws successfully passed yet."
+                
+                val draft = _currentDraftPolicy.value
+                val draftStr = if (draft != null && draft.status != "Defeated") {
+                    "Currently debating draft policy: ${draft.title}."
+                } else ""
+                
+                val lawsuitStr = if (_lawsuitActive.value) {
+                    "A massive sovereign lawsuit is ongoing involving Dr. Tim regarding ${lawsuitPatientName.value}."
+                } else "Clinics remain stable with no major compliance scandals."
+
+                val prompt = """
+                    You are the Editor-in-Chief for the "Sovereign Health Times" of ${countryName.value}.
+                    President ${presidentName.value} (${presidentParty.value}) is currently at ${presidentApproval.value}% approval.
+                    
+                    CURRENT GAME STATE INTEL:
+                    - $policyDetailsStr
+                    - $draftStr
+                    - $lawsuitStr
+                    - Overall State Clinic Reputation: ${reputationStars.value} Stars out of 5.
+                    
+                    Your task is to write a thrilling, short, sensationalist front-page news article (approx 2 paragraphs) reporting on the current state of healthcare politics and clinic operations in the country based on the context above. Be creative and immerse the reader in the simulation! Add a catchy, all-caps Headline at the top.
+                    Do not use markdown formatting.
+                """.trimIndent()
+                
+                val news = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt)
+                _currentNewsReport.value = news
+            } catch (e: Exception) {
+                logAndEmitError("AI News Generator failed: ${e.message}")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun clearDailyNews() {
+        _currentNewsReport.value = null
+    }
+
+    fun clearCmoAdvice() {
+        _currentCmoAdvice.value = null
+    }
+
+    fun askCmoConsult() {
+        if (_isLoading.value) return
+        val currentProfile = _hiddenCase.value ?: return
+        
+        if (politicalPrestige.value < 2) {
+            logAndEmitError("Not enough Political Prestige to consult the Chief Medical Officer (Requires 2).")
+            return
+        }
+
+        viewModelScope.launch {
+            _isLoading.value = true
+            _currentCmoAdvice.value = null
+            
+            try {
+                val currentProvider = provider.value
+                val currentModel = model.value
+                val userKey = apiKey.value ?: ""
+                val activeKey = if (userKey.isBlank()) {
+                    when {
+                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
+                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
+                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
+                        else -> ""
+                    }
+                } else {
+                    userKey
+                }
+
+                if (activeKey.isBlank()) {
+                    logAndEmitError("API Key missing! Cannot consult CMO.")
+                    _isLoading.value = false
+                    return@launch
+                }
+                
+                updatePoliticalPrestige((politicalPrestige.value - 2).coerceAtLeast(0))
+                _uiState.value = _uiState.value.copy(dailyRevenue = _uiState.value.dailyRevenue - 50.0) // Costs $50 consult fee
+                
+                val chatLogStr = _uiState.value.chatHistory.joinToString("\n") { "[\${it.virtualTimestampStr}] \${it.role}: \${it.text}" }
+
+                val prompt = """
+                    You are the venerable Chief Medical Officer (CMO) mapping the clinical strategies at JB Consultation Practice.
+                    A junior doctor is currently stuck and seeking a secondary consult for the active patient.
+                    
+                    SECRET CASE REVELATION (DO NOT JUST REVEAL THIS OUTRIGHT!): 
+                    - True Diagnosis: \${currentProfile.trueDiagnosis}
+                    
+                    CURRENT CONSULTATION LOG:
+                    \$chatLogStr
+                    
+                    Your task: Provide a brilliant, succinct (max 2-3 sentences), highly authoritative medical hint.
+                    Do NOT roleplay the patient. Point them in the right direction (e.g. 'Doctor, have you considered checking the cardiac markers?' or 'Given the respiratory distress, I strongly advise a chest x-ray immediately.'). 
+                    Give them a realistic clinical differential hint based on the true diagnosis without just giving them the exact answer directly. Ensure you act as a superior providing guidance.
+                """.trimIndent()
+                
+                val advice = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt)
+                _currentCmoAdvice.value = advice
+                val formattedTime = String.format("%02d:%02d", (_uiState.value.virtualTimeElapsed / 60) + 8, _uiState.value.virtualTimeElapsed % 60)
+                
+                val updatedHistory = _uiState.value.chatHistory.toMutableList()
+                updatedHistory.add(ChatMessage("system", "📞 You phoned the CMO for a consult (-2 Prestige, -R50.00).", virtualTimestampStr = formattedTime))
+                _uiState.value = _uiState.value.copy(chatHistory = updatedHistory)
+
+            } catch (e: Exception) {
+                logAndEmitError("CMO Network Offline: \${e.message}")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun assessLegalRiskBeforeConsult() {
+        if (_isLoading.value) return
+        val currentProfile = _hiddenCase.value ?: return
+        
+        viewModelScope.launch {
+            _isLoading.value = true
+            _currentLegalRiskReport.value = null
+            
+            try {
+                val currentProvider = provider.value
+                val currentModel = model.value
+                val userKey = apiKey.value ?: ""
+                val activeKey = if (userKey.isBlank()) {
+                    when {
+                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
+                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
+                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
+                        else -> ""
+                    }
+                } else {
+                    userKey
+                }
+
+                if (activeKey.isBlank()) {
+                    logAndEmitError("API Key missing! Cannot perform AI AI Legal Scan.")
+                    _isLoading.value = false
+                    return@launch
+                }
+                
+                val activePolList = activePolicies.value
+                val policyDetailsStr = if (activePolList.isNotEmpty()) {
+                    val sb = java.lang.StringBuilder()
+                    sb.append("ACTIVE SOVEREIGN HEALTH LAWS:\n")
+                    activePolList.forEachIndexed { idx, p ->
+                        sb.append("${idx+1}. ${p.title}: ${p.clinicalRule}\n")
+                    }
+                    sb.toString()
+                } else "No active clinical laws enacted yet."
+
+                val prompt = """
+                    You are the Chief Legal Assessor (AI) for JB Consultation Practice in ${countryName.value}.
+                    The clinician is about to consult a patient with the following intel profile:
+                    - Chief Complaint: ${currentProfile.chiefComplaint}
+                    - Demographics: ${currentProfile.patientDemographics}
+                    - Unknown True Diagnosis: ${currentProfile.trueDiagnosis}
+                    
+                    $policyDetailsStr
+                    
+                    Your task is to analyze the upcoming case against the ACTIVE SOVEREIGN HEALTH LAWS and provide a brief PRE-CONSULTATION LEGAL RISK BRIEF (max 3 short sentences).
+                    Tell the practitioner exactly what legal landmines they must avoid based on the active policies regarding this specific patient's chief complaint.
+                    Do NOT output any JSON, just the direct brief.
+                """.trimIndent()
+                
+                val riskReport = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt)
+                _currentLegalRiskReport.value = riskReport
+                _infoEvents.emit("🤖 AI Legal Assessor provided a pre-case brief.")
+            } catch (e: Exception) {
+                logAndEmitError("AI Legal Assessor failed: ${e.message}")
+            } finally {
+                _isLoading.value = false
             }
         }
     }
