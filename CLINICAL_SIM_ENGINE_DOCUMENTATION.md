@@ -214,4 +214,83 @@ All records are written with safety exception blocks, ensuring that formatting e
 Critical settings such as custom model choices, custom base endpoints, and user API keys are safely isolated using **Android Jetpack DataStore**. Key store properties persist across application launches, ensuring that custom setups (like locally hosted models or specific OpenAI keys) can be used out of the box securely.
 
 ---
+
+## 6. System Interaction & Flow (Clinical Inference vs. Local Compliance)
+
+The Clinical Sim Engine coordinates two distinct architectures to deliver realistic patient simulators while enforcing rigorous statutory clinical audits. This design decouples clinical behavior simulation from legislative compliance validation.
+
+```
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                               USER ACTIONS                                       │
+│    (Chas with Patient, Orders Labs, Checks Vitals, Drafts Prescriptions, etc.)   │
+└────────────────────────────────────────┬─────────────────────────────────────────┘
+                                         │
+                                         ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                           1. SIMULATION STATE GATHERING                          │
+│     The client app packages current histories, active stages, and user inputs    │
+└────────────────────────────────────────┬─────────────────────────────────────────┘
+                                         │ Opens AI session
+                                         ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                        2. CLINICAL INFERENCE (AI SYSTEM)                         │
+│   • Model runs are routed strictly through configured endpoint (Gemini/Cerebras)  │
+│   • Roleplays the patient/narrator persona and updates vital signs dynamics     │
+│   • Outputs a rigid JSON update structure (Dialogue responses, reports)          │
+└────────────────────────────────────────┬─────────────────────────────────────────┘
+                                         │ Returns JSON Payload
+                                         ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                        3. LOCAL COMPLIANCE STATE ENGINE                          │
+│   • Intercepts clinical status update programmatically inside ViewModel          │
+│   • Dispatches state parameters into Room Database database                      │
+│   • Executes strict, offline-first audits (auditEncounterForActivePolicies)       │
+│   • Rates compliance against active laws & deducts CPD points on breaches        │
+└──────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### A. Separation of Concerns
+1. **Clinical Inference (The AI System):** The configured LLM model acts as a high-fidelity clinical actor. It is passed context about the patient's hidden diagnosis (`trueDiagnosis`) and is tasked with returning realistic dialgoue lines, dynamic physical symptoms, and virtual vitals matching medical telemetry. It does **not** decide compliance or manually score your overall performance.
+2. **Local Compliance (The Local State Engine):** Checked directly inside the offline Kotlin codebase, the local engine intercepts simulation results. It evaluates active country policies (e.g., *SAPS Informed Consent Acts*, *NHI National Tariffs*, *Generic Alternative Dispensary Rules*) against the programmatic structure of your encounter (e.g., checking if `encounter.vitals` lists valid assessment parameters, checking if billing lines substituted generic alternatives, or analyzing if a formal referral letter was typed out).
+
+### B. Defining isolated rules (e.g. Vitals Clause)
+When you author or activate a custom clause targeting patient **vitals**:
+* **The AI Simulation is not confused:** The AI is instructed via background system prompts that the jurisdiction has active clinical legal regulations. It acts as an obedient patient and responds naturally.
+* **Objective Programmatic Auditing:** The actual grading of whether you completed a vitals scan is computed safely on-device by Kotlin's deterministic `auditEncounterForActivePolicies(...)`. It checks if baseline vitals are populated and valid:
+  ```kotlin
+  val checkedVitals = encounter.vitals != null &&
+                      encounter.vitals.bp != "..." &&
+                      encounter.vitals.hr != "..."
+  ```
+  If this programmatic evaluation fails, the local auditor logs the statutory breach, issues an audit penalty, and reduces your clinical competency score without requiring extra LLM calls or worrying about AI hallucination.
+
+---
+
+## 7. Forensic Judiciary Courtroom & Tribunal Engine
+
+When a clinical case evaluation finishes with verified statutory policy violations or a deficient clinical competency rating (e.g. low CPD score), the practitioner face consequences under the **Supreme Medical Court / Sovereign Inquest Division**.
+
+### A. Litigation Escalation Mechanics
+* **Summons & Indictment:** If you register critical compliance violations during a shift checkout, a Sovereign Judiciary Trial is initiated. The system compiles your statutory breaches into high-consequence prosecution counts.
+* **The Courtroom Environment:** The courtroom state (`_lawsuitCurrentStage`, `_lawsuitTension`, and `_lawsuitProsecutorAggression`) is spun up with an interactive hearing dialogue panel. The **Presiding Judge** and a high-tempo **State Prosecutor** deliver formal indictments with legal citations.
+
+### B. The Trial Dialogue & Defense Loop
+1. **Pleading Strategy:** The user is prompted to type an interactive, custom Legal Defense strategy detailing why the clinical guidelines were bypassed or how the patient was treated under pressure.
+2. **The Forensic LLM Turn:** Under submission, the system dispatches a tailored legal-roleplay prompt containing:
+   * Case demographics, clinical diagnoses, and final scores.
+   * Active national health laws and documented programmatic violations.
+   * The practitioner's defense argument.
+3. **Cross-Examination & Sentencing:** The AI model roleplays both the **State Prosecutor** (dismantling excuses, analyzing the defense, referencing statutory clauses, and demands license suspension) and the **Presiding Judge** (delivering formal decrees, warnings, and statutory fines matching the strict guidelines in active policies).
+
+### C. Financial Sanctions & Penalties
+If the tribunal sentences the practitioner to a fine, the penalty is deducted directly from your **clinic's operating balance sheet**:
+```kotlin
+if (reply.fineAmount > 0.0) {
+    settingsDataStore.updateClinicStats(clinicBalance.value - reply.fineAmount, reputationStars.value)
+    registerDailyExpense(reply.fineAmount)
+}
+```
+If the practitioner is suspended, their license is temporarily frozen according to the court decree.
+
+---
 *Created and validated for clinical simulation and training.*
