@@ -3364,18 +3364,27 @@ fun StateAndLegislationTab(
                                 modifier = Modifier.weight(1f)
                             )
                             if (draft.status == "Draft") {
-                                OutlinedButton(
-                                    onClick = {
-                                        isAmendingDraft = true
-                                        amendTitle = draft.title
-                                        amendSummary = draft.summary
-                                        amendClinicalRule = draft.clinicalRule
-                                        amendEconomicImpact = draft.economicImpact
-                                        amendClausesList = draft.extendedClauses
-                                    },
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Text("✏️ AMEND BILL", style = MaterialTheme.typography.bodySmall)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedButton(
+                                        onClick = { viewModel.AIAutoAmendDraft() },
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.tertiary)
+                                    ) {
+                                        Text("🤖 AI STRUCTURAL REWRITE", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Black)
+                                    }
+                                    OutlinedButton(
+                                        onClick = {
+                                            isAmendingDraft = true
+                                            amendTitle = draft.title
+                                            amendSummary = draft.summary
+                                            amendClinicalRule = draft.clinicalRule
+                                            amendEconomicImpact = draft.economicImpact
+                                            amendClausesList = draft.extendedClauses
+                                        },
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Text("✏️ MANUAL AMEND", style = MaterialTheme.typography.bodySmall)
+                                    }
                                 }
                             }
                         }
@@ -3428,6 +3437,28 @@ fun StateAndLegislationTab(
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.padding(start = 8.dp)
                         )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "🤖 AI POLICY ANALYSIS & FORECASTS:",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                        Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Public Support Estimate:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                Text("${draft.publicSupportEstimate ?: "N/A"}%", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = if ((draft.publicSupportEstimate ?: 50) > 50) Color(0xFF2E7D32) else Color(0xFFC62828))
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Presidential Alignment:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                                Text("${draft.presidentialAlignment ?: "Unknown"}", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("Expected Political Opposition:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                        Text("${draft.politicalOpposition ?: "None"}", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp))
+
                     }
 
                     if (isVotingActive) {

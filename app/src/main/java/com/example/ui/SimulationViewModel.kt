@@ -2818,8 +2818,25 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     return@launch
                 }
 
+                val activePolList = activePolicies.value
+                val existingPoliciesContext = if (activePolList.isNotEmpty()) {
+                    val sb = java.lang.StringBuilder()
+                    sb.append("Currently Active National Healthcare Policies (DO NOT DUPLICATE THESE):\n")
+                    activePolList.forEachIndexed { i, p ->
+                        sb.append("${i+1}. ${p.title} - ${p.clinicalRule}\n")
+                    }
+                    sb.toString()
+                } else {
+                    "No major national healthcare policies are currently active. You have a blank canvas."
+                }
+
                 val systemPrompt = """
                     You are the Head Healthcare Legislative Draftsman for the sovereign nation of ${countryName.value}.
+                    The current Executive Head of State is President ${presidentName.value} (${presidentParty.value}).
+                    President's Approval Rating: ${presidentApproval.value}%.
+                    
+                    $existingPoliciesContext
+                    
                     Your job is to draft a highly realistic, complete national health policy based on the clinician's draft focus query: "$focusText".
                     You MUST return STRICTLY a valid, raw, unformatted single JSON object matching this schema. Do not include markdown wraps (```json), headings, or trailing commentary.
                     
@@ -2833,7 +2850,10 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         "Clause 3: Penalty or financial benefit details if clinician observes this clause"
                       ],
                       "economicImpact": "Analytic report of the fiscal impact of this act on clinic treasury reserves and patient out-of-pocket pricing.",
-                      "clinicalRule": "A concise runtime directive that the Dr simulation must adhere to (e.g., 'Order diagnostic screening before treatment')"
+                      "clinicalRule": "A concise runtime directive that the Dr simulation must adhere to (e.g., 'Order diagnostic screening before treatment')",
+                      "publicSupportEstimate": 60,
+                      "politicalOpposition": "Brief description of which faction will hate this and why",
+                      "presidentialAlignment": "Brief description of how it aligns with President's agenda"
                     }
                 """.trimIndent()
 
@@ -2854,6 +2874,11 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 }
                 val economicImpact = json.optString("economicImpact", "Minor operational budget and consultation fee adjustments.")
                 val clinicalRule = json.optString("clinicalRule", "Adhere to the policy directives.")
+                
+                // Parse AI estimates for political and public response
+                val publicSupportEstimate = if (json.has("publicSupportEstimate")) json.optInt("publicSupportEstimate", 50) else null
+                val politicalOpposition = if (json.has("politicalOpposition")) json.optString("politicalOpposition") else null
+                val presidentialAlignment = if (json.has("presidentialAlignment")) json.optString("presidentialAlignment") else null
 
                 val draft = HealthPolicy(
                     id = java.util.UUID.randomUUID().toString(),
@@ -2862,7 +2887,10 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     extendedClauses = clauses,
                     economicImpact = economicImpact,
                     clinicalRule = clinicalRule,
-                    status = "Draft"
+                    status = "Draft",
+                    publicSupportEstimate = publicSupportEstimate,
+                    politicalOpposition = politicalOpposition,
+                    presidentialAlignment = presidentialAlignment
                 )
                 _currentDraftPolicy.value = draft
                 _votingLog.value = listOf("✨ Draft Healthcare Bill formulated successfully and loaded into active memory!")
@@ -2888,57 +2916,90 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 "📢 Reading draft health items to Representatives...",
                 "⚖️ Proposed Act: '${policy.title}'"
             )
-            delay(1200)
-
-            val totalSeats = 200
-            val progSeats = _progressiveSeats.value
-            val consSeats = _conservativeSeats.value
-            val indSeats = _independentSeats.value
-
-            // Progressive align with safety laws, Conservative with low costs.
-            val baseProgProb = if (policy.clinicalRule.contains("vitals", ignoreCase = true) || policy.title.contains("subsid", ignoreCase = true)) 0.88 else 0.76
-            val baseConsProb = if (policy.title.contains("cap", ignoreCase = true) || policy.extendedClauses.any { it.contains("discount", ignoreCase = true) }) 0.22 else 0.45
-            val baseIndProb = 0.52
-
-            val progYesProbability = (baseProgProb + _progressiveLobbyBias.value).coerceIn(0.05, 0.98)
-            val consYesProbability = (baseConsProb + _conservativeLobbyBias.value).coerceIn(0.05, 0.98)
-            val indYesProbability = (baseIndProb + _independentLobbyBias.value).coerceIn(0.05, 0.98)
-
-            _votingLog.value = _votingLog.value + "🗣️ General political debates commenced. Representatives argue clinical impacts..."
-            delay(1500)
-
-            val steps = 5
-            for (step in 1..steps) {
-                val fraction = step.toFloat() / steps
-                _voteProgress.value = fraction
-
-                // Calculate incremental seats accounted
-                val countedProg = (progSeats * fraction).toInt()
-                val yesProg = (countedProg * progYesProbability).toInt()
-                val noProg = (countedProg * (0.95 - progYesProbability)).toInt().coerceAtLeast(0)
-                val absProg = countedProg - yesProg - noProg
-
-                val countedCons = (consSeats * fraction).toInt()
-                val yesCons = (countedCons * consYesProbability).toInt()
-                val noCons = (countedCons * (0.95 - consYesProbability)).toInt().coerceAtLeast(0)
-                val absCons = countedCons - yesCons - noCons
-
-                val countedInd = (indSeats * fraction).toInt()
-                val yesInd = (countedInd * indYesProbability).toInt()
-                val noInd = (countedInd * (0.90 - indYesProbability)).toInt().coerceAtLeast(0)
-                val absInd = countedInd - yesInd - noInd
-
-                _currentVoteYes.value = yesProg + yesCons + yesInd
-                _currentVoteNo.value = noProg + noCons + noInd
-                _currentVoteAbstain.value = absProg + absCons + absInd
-
-                when (step) {
-                    2 -> _votingLog.value = _votingLog.value + "🟣 Faction leaders negotiating clinical funding allocations..."
-                    3 -> _votingLog.value = _votingLog.value + "📢 Progressive bloc demands mandatory diagnostic safety standards..."
-                    4 -> _votingLog.value = _votingLog.value + "🤨 Conservative assembly warns of excessive government interference in practice management..."
-                    5 -> _votingLog.value = _votingLog.value + "🔔 Assembly Speaker sounds the final gavel! Counting completed."
+            
+            val currentProvider = provider.value
+            val currentModel = model.value
+            val userKey = apiKey.value ?: ""
+            val activeKey = if (userKey.isBlank()) {
+                when {
+                    currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
+                    currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
+                    customEndpoint.value.isNotBlank() -> "dummy-local-key"
+                    else -> ""
                 }
-                delay(1200)
+            } else {
+                userKey
+            }
+
+            if (activeKey.isBlank()) {
+                logAndEmitError("API Key missing! Cannot run AI parliamentary simulation.")
+                _isVotingActive.value = false
+                return@launch
+            }
+
+            _votingLog.value = _votingLog.value + "🤖 AI Parliamentary Engine is computing the geopolitical debate..."
+            
+            try {
+                val prompt = """
+                    You are simulating the Parliamentary Floor Debate and Vote for a Sovereign Nation.
+                    There are 200 total seats.
+                    - Progressives (84 seats): Focus on clinical safety, regulations, patient outcomes. Bias offset: +${_progressiveLobbyBias.value * 100}%
+                    - Conservatives (76 seats): Focus on free market, lowering costs, tax constraints. Bias offset: +${_conservativeLobbyBias.value * 100}%
+                    - Independents (40 seats): Pragmatic swing votes. Bias offset: +${_independentLobbyBias.value * 100}%
+                    
+                    President's Approval: ${presidentApproval.value}% (${presidentParty.value}).
+                    
+                    BILL TITLE: ${policy.title}
+                    SUMMARY: ${policy.summary}
+                    CLINICAL RULE: ${policy.clinicalRule}
+                    
+                    Simulate the debate over 5 intervals. Determine who supports and opposes it realistically based on their philosophy and biases.
+                    Provide a JSON response matching this exact schema:
+                    {
+                      "stages": [
+                        { "log": "Description of debate floor action", "yes": 15, "no": 5, "abs": 2 },
+                        { "log": "...", "yes": 45, "no": 30, "abs": 5 },
+                        { "log": "...", "yes": 80, "no": 60, "abs": 10 },
+                        { "log": "...", "yes": 110, "no": 70, "abs": 12 },
+                        { "log": "Final gavel sounds", "yes": 120, "no": 75, "abs": 5 }
+                      ]
+                    }
+                    The last stage represents the final vote count (must sum to exactly 200).
+                """.trimIndent()
+                
+                val apiResponse = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt)
+                val sanitized = extractJsonString(apiResponse)
+                val json = org.json.JSONObject(sanitized)
+                val stagesArray = json.optJSONArray("stages")
+                
+                if (stagesArray != null && stagesArray.length() > 0) {
+                    val steps = stagesArray.length()
+                    for (i in 0 until steps) {
+                        val stageObj = stagesArray.getJSONObject(i)
+                        val logText = stageObj.optString("log", "Debate continues...")
+                        val yes = stageObj.optInt("yes", 0)
+                        val no = stageObj.optInt("no", 0)
+                        val abs = stageObj.optInt("abs", 0)
+                        
+                        val fraction = (i + 1).toFloat() / steps
+                        _voteProgress.value = fraction
+                        _currentVoteYes.value = yes
+                        _currentVoteNo.value = no
+                        _currentVoteAbstain.value = abs
+                        _votingLog.value = _votingLog.value + "🗣️ $logText"
+                        
+                        delay(2000)
+                    }
+                } else {
+                    throw Exception("Invalid schema or missing stages in AI vote generation.")
+                }
+            } catch (e: Exception) {
+                logAndEmitError("AI Vote Engine Failed. Falling back to quick math: ${e.message}")
+                // Fallback deterministic if AI fails
+                _voteProgress.value = 1f
+                _currentVoteYes.value = 110
+                _currentVoteNo.value = 80
+                _currentVoteAbstain.value = 10
             }
 
             val finalYes = _currentVoteYes.value
@@ -2957,7 +3018,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             _isVotingActive.value = false
 
             if (passed) {
-                _votingLog.value = _votingLog.value + "🎉 PARLIAMENT HAS COMMITTED AND PASSED THE ACT ($finalYes YES vs $finalNo NO)! Sent directly to the President's Mansion for sign-off."
+                _votingLog.value = _votingLog.value + "🎉 PARLIAMENT HAS PASSED THE ACT ($finalYes YES vs $finalNo NO)! Sent directly to the President's Mansion for sign-off."
                 updatePoliticalPrestige((politicalPrestige.value + 8).coerceAtMost(100))
             } else {
                 _votingLog.value = _votingLog.value + "❌ THE HEALTH DRAFT WAS DEFEATED IN PARLIAMENT ($finalYes YES vs $finalNo NO). The proposal is rejected."
@@ -2988,11 +3049,16 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val prompt = """
                     You are the Executive Head of State, "${presidentName.value}". 
                     Your legislative faction and philosophy is: "${presidentParty.value}".
-                    Review this health bill passed by the Parliament:
+                    Your current public approval rating is ${presidentApproval.value}%.
+                    
+                    Review this health bill recently passed by Parliament:
                     - Title: ${draft.title}
+                    - Summary: ${draft.summary}
                     - Direct Rule: ${draft.clinicalRule}
+                    - Presidential Alignment AI Estimate: ${draft.presidentialAlignment ?: "Neutral/Unknown"}
                     
                     Write a short, professional presidential executive memo (max 3 sentences) commenting on your decision to sign this into active clinical law. Start with "I have decided to sign this act..."
+                    Take into account your party's philosophy and your current approval rating.
                 """.trimIndent()
 
                 val apiResponse = if (activeKey.isNotBlank()) {
@@ -3058,10 +3124,16 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val prompt = """
                     You are the Executive Head of State, "${presidentName.value}". 
                     Your legislative faction and philosophy is: "${presidentParty.value}".
-                    Review this health bill passed by the Parliament:
+                    Your current public approval rating is ${presidentApproval.value}%.
+                    
+                    Review this health bill recently passed by Parliament:
                     - Title: ${draft.title}
+                    - Summary: ${draft.summary}
+                    - Direct Rule: ${draft.clinicalRule}
+                    - Presidential Alignment AI Estimate: ${draft.presidentialAlignment ?: "Neutral/Unknown"}
                     
                     Write a short, professional presidential veto memo (max 3 sentences) explaining why you are vetoing this and returning it to Parliament.
+                    Take into account your party's philosophy and your current approval rating.
                 """.trimIndent()
 
                 val apiResponse = if (activeKey.isNotBlank()) {
@@ -3218,6 +3290,114 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    fun AIAutoAmendDraft() {
+        viewModelScope.launch {
+            val draft = _currentDraftPolicy.value ?: return@launch
+            _isLoading.value = true
+            try {
+                val currentProvider = provider.value
+                val currentModel = model.value
+                val userKey = apiKey.value ?: ""
+                val activeKey = if (userKey.isBlank()) {
+                    when {
+                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
+                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
+                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
+                        else -> ""
+                    }
+                } else {
+                    userKey
+                }
+                
+                if (activeKey.isBlank()) {
+                    logAndEmitError("API Key missing! Configure your credentials.")
+                    _isLoading.value = false
+                    return@launch
+                }
+
+                val activePolList = activePolicies.value
+                val existingPoliciesContext = if (activePolList.isNotEmpty()) {
+                    val sb = java.lang.StringBuilder()
+                    sb.append("Currently Active National Healthcare Policies (Ensure your amendment aligns with or strategically overrides these):\n")
+                    activePolList.forEachIndexed { i, p ->
+                        sb.append("${i+1}. ${p.title} - ${p.clinicalRule}\n")
+                    }
+                    sb.toString()
+                } else {
+                    "No major national healthcare policies are currently active."
+                }
+
+                val prompt = """
+                    You are a master political strategist and legislative architect in the country of ${countryName.value}.
+                    The current Executive Head of State is President ${presidentName.value} (${presidentParty.value}).
+                    President's Approval Rating: ${presidentApproval.value}%.
+                    
+                    $existingPoliciesContext
+                    
+                    The current Draft Health Bill is structurally flawed or facing political opposition. 
+                    TITLE: ${draft.title}
+                    SUMMARY: ${draft.summary}
+                    CLINICAL RULE: ${draft.clinicalRule}
+                    ECONOMIC IMPACT: ${draft.economicImpact}
+                    
+                    Your task is to REWRITE and AMEND this draft to maximize public approval and parliamentary success across different political aisles, while retaining the core clinical intent.
+                    Output JSON exactly matching this schema:
+                    {
+                      "title": "A highly refined, formal act title",
+                      "summary": "An executive summary highlighting bipartisan compromises and key safety features.",
+                      "extendedClauses": [
+                        "Clause 1: Specific legal directive...",
+                        "Clause 2: Regulatory guideline...",
+                        "Clause 3: Financial benefit or protection..."
+                      ],
+                      "economicImpact": "A reassuring fiscal impact statement.",
+                      "clinicalRule": "A concise runtime directive.",
+                      "publicSupportEstimate": 85,
+                      "politicalOpposition": "Minimized factional resistance",
+                      "presidentialAlignment": "Aligned with pragmatic healthcare reform"
+                    }
+                """.trimIndent()
+                
+                val apiResponse = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt)
+                val sanitized = extractJsonString(apiResponse)
+                
+                val json = org.json.JSONObject(sanitized)
+                val newTitle = json.optString("title", draft.title)
+                val newSummary = json.optString("summary", draft.summary)
+                
+                val clausesArray = json.optJSONArray("extendedClauses")
+                val newClauses = mutableListOf<String>()
+                if (clausesArray != null) {
+                    for (i in 0 until clausesArray.length()) {
+                        newClauses.add(clausesArray.getString(i))
+                    }
+                } else {
+                    newClauses.addAll(draft.extendedClauses)
+                }
+                
+                val newEconomic = json.optString("economicImpact", draft.economicImpact)
+                val newRule = json.optString("clinicalRule", draft.clinicalRule)
+                
+                val amendedDraft = draft.copy(
+                    title = newTitle,
+                    summary = newSummary,
+                    extendedClauses = newClauses,
+                    economicImpact = newEconomic,
+                    clinicalRule = newRule,
+                    publicSupportEstimate = if (json.has("publicSupportEstimate")) json.optInt("publicSupportEstimate", 70) else draft.publicSupportEstimate,
+                    politicalOpposition = if (json.has("politicalOpposition")) json.optString("politicalOpposition") else draft.politicalOpposition,
+                    presidentialAlignment = if (json.has("presidentialAlignment")) json.optString("presidentialAlignment") else draft.presidentialAlignment
+                )
+                
+                _currentDraftPolicy.value = amendedDraft
+                _votingLog.value = listOf("✨ Draft Healthcare Bill was successfully restructured by the AI Political Strategist!")
+            } catch (e: Exception) {
+                logAndEmitError("AI Amendment Failed: ${e.message}")
+            }
+            _isLoading.value = false
+        }
+    }
+
     fun dismissPoliticianSicknessAlert() {
         _sickPoliticianAlert.value = null
     }
@@ -3262,16 +3442,32 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val draft = _currentDraftPolicy.value
                 val draftTitle = draft?.title ?: "Proposed Health Reform"
                 val draftSummary = draft?.summary ?: "Health Bill"
+                val draftPublicSupport = draft?.publicSupportEstimate ?: 50
+                val draftPresidentAlignment = draft?.presidentialAlignment ?: "Unknown"
+
+                val activePolList = activePolicies.value
+                val existingPoliciesContext = if (activePolList.isNotEmpty()) {
+                    val sb = java.lang.StringBuilder()
+                    sb.append("Current Active Policies in The Nation:\n")
+                    activePolList.forEach { p -> sb.append("- ${p.title}\n") }
+                    sb.toString()
+                } else {
+                    "No active policies."
+                }
 
                 val prompt = """
                     You are the faction leader spokesperson for the '$faction' bloc in the Parliament of ${countryName.value}.
                     The Parliamentary seat distribution is: Progressives (84 seats, safety-focused), Conservatives (76 seats, free market/cost-focused), Independents (40 seats, pragmatic swing votes).
                     
+                    $existingPoliciesContext
+                    
                     Current Draft Bill Under Consideration:
                     - Title: $draftTitle
                     - Summary: $draftSummary
+                    - Est. Public Support: $draftPublicSupport%
+                    - Presidential Alignment: $draftPresidentAlignment
                     
-                    The clinician (Dr. Tim of JB Consultation Practice) is lobbying your faction to support this bill!
+                    The clinician (Dr. Tim of JB Consultation Practice, Clinic Balance: R${String.format("%.2f", currentBal)}, Prestige: $currentPrest, Rep: ${reputationStars.value} stars) is lobbying your faction to support this bill!
                     Lobbyist Pitch Angle selected: '$pitchAngle'
                     Lobbyist Custom Written Statement: "$customMessage"
                     

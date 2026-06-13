@@ -115,7 +115,10 @@ data class HealthPolicy(
     val yesVotes: Int = 0,
     val noVotes: Int = 0,
     val abstainVotes: Int = 0,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val publicSupportEstimate: Int? = null,
+    val politicalOpposition: String? = null,
+    val presidentialAlignment: String? = null
 )
 
 
