@@ -2190,7 +2190,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         if (customUrl.isNotBlank()) {
             val base = customUrl.trim()
             return when (provider) {
-                "Cerebras", "OpenAI", "Nvidia", "Ollama", "vLLM", "Custom (OpenAI-compatible)" -> {
+                "Cerebras", "OpenAI", "Nvidia", "Ollama", "vLLM", "G4F (OpenAI-compatible)", "Custom (OpenAI-compatible)" -> {
                     if (base.contains("chat/completions")) base
                     else if (base.endsWith("/")) "${base}v1/chat/completions"
                     else if (base.endsWith("/v1")) "$base/chat/completions"
@@ -2218,6 +2218,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             "Anthropic" -> "https://api.anthropic.com/v1/messages"
             "Ollama" -> "http://10.0.2.2:11434/v1/chat/completions"
             "vLLM" -> "http://10.0.2.2:8000/v1/chat/completions"
+            "G4F (OpenAI-compatible)" -> "http://10.0.2.2:1337/v1/chat/completions"
             "Custom (OpenAI-compatible)" -> "http://10.0.2.2:8080/v1/chat/completions"
             else -> "https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$apiKey"
         }
@@ -2231,7 +2232,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         customUrl: String = customEndpoint.value
     ): String {
         return when (provider) {
-            "Cerebras", "OpenAI", "Nvidia", "Ollama", "vLLM", "Custom (OpenAI-compatible)" -> {
+            "Cerebras", "OpenAI", "Nvidia", "Ollama", "vLLM", "G4F (OpenAI-compatible)", "Custom (OpenAI-compatible)" -> {
                 val activeKey = if (apiKey.isBlank()) "sk-no-key-required" else apiKey
                 val messages = mutableListOf<OpenAIMessage>()
                 messages.add(OpenAIMessage("system", systemPrompt))
@@ -2287,7 +2288,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val request = OpenAIRequest(
                     model = modelName,
                     messages = messages,
-                    response_format = if (isCustomUrl || provider in listOf("Cerebras", "Nvidia", "Ollama", "vLLM", "Custom (OpenAI-compatible)")) null else OpenAIResponseFormat("json_object"),
+                    response_format = if (isCustomUrl || provider in listOf("Cerebras", "Nvidia", "Ollama", "vLLM", "G4F (OpenAI-compatible)", "Custom (OpenAI-compatible)")) null else OpenAIResponseFormat("json_object"),
                     temperature = finalTemp,
                     top_p = finalTopP,
                     max_tokens = finalMaxTokens,
@@ -2496,7 +2497,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             try {
                 val activeKey = if (testKey.isBlank() && testProvider.equals("Google", ignoreCase = true)) {
                     BuildConfig.GEMINI_API_KEY
-                } else if (testKey.isBlank() && (testCustomEndpoint.isNotBlank() || testProvider in listOf("Ollama", "vLLM", "Custom (OpenAI-compatible)"))) {
+                } else if (testKey.isBlank() && (testCustomEndpoint.isNotBlank() || testProvider in listOf("Ollama", "vLLM", "G4F (OpenAI-compatible)", "Custom (OpenAI-compatible)"))) {
                     "dummy-local-key"
                 } else {
                     testKey
@@ -2785,7 +2786,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         customUrl: String = customEndpoint.value
     ): String {
         return when (provider) {
-            "Cerebras", "OpenAI", "Nvidia", "Ollama", "vLLM", "Custom (OpenAI-compatible)" -> {
+            "Cerebras", "OpenAI", "Nvidia", "Ollama", "vLLM", "G4F (OpenAI-compatible)", "Custom (OpenAI-compatible)" -> {
                 val activeKey = if (apiKey.isBlank()) "sk-no-key-required" else apiKey
                 val messages = listOf(
                     OpenAIMessage("system", "You are a professional legislative text draftsman. Return strictly valid raw JSON matching the requested schema. Write nothing else except valid JSON."),
@@ -2795,7 +2796,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val request = OpenAIRequest(
                     model = modelName,
                     messages = messages,
-                    response_format = if (isCustomUrl || provider in listOf("Cerebras", "Nvidia", "Ollama", "vLLM", "Custom (OpenAI-compatible)")) null else OpenAIResponseFormat("json_object"),
+                    response_format = if (isCustomUrl || provider in listOf("Cerebras", "Nvidia", "Ollama", "vLLM", "G4F (OpenAI-compatible)", "Custom (OpenAI-compatible)")) null else OpenAIResponseFormat("json_object"),
                     temperature = 0.7,
                     stream = false
                 )
