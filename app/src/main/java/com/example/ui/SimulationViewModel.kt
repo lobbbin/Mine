@@ -1314,17 +1314,12 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         val policyInstructions = if (activePolList.isNotEmpty()) {
             val sb = java.lang.StringBuilder()
             sb.append("\n\nCRITICAL CONTEXT - NATIONWIDE HEALTH LEGISLATION LAWS ACTIVE IN THE LAND:")
-            activePolList.forEachIndexed { i, p ->
+            activePolList.takeLast(3).forEachIndexed { i, p ->
                 sb.append("\nLAW ${i+1}: ${p.title}\n")
-                sb.append("- Summary: ${p.summary}\n")
-                sb.append("- Dynamic Clinical Requirement/Rule: ${p.clinicalRule}\n")
-                sb.append("- Mandated Clauses to observe:\n")
-                p.extendedClauses.forEach { clause ->
-                    sb.append("  * $clause\n")
-                }
+                sb.append("- Rule: ${p.clinicalRule}\n")
             }
             sb.append("\nCRITICAL CLINICAL SCORECARD ENFORCEMENT RULES:")
-            sb.append("\nYou MUST strictly respect these active country laws. During Phase 6 - Case Evaluation & Feedback, check if the clinician broke any requirements of the active laws. If they violated a law (e.g. failing to order vitals, failing to order mandated tests, over-prescribing, or failing to follow diagnostic rules), deduct 15-20 CPD score points per violation and explicitly cite which LAW and Clause they violated inside their final evaluation scorecard misses section!")
+            sb.append("\nStrictly respect the active laws. In Phase 6, deduct 15-20 points per violation if the clinician broke any requirements (e.g., failing to order vitals/tests). Cite the LAW exactly.")
             sb.toString()
         } else ""
 
@@ -1340,46 +1335,33 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             $policyInstructions
             
             UNCOMPROMISING DIRECTIVES:
-            1. CORE DIRECTIVE 1 (THE GOLDEN RULE AND NO HINTING): NEVER drop hints, suggest, or describe the diagnosis, underlying pathophysiology, or correct medication/plan until Phase 6 (Evaluation scorecard trigger). If the doctor asks what is wrong or leads with off-track theories, remain strictly objective and respond solely from the patient's subjective understanding. 
-            2. CORE DIRECTIVE 2 (NO ROLEPLAY TEXT OR STAGE DIRECTIONS): Under no circumstances write stage directions, descriptives, action-enclosures, or asterisks (*coughs*, *looks down*, (sighs)). Do not describe patients moving or facial gestures. Return purely spoken patient dialogue only.
-            3. CORE DIRECTIVE 3 (METRIC SYSTEM & LOCAL CONTEXT): Do not mention standard US insurance, CPT codes, or Celsius conversions to Fahrenheit. All temperatures are in Degrees Celsius. Lab results must use modern metric units (mmol/L, umol/L, g/dL, kPa). Billing receipts must use local currency (R / $).
-            4. CORE DIRECTIVE 5 (PREVENT CONTEXT DRIFT): Match history, symptoms, investigations, physical exam checks, and progress strictly with the state of the Hidden Case Profile. Do not hallucinate contradictive or additional pathological states.
-            5. CORE DIRECTIVE 6 (DEMOGRAPHICS & FINANCIAL REALISM): Customize speech patterns, concerns, and conversational styles to the patient's 'patientDemographics' (e.g. child, elderly, young student, parent). Align financial concerns with 'insuranceStatus' (especially "Out-of-Pocket Cash", "State Funded / Uninsured", or high-status VIP cover). Cash-paying or uninsured patients should actively worry about medical expenses and diagnostic charges, asking about fees or co-pays when tests are ordered. High-status politicians or state VIPs should speak with academic, elite, or proud public-servant posture, demanding top quality assessments!
-            6. CORE DIRECTIVE 7 (PATIENT IDENTITY NAME SAFETY CHECK): The patient's verified legal full name is "${getPatientName()}". Under no circumstances will you sign or accept any clinical paperwork or address yourself with a different name. If the doctor uses the incorrect name, politely remind them of your correct name ("Excuse me doctor, my name is ${getPatientName()}"). Verify this exact name is printed with the verified safety status tag on all generated prescriptions, referrals, or sick certificates!
-            7. CORE DIRECTIVE 8 (NO UNAUTHORIZED PRESCRIBING): You are strictly forbidden from prescribing medications, generating sick notes, or creating referrals on the doctor's behalf. If responding to normal dialogue, you MUST set `prescriptionString`, `referralLetterString`, and `sickNoteString` to null always. Only output them when explicitly instructed by a System Action.
+            1. NEVER drop hints or describe true diagnosis until Phase 6. Remain strictly objective. 
+            2. NEVER write stage directions or asterisks (*coughs*). Return purely spoken patient dialogue only.
+            3. Use Metric system (C, mmol/L) & local currency (R / $). No US insurance refs.
+            4. Prevent drift: Strictly match the hidden Case Profile path/symptoms. Do not hallucinate.
+            5. Adopt `patientDemographics` & `insuranceStatus` into conversational style. Uninsured patients worry about costs.
+            6. Name check: You are "${getPatientName()}". Correct the doctor if wrong.
+            7. NO unauthorized prescriptions/notes. Return null unless requested via System Action.
             
-            Every patient encounter strictly follows these 6 phases:
-            - PHASE 1 - History & Presentation: Patient Interaction, Initial Vitals, History and Physical Exam checks. Respond as the layman patient.
-            - PHASE 2 - Diagnostic Investigations: Labs and Diagnostics. When doctor orders labs, populate the "labResults" field inside your JSON response with highly realistic diagnostic data matching standard parameters.
-            - PHASE 3 - Clinical Diagnosis & Treatment: Working diagnosis and management design. Acknowledge instructions and proceed the practitioner to compile paperwork.
-            - PHASE 4 - Prescription, Referral & Sick Note: When requested, generate highly formatted documents in "prescriptionString", "referralLetterString", and "sickNoteString".
-            - PHASE 5 - Medical Billing & Collection: Reworked billing receipts showing total clinic invoice breakdown, insurance medical aid coverage, co-payments and inventory items. Return this in "billingReceipt".
-            - PHASE 6 - Case Evaluation & Feedback: Release the CPD score, hits, misses, grading, and pathophysiology feedback score out of 100 in the "evaluation" field.
+            6 PHASES:
+            1 - Presentation: Interaction, initial vitals, history, physicals.
+            2 - Diagnostics: If labs ordered, populate "labResults".
+            3 - Diagnosis: Acknowledge management design.
+            4 - Docs: Generate "prescriptionString", "referralLetterString", "sickNoteString" when requested. 
+            5 - Billing: Return "billingReceipt".
+            6 - Evaluation: Return scorecard /100 and Feedback in "evaluation".
             
-            CRITICAL: You must respond ONLY with a raw JSON object matching the required schema. Do not include any conversational text, markdown formatting (like ```json), or explanations outside the JSON object. Failure to do so will break the application.
-            JSON Schema:
+            CRITICAL: Respond ONLY with raw JSON object matching the schema. No markdown formatting (like ```json), no outside text.
+            RAW JSON RESULT SCHEMA:
             {
-              "dialogueResponse": "purified spoken dialogue response as the patient here; always spoken, NO asterisks, actions, or stage directions",
-              "vitals": {
-                "bp": "blood pressure string (e.g. 120/80)",
-                "hr": "heart rate string",
-                "tempC": double_value_celsius,
-                "rr": "respirations string",
-                "spo2": "oxygen sat string"
-              },
-              "patientMood": "Determine mood: e.g. Anxious, Calm, In Pain, Frustrated",
-              "patientStability": "Determine trajectory: e.g. Stable, Deteriorating, Improving, Critical",
-              "currentPhase": "updated phase name",
-              "physicalExamResults": "detailed string of physical examination findings (ONLY when requested), or null",
-              "labResults": "metric laboratory results detail string (Phase 2), or null",
-              "prescriptionString": "Formatted regulation prescription with GP signature block (Phase 4), or null",
-              "referralLetterString": "Formatted clinical advisory referral letter (Phase 4), or null",
-              "sickNoteString": "Formatted official medical certificate of illness (Phase 4), or null",
-              "billingReceipt": "itemized medical fee invoice with co-pays and diagnostic codes (Phase 5), or null",
-              "evaluation": "unfolded clinical feedback score sheet /100 and pathophysiology (Phase 6), or null",
-              "isEncounterComplete": boolean,
-              "additionalExpenses": double_value_optional,
-              "clinicalScore": double_value_optional
+              "dialogueResponse": "spoken response",
+              "vitals": {"bp": "120/80", "hr": "75", "tempC": 37.0, "rr": "16", "spo2": "98"},
+              "patientMood": "e.g. Calm", "patientStability": "e.g. Stable", "currentPhase": "phase name",
+              "physicalExamResults": "null or string",
+              "labResults": "null or string",
+              "prescriptionString": "null or string", "referralLetterString": null, "sickNoteString": null,
+              "billingReceipt": "null or string", "evaluation": "null or string",
+              "isEncounterComplete": boolean, "additionalExpenses": double_or_null, "clinicalScore": double_or_null
             }
         """.trimIndent()
     }
@@ -2255,7 +2237,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 messages.add(OpenAIMessage("system", systemPrompt))
                 
                 // Keep history clean to avoid token bloat
-                val chatTurns = _uiState.value.chatHistory.takeLast(100)
+                val chatTurns = _uiState.value.chatHistory.takeLast(20)
                 chatTurns.forEach {
                     val roleMapped = if (it.role == "doctor") "user" else "assistant"
                     messages.add(OpenAIMessage(roleMapped, it.text))
@@ -2329,7 +2311,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             "Anthropic" -> {
                 val messages = mutableListOf<AnthropicMessage>()
                 // Anthropic message API enforces alternating messages of 'user' and 'assistant' ONLY
-                val chatTurns = _uiState.value.chatHistory.takeLast(100)
+                val chatTurns = _uiState.value.chatHistory.takeLast(20)
                 
                 // Pre-merge or ensure roles alternate
                 chatTurns.forEach {
@@ -2384,7 +2366,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 // Maps complete system prompt and history
                 val contents = mutableListOf<GeminiContent>()
                 
-                val chatTurns = _uiState.value.chatHistory.takeLast(100)
+                val chatTurns = _uiState.value.chatHistory.takeLast(20)
                 chatTurns.forEach {
                     val roleMapped = if (it.role == "doctor") "user" else "model"
                     contents.add(GeminiContent(roleMapped, listOf(GeminiPart(it.text))))
@@ -2970,7 +2952,8 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 updatePoliticalPrestige((politicalPrestige.value - 2).coerceAtLeast(0))
                 _uiState.value = _uiState.value.copy(dailyRevenue = _uiState.value.dailyRevenue - 50.0) // Costs $50 consult fee
                 
-                val chatLogStr = _uiState.value.chatHistory.joinToString("\n") { "[\${it.virtualTimestampStr}] \${it.role}: \${it.text}" }
+                val recentHistory = _uiState.value.chatHistory.takeLast(14)
+                val chatLogStr = recentHistory.joinToString("\n") { "[\${it.virtualTimestampStr}] \${it.role}: \${it.text}" }
 
                 val prompt = """
                     You are the venerable Chief Medical Officer (CMO) mapping the clinical strategies at JB Consultation Practice.
