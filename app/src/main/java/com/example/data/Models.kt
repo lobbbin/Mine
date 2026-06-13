@@ -1,15 +1,22 @@
 package com.example.data
 
+import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
 @JsonClass(generateAdapter = true)
 data class Vitals(
-    val bp: String,
-    val hr: String,
-    val tempC: Double,
-    val rr: String,
-    val spo2: String
-)
+    @Json(name = "bp") val _bp: String? = "120/80",
+    @Json(name = "hr") val _hr: String? = "75",
+    @Json(name = "tempC") val _tempC: Double? = 37.0,
+    @Json(name = "rr") val _rr: String? = "16",
+    @Json(name = "spo2") val _spo2: String? = "98"
+) {
+    val bp: String get() = _bp ?: "120/80"
+    val hr: String get() = _hr ?: "75"
+    val tempC: Double get() = _tempC ?: 37.0
+    val rr: String get() = _rr ?: "16"
+    val spo2: String get() = _spo2 ?: "98"
+}
 
 @JsonClass(generateAdapter = true)
 data class ChatMessage(

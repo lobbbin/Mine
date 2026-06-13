@@ -2423,16 +2423,78 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         clean = clean.replace(Regex("```json\\s*"), "").trim()
         clean = clean.replace(Regex("```\\s*"), "").trim()
 
-        // 2. Extract first valid JSON object
+        // 2. Fix partial or invalid literal "nul" to "null"
+        clean = clean.replace(Regex(":\\s*nul\\b"), ": null")
+
+        // 3. Extract first valid JSON object
         val startIdx = clean.indexOf("{")
-        val endIdx = clean.lastIndexOf("}")
-        if (startIdx >= 0 && endIdx > startIdx) {
-            clean = clean.substring(startIdx, endIdx + 1).trim()
-        } else {
-            return "{}"
-        }
+        if (startIdx < 0) return "{}"
+        
+        clean = clean.substring(startIdx).trim()
+        
+        // 4. Try to balance brackets and build a structurally valid JSON if truncated
+        clean = balanceAndFixJson(clean)
 
         return clean
+    }
+
+    private fun balanceAndFixJson(json: String): String {
+        var clean = json.trim()
+        var inQuote = false
+        var escape = false
+        val braceStack = mutableListOf<Char>()
+        val sb = StringBuilder()
+        
+        for (i in clean.indices) {
+            val c = clean[i]
+            sb.append(c)
+            if (escape) {
+                escape = false
+                continue
+            }
+            if (c == '\\') {
+                escape = true
+                continue
+            }
+            if (c == '"') {
+                inQuote = !inQuote
+                continue
+            }
+            if (!inQuote) {
+                if (c == '{' || c == '[') {
+                    braceStack.add(c)
+                } else if (c == '}' || c == ']') {
+                    if (braceStack.isNotEmpty()) {
+                        val last = braceStack.last()
+                        if ((c == '}' && last == '{') || (c == ']' && last == '[')) {
+                            braceStack.removeAt(braceStack.size - 1)
+                        }
+                    }
+                }
+            }
+        }
+        
+        var repaired = sb.toString().trim()
+        
+        repaired = repaired.replace(Regex(",\\s*([}\\]])"), "$1")
+        if (repaired.endsWith(",")) {
+            repaired = repaired.dropLast(1).trim()
+        }
+        
+        if (inQuote) {
+            repaired += "\""
+        }
+        
+        while (braceStack.isNotEmpty()) {
+            val last = braceStack.removeAt(braceStack.size - 1)
+            repaired = repaired.trim()
+            if (repaired.endsWith(",")) {
+                repaired = repaired.dropLast(1).trim()
+            }
+            repaired += if (last == '{') "}" else "]"
+        }
+        
+        return repaired
     }
 
     suspend fun saveActiveKeys(newKey: String, newProvider: String, newModel: String, newCustomEndpoint: String) {
