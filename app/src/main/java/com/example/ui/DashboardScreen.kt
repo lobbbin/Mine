@@ -4751,7 +4751,9 @@ fun DispensaryCabinetPanel(viewModel: SimulationViewModel) {
 
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.padding(vertical = 4.dp)
+        modifier = Modifier
+            .padding(vertical = 4.dp)
+            .verticalScroll(rememberScrollState())
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
