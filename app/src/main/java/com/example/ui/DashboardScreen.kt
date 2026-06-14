@@ -837,7 +837,12 @@ fun DashboardScreen(
                                     .fillMaxWidth()
                                     .padding(vertical = 4.dp)
                             ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
+                                Column(
+                                    modifier = Modifier
+                                        .padding(12.dp)
+                                        .heightIn(max = 350.dp)
+                                        .verticalScroll(rememberScrollState())
+                                ) {
                                     val hasDraftedAny = !uiState.prescriptionString.isNullOrBlank() || 
                                                         !uiState.referralLetterString.isNullOrBlank() || 
                                                         !uiState.sickNoteString.isNullOrBlank()
