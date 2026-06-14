@@ -1332,6 +1332,9 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 if (p.extendedClauses.isNotEmpty()) {
                     sb.append("- Clauses: ${p.extendedClauses.joinToString("; ")}\n")
                 }
+                if (p.customEngineDirectives.isNotBlank()) {
+                    sb.append("\n[CRITICAL ENGINE INJECTION DIRECTIVE OVERRIDE FROM THIS LAW: ${p.customEngineDirectives}]\n")
+                }
             }
             sb.append("\nCRITICAL CLINICAL SCORECARD ENFORCEMENT RULES:")
             sb.append("\nYou have COMPLETE AND ABSOLUTE CONTROL over diagnosing and registering statutory health law and clause violations! If the clinician broke any requirements under any active law or its signed clauses (including any custom laws or regulations passed by the user), you MUST:")
@@ -1625,9 +1628,12 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         )
         saveCurrentStateToDatabase()
 
+        val freeHealthPolicyActive = activePolicies.value.any { it.requiresFreeHealth || it.runtimeConstraints["disableBilling"] == true }
         val finalPrompt = """
             Create the itemized South African private general practitioner medical bill invoice for this patient under JB Consultation Practice (Dr. Tim). Do NOT use placeholders.
             
+            ${if (freeHealthPolicyActive) "[CRITICAL: A LAW REQUIRING FREE HEALTH SERVICES IS ACTIVE. YOU MUST SET THE TOTAL BILLING TO ZERO AND BILLINGRECEIPT TO NULL.]" else ""}
+
             [CRITICAL: STRICT HYPOTHETICAL BILLING PROHIBITION]
             You are strictly forbidden from generating or invoice-itemizing ANY diagnostic investigation, lab test, drug, or clinical procedure that was NOT ordered or performed. Do NOT guess or hallucinate based on case type! Check the following actual medical ledger of this session:
             - Laboratory / Pathological blood orders or brain CT scans: ${if (!_uiState.value.labResults.isNullOrBlank()) "YES. The following were ordered and can be billed: ${_uiState.value.labResults}" else "NO. No lab investigations or CT scans were ordered. Do NOT include ANY FBC, CRP, U&E, toxicology screen, biochemistry, or CT scan on the invoice."}
@@ -1877,6 +1883,14 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             val newMeds = medsStock.value + proposal.medsQty
 
             settingsDataStore.saveInventory(newSyringes, newSaline, newAdrenaline, newReagents, newMeds)
+            
+            // Apply dynamic items restocking
+            proposal.itemsToBuy.forEach { (itemId, qty) ->
+                if (qty > 0) {
+                    OrchidDeepStateManager.forceRestockItemDirectly(itemId, qty)
+                }
+            }
+
             settingsDataStore.updateClinicStats(currentBal - proposal.estimatedTotalCost, reputationStars.value)
             settingsDataStore.addDailyExpenses(proposal.estimatedTotalCost)
             _aiStockingProposal.value = null
@@ -1898,6 +1912,10 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         val curReag = reagentsStock.value
         val curMeds = medsStock.value
 
+        val catalogStr = OrchidDeepStateManager.availableCatalog.joinToString("\n") { item ->
+            "- ${item.name} (ID: '${item.id}'): Classification: ${item.classification}. Unit Price: R ${item.purchaseCost} ZAR. Current stock: ${OrchidDeepStateManager.dispensaryInventory.value[item.id] ?: 0} units."
+        }
+
         val prompt = """
             You are the Medical Clinic Stocking Planner Assistant.
             The user (a clinic doctor/manager in South Africa) has provided the following stocking/purchasing instruction:
@@ -1905,32 +1923,38 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
 
             Current Clinic Resource Wallet Balance: R $bal ZAR
             Current Inventory Stock Levels:
-            - Syringes: $curSyrings units (packs of 1 can be purchased. Unit price: R 10.00 ZAR each)
-            - Isotonic Saline Bags: $curSaline units (packs of 1 can be purchased. Unit price: R 80.00 ZAR each)
-            - Adrenaline Vials: $curAdren units (packs of 1 can be purchased. Unit price: R 150.00 ZAR each)
-            - Clinical Lab Reagents: $curReag units (packs of 1 can be purchased. Unit price: R 25.00 ZAR each)
-            - Emergency Scheduled Meds: $curMeds units (packs of 1 can be purchased. Unit price: R 200.00 ZAR each)
+            - Syringes: $curSyrings units (Unit price: R 10.00 ZAR each)
+            - Isotonic Saline Bags: $curSaline units (Unit price: R 80.00 ZAR each)
+            - Adrenaline Vials: $curAdren units (Unit price: R 150.00 ZAR each)
+            - Clinical Lab Reagents: $curReag units (Unit price: R 25.00 ZAR each)
+            - Emergency Scheduled Meds: $curMeds units (Unit price: R 200.00 ZAR each)
+
+            Sovereign Pharmaceutical Catalog (Dynamic Custom Items available):
+            $catalogStr
 
             Your high-priority task rules:
-            1. Analyze the user's instruction. Determine which items they want to buy and in what quantities.
-            2. If they ask for general advice or optimization (e.g. "Optimize my stock under R1000" or "We are running low, buy what we need most"), prioritize stocking the items that have the lowest quantities first, and ensure the total price does not exceed their balance or requested limit.
-            3. Compute the exact quantities of each item to purchase. All quantities must be non-negative integers.
+            1. Analyze the user's instruction. Determine which standard or custom catalog items they want to buy and in what quantities.
+            2. All purchase quantities must be non-negative integers.
+            3. Compute the custom items to purchase under "itemsToBuy" by mapping item ID strings with integer quantities.
             4. Calculate the precise total cost:
-               totalCost = (syringeQty * 10.0) + (salineQty * 80.0) + (adrenalineQty * 150.0) + (reagentsQty * 25.0) + (medsQty * 200.0)
+               totalCost = (syringeQty * 10.0) + (salineQty * 80.0) + (adrenalineQty * 150.0) + (reagentsQty * 25.0) + (medsQty * 200.0) + sum_of_selected_custom_items(qty * unitPrice)
             5. Validate if the purchase is valid:
                - Is totalCost <= current balance ($bal)?
                - Are the quantities realistic and non-negative?
-            6. Produce a realistic explanation/message summarizing what you are doing (e.g., "Certainly! Purchasing 10 Syringes (R100) and 2 Saline Bags (R160) to support your emergency consult workflows.").
+            6. Produce a realistic explanation/message summarizing what you are doing (e.g., "Certainly! Restocking 5 units of Prozac Tablets (R900) and 10 Syringes (R100) as requested.").
             
             Return raw JSON matching this EXACT schema:
             {
                "explanation": "Brief description of the proposed procurement plan and itemization breakdown.",
-               "syringeQty": 10,
-               "salineQty": 5,
+               "syringeQty": 0,
+               "salineQty": 0,
                "adrenalineQty": 0,
                "reagentsQty": 0,
                "medsQty": 0,
-               "estimatedTotalCost": 500.0,
+               "itemsToBuy": {
+                  "prozac": 5
+               },
+               "estimatedTotalCost": 1000.0,
                "isValidPurchase": true,
                "validationMessage": ""
             }
@@ -1968,6 +1992,35 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     val isValid = json.optBoolean("isValidPurchase", true)
                     val valMsg = json.optString("validationMessage", "")
 
+                    val customItemsMap = mutableMapOf<String, Int>()
+                    if (json.has("itemsToBuy")) {
+                        val itemsObj = json.optJSONObject("itemsToBuy")
+                        if (itemsObj != null) {
+                            val keys = itemsObj.keys()
+                            while (keys.hasNext()) {
+                                val key = keys.next()
+                                val q = itemsObj.optInt(key, 0)
+                                if (q > 0) {
+                                    customItemsMap[key] = q
+                                }
+                            }
+                        } else {
+                            val itemsArr = json.optJSONArray("itemsToBuy")
+                            if (itemsArr != null) {
+                                for (i in 0 until itemsArr.length()) {
+                                    val itemObj = itemsArr.optJSONObject(i)
+                                    if (itemObj != null) {
+                                        val k = itemObj.optString("itemId") ?: ""
+                                        val q = itemObj.optInt("qty", 0)
+                                        if (k.isNotBlank() && q > 0) {
+                                            customItemsMap[k] = q
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     _aiStockingProposal.value = AiStockingProposal(
                         explanation = exp,
                         syringeQty = syr,
@@ -1975,6 +2028,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         adrenalineQty = adr,
                         reagentsQty = rea,
                         medsQty = med,
+                        itemsToBuy = customItemsMap,
                         estimatedTotalCost = cost,
                         isValidPurchase = isValid && (cost <= bal),
                         validationMessage = if (cost > bal) "Insufficient clinic balance (R$bal) for the total cost of R$cost!" else valMsg
@@ -2207,7 +2261,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         finalMood = "Frustrated"
                     }
 
-                    val newBillingReceipt = update.billingReceipt?.takeIf { it.isNotBlank() }
+                    val newBillingReceipt = if (OrchidDeepStateManager.isFreeHealthEnabled.value) null else update.billingReceipt?.takeIf { it.isNotBlank() }
                     var addedRevenue = 0.0
                     if (newBillingReceipt != null) {
                         val rxAmount = extractRandAmount(newBillingReceipt)
@@ -2217,7 +2271,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         }
                     }
 
-                    var finalEvaluation = update.evaluation?.takeIf { it.isNotBlank() } ?: _uiState.value.evaluation
+                    var finalEvaluation = (update.evaluation?.takeIf { it.isNotBlank() } ?: _uiState.value.evaluation)?.let { cleanSensationalString(it) }
                     var finalScore = update.clinicalScore
                     var violationsList = emptyList<PolicyAuditResult>()
 
@@ -2372,6 +2426,9 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         }
                     }
 
+                    val denyPrescriptions = activePolicies.value.any { it.runtimeConstraints["forceDenyPrescription"] == true }
+                    val disableInsurance = activePolicies.value.any { it.runtimeConstraints["disableInsurance"] == true }
+                    
                     _uiState.value = _uiState.value.copy(
                         chatHistory = currentHistory,
                         vitals = update.vitals ?: _uiState.value.vitals,
@@ -2381,7 +2438,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         billingReceipt = newBillingReceipt ?: _uiState.value.billingReceipt,
                         dailyRevenue = _uiState.value.dailyRevenue + addedRevenue,
                         evaluation = finalEvaluation,
-                        prescriptionString = update.prescriptionString?.takeIf { it.isNotBlank() } ?: _uiState.value.prescriptionString,
+                        prescriptionString = if (denyPrescriptions) null else update.prescriptionString?.takeIf { it.isNotBlank() } ?: _uiState.value.prescriptionString,
                         referralLetterString = update.referralLetterString?.takeIf { it.isNotBlank() } ?: _uiState.value.referralLetterString,
                         sickNoteString = update.sickNoteString?.takeIf { it.isNotBlank() } ?: _uiState.value.sickNoteString,
                         isEncounterComplete = update.isEncounterComplete ?: _uiState.value.isEncounterComplete,
@@ -2642,6 +2699,52 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 response.candidates.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: "{}"
             }
         }
+    }
+
+    fun cleanSensationalString(text: String?): String {
+        if (text == null) return ""
+        var s = text.trim()
+        
+        // Remove reasoning and formatting tokens
+        s = s.replace(Regex("(?s)<think>.*?</think>"), "")
+        s = s.replace(Regex("```json\\s*"), "")
+        s = s.replace(Regex("```xml\\s*"), "")
+        s = s.replace(Regex("```\\s*"), "")
+        
+        if (s.startsWith("\"") && s.endsWith("\"")) {
+            s = s.removePrefix("\"").removeSuffix("\"").trim()
+        }
+        
+        // If the model formatted plain text wrapped inside JSON object, safely unwrap it
+        if (s.startsWith("{") && s.endsWith("}")) {
+            try {
+                val json = org.json.JSONObject(s)
+                if (json.has("evaluation")) {
+                    return json.getString("evaluation").trim()
+                }
+                if (json.has("news")) {
+                    return json.getString("news").trim()
+                }
+                if (json.has("summary")) {
+                    return json.getString("summary").trim()
+                }
+                if (json.has("explanation")) {
+                    return json.getString("explanation").trim()
+                }
+            } catch (e: Exception) {
+                // Return original on parser mismatch
+            }
+        }
+        
+        // Strip duplicate label/key leakage patterns
+        s = s.replace(Regex("(?i)^.*?\"(title|summary|news|explanation|clinicalRule)\"\\s*:\\s*"), "")
+        s = s.replace(Regex("(?i)^.*?(title|summary|news|explanation|clinicalRule)\\s*:\\s*"), "")
+        
+        if (s.startsWith("\"") && s.endsWith("\"")) {
+            s = s.removePrefix("\"").removeSuffix("\"").trim()
+        }
+        
+        return s.trim()
     }
 
     private fun extractJsonString(raw: String?): String {
@@ -3503,7 +3606,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 """.trimIndent()
                 
                 val news = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt)
-                _currentNewsReport.value = news
+                _currentNewsReport.value = cleanSensationalString(news)
             } catch (e: Exception) {
                 logAndEmitError("AI News Generator failed: ${e.message}")
             } finally {
@@ -3715,7 +3818,15 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         "Clause 3: Penalty or financial benefit details if clinician observes this clause"
                       ],
                       "economicImpact": "Analytic report of the fiscal impact of this act on clinic treasury reserves and patient out-of-pocket pricing.",
-                      "clinicalRule": "A concise runtime directive that the Dr simulation must adhere to (e.g., 'Order diagnostic screening before treatment')",
+                      "clinicalRule": "A concise, actionable runtime directive, structural mandate, or functional constraint that the Dr simulation must strictly follow. The AI can define technical restrictions, procedural requirements, logic-governing rules, or explicit 'no-go' protocols.",
+                      "requiresFreeHealth": "Boolean, true if this law mandates that clinical services/consultations must be free of charge, false otherwise",
+                      "customEngineDirectives": "A string containing raw AI prompt injection instructions representing systemic constraints (e.g. 'NEVERALLOW_INSURANCE', 'DENY_REFERRALS', 'BAN_ANTIBIOTICS') that the AI Engine must append directly to its internal system prompt for the Doctor and AI during gameplay so they act constrained.",
+                      "runtimeConstraints": {
+                          "disableBilling": "Boolean, true if billing should be strictly 0 for this policy",
+                          "forceDenyPrescription": "Boolean, true if prescriptions must be strictly denied or ignored",
+                          "disableInsurance": "Boolean, true if private insurance systems are to be entirely rejected",
+                          "anyOtherDynamicKeyYouWant": "Boolean true/false. Be creative, you can invent booleans for strict constraints"
+                      },
                       "publicSupportEstimate": 60,
                       "politicalOpposition": "Brief description of which faction will hate this and why",
                       "presidentialAlignment": "Brief description of how it aligns with President's agenda"
@@ -3744,6 +3855,18 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val publicSupportEstimate = if (json.has("publicSupportEstimate")) json.optInt("publicSupportEstimate", 50) else null
                 val politicalOpposition = if (json.has("politicalOpposition")) json.optString("politicalOpposition") else null
                 val presidentialAlignment = if (json.has("presidentialAlignment")) json.optString("presidentialAlignment") else null
+                val requiresFreeHealth = json.optBoolean("requiresFreeHealth", false)
+                val customEngineDirectives = json.optString("customEngineDirectives", "")
+                
+                val constraintsMap = mutableMapOf<String, Boolean>()
+                val constraintsJson = json.optJSONObject("runtimeConstraints")
+                if (constraintsJson != null) {
+                    val keys = constraintsJson.keys()
+                    while (keys.hasNext()) {
+                        val k = keys.next()
+                        constraintsMap[k] = constraintsJson.optBoolean(k, false)
+                    }
+                }
 
                 val draft = HealthPolicy(
                     id = java.util.UUID.randomUUID().toString(),
@@ -3753,6 +3876,9 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     economicImpact = economicImpact,
                     clinicalRule = clinicalRule,
                     status = "Draft",
+                    requiresFreeHealth = requiresFreeHealth,
+                    customEngineDirectives = customEngineDirectives,
+                    runtimeConstraints = constraintsMap,
                     publicSupportEstimate = publicSupportEstimate,
                     politicalOpposition = politicalOpposition,
                     presidentialAlignment = presidentialAlignment
@@ -4735,6 +4861,7 @@ data class AiStockingProposal(
     val adrenalineQty: Int = 0,
     val reagentsQty: Int = 0,
     val medsQty: Int = 0,
+    val itemsToBuy: Map<String, Int> = emptyMap(),
     val estimatedTotalCost: Double = 0.0,
     val isValidPurchase: Boolean = false,
     val validationMessage: String = ""

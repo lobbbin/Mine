@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.MonitorHeart
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.WindPower
 import androidx.compose.material.icons.filled.Phone
@@ -3436,19 +3437,27 @@ fun StateAndLegislationTab(
             }
         }
 
-        // --- NEW: REBEL ORCHID SYNDICATE & DEEP STATE DIRECTIVES ---
-        val deepStateIntelligence by OrchidDeepStateManager.orchidIntelligence.collectAsStateWithLifecycle()
-        val syndicateReputationRaw by OrchidDeepStateManager.syndicateReputation.collectAsStateWithLifecycle()
-        val syndicateReputation = syndicateReputationRaw / 20.0f
-        val activeDirectivesList by OrchidDeepStateManager.activeDirectives.collectAsStateWithLifecycle()
-        val activeDirective = activeDirectivesList.firstOrNull() ?: "Standard undercover vigilance demanded."
+        // --- NATION DRUG BUILDER & COMPLIANCE PRIORITIES ---
+        val regulatoryAuditScore by OrchidDeepStateManager.orchidIntelligence.collectAsStateWithLifecycle()
+        val nationalPriorityCount by OrchidDeepStateManager.completedDirectivesCount.collectAsStateWithLifecycle()
+        val activeMandatesList by OrchidDeepStateManager.activeDirectives.collectAsStateWithLifecycle()
+        val primaryMandate = activeMandatesList.firstOrNull() ?: "Maintain strict compliance with healthcare safety bylaws."
+
+        var showDrugBuilderForm by remember { mutableStateOf(false) }
+        var newDrugName by remember { mutableStateOf("") }
+        var newDrugCategory by remember { mutableStateOf("Schedule 4 (Prescription Medication)") }
+        var newDrugCostInput by remember { mutableStateOf("") }
+        var newDrugBPChange by remember { mutableStateOf("Raises (+10 mmHg)") }
+        var newDrugHRChange by remember { mutableStateOf("Stabilizes (-5 bpm)") }
+        var newDrugTherapyEffect by remember { mutableStateOf("") }
+        var newDrugDescription by remember { mutableStateOf("") }
 
         Card(
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
-                containerColor = Color(0xFF1B1124) // Deep gothic purple background
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
             ),
-            border = BorderStroke(1.2.dp, Color(0xFF9C27B0).copy(alpha = 0.5f)),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -3458,68 +3467,182 @@ fun StateAndLegislationTab(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("🌸", fontSize = 20.sp)
+                        Text("🏛️", fontSize = 20.sp)
                         Spacer(modifier = Modifier.width(8.dp))
                         Column {
                             Text(
-                                text = "ORCHID DEEP STATE SYNDICATE",
+                                text = "NATION PHARMACEUTICAL DIRECTORY",
                                 style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Black,
-                                color = Color(0xFFE040FB)
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
                             )
                             Text(
-                                text = "Co-conspirators of the Sovereign health coup",
+                                text = "HPCSA Regulatory & Custom Drug Architect",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Color.LightGray
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = Color(0xFF7B1FA2)
+                    
+                    TextButton(onClick = { showDrugBuilderForm = !showDrugBuilderForm }) {
+                        Text(if (showDrugBuilderForm) "Collapse Form ✖" else "Add Custom Drug ➕", fontWeight = FontWeight.ExtraBold, fontSize = 11.sp)
+                    }
+                }
+
+                if (showDrugBuilderForm) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text("🧪 ARCHITECT A NEW THERAPEUTIC COMPOUND", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = newDrugName,
+                        onValueChange = { newDrugName = it },
+                        label = { Text("Drug Name (e.g. Prozac tablets)", fontSize = 11.sp) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = "UNDERGROUND CABAL",
-                            fontSize = 8.sp,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        OutlinedTextField(
+                            value = newDrugCategory,
+                            onValueChange = { newDrugCategory = it },
+                            label = { Text("Schedule Category", fontSize = 11.sp) },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
                         )
+                        OutlinedTextField(
+                            value = newDrugCostInput,
+                            onValueChange = { newDrugCostInput = it },
+                            label = { Text("Cost (ZAR per pack)", fontSize = 11.sp) },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = newDrugBPChange,
+                            onValueChange = { newDrugBPChange = it },
+                            label = { Text("BP Delta (e.g. Raises +10)", fontSize = 10.sp) },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = newDrugHRChange,
+                            onValueChange = { newDrugHRChange = it },
+                            label = { Text("HR Delta (e.g. Drops -5)", fontSize = 10.sp) },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    OutlinedTextField(
+                        value = newDrugTherapyEffect,
+                        onValueChange = { newDrugTherapyEffect = it },
+                        label = { Text("Therapeutic Clinical Indication Effect", fontSize = 11.sp) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    OutlinedTextField(
+                        value = newDrugDescription,
+                        onValueChange = { newDrugDescription = it },
+                        label = { Text("Pharmacology Description", fontSize = 11.sp) },
+                        modifier = Modifier.fillMaxWidth(),
+                        maxLines = 2
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Button(
+                        onClick = {
+                            if (newDrugName.isNotBlank() && newDrugTherapyEffect.isNotBlank()) {
+                                val costVal = newDrugCostInput.toDoubleOrNull() ?: 150.0
+                                OrchidDeepStateManager.addNewCustomItem(
+                                    name = newDrugName,
+                                    classification = newDrugCategory,
+                                    description = newDrugDescription.takeIf { it.isNotBlank() } ?: "Custom-developed therapeutic agent registered in the nation's medical formulary.",
+                                    purchaseCost = costVal,
+                                    bpDelta = newDrugBPChange,
+                                    hrDelta = newDrugHRChange,
+                                    clinicalImpact = newDrugTherapyEffect
+                                )
+                                newDrugName = ""
+                                newDrugDescription = ""
+                                newDrugTherapyEffect = ""
+                                newDrugCostInput = ""
+                                showDrugBuilderForm = false
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().height(40.dp)
+                    ) {
+                        Text("🧪 INJECT COMPOUND INTO SOVEREIGN CATALOGUE", fontWeight = FontWeight.Bold, fontSize = 11.sp)
                     }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider(color = Color(0xFF4A148C))
+                HorizontalDivider()
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.weight(1.1f)) {
-                        Text("Intelligence Assets", fontSize = 10.sp, color = Color.LightGray)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Compliance Integrity", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(
-                            "$deepStateIntelligence / 100 PTS",
+                            "$regulatoryAuditScore / 100 PTS",
                             fontSize = 13.sp,
-                            fontWeight = FontWeight.Black,
-                            color = Color(0xFFBA68C8)
+                            fontWeight = FontWeight.Bold,
+                            color = if (regulatoryAuditScore >= 80) Color(0xFF2E7D32) else Color(0xFFC62828)
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         androidx.compose.material3.LinearProgressIndicator(
-                            progress = { deepStateIntelligence / 100f },
-                            color = Color(0xFFBA68C8),
-                            trackColor = Color(0xFF311B92),
+                            progress = { regulatoryAuditScore / 100f },
+                            color = if (regulatoryAuditScore >= 80) Color(0xFF2E7D32) else Color(0xFFC62828),
+                            trackColor = MaterialTheme.colorScheme.outlineVariant,
                             modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp))
                         )
                     }
                     Spacer(modifier = Modifier.width(16.dp))
-                    Column(modifier = Modifier.weight(0.9f)) {
-                        Text("Syndicate Respect", fontSize = 10.sp, color = Color.LightGray)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Active Mandates", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFBA68C8), modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.AssignmentTurnedIn, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "${String.format("%.1f", syndicateReputation)} / 5.0",
+                                text = "$nationalPriorityCount Mandates Fulf.",
                                 fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        
+                        // Add Free Health Toggle here
+                        val isFreeHealthEnabled by OrchidDeepStateManager.isFreeHealthEnabled.collectAsStateWithLifecycle()
+                        Row(
+                            modifier = Modifier.padding(top = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Free Health Policy", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Switch(
+                                checked = isFreeHealthEnabled,
+                                onCheckedChange = { OrchidDeepStateManager.toggleFreeHealth(it) },
+                                modifier = Modifier.size(32.dp)
                             )
                         }
                     }
@@ -3527,22 +3650,22 @@ fun StateAndLegislationTab(
 
                 Spacer(modifier = Modifier.height(14.dp))
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF32174D)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(10.dp)) {
                         Text(
-                            text = "🔒 ACTIVE SYNDICATE COVERT DIRECTIVE:",
+                            text = "📋 PARLIAMENTARY HEALTH PRIORITIES DIRECTIVE:",
                             style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Black,
-                            color = Color(0xFFEA80FC)
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = activeDirective,
+                            text = primaryMandate,
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color.LightGray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 15.sp
                         )
                     }
@@ -3556,27 +3679,27 @@ fun StateAndLegislationTab(
                     Button(
                         onClick = {
                             OrchidDeepStateManager.leakIntelToSyndicate()
-                            viewModel.applyIntervention("Syndicate Handler Radio Broadcast")
+                            viewModel.applyIntervention("Request Regulatory Counsel Review")
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE040FB)),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                         shape = RoundedCornerShape(8.dp),
                         enabled = !isLoading,
                         modifier = Modifier.weight(1f).height(38.dp)
                     ) {
-                        Text("LEAK STATE INTEL (-5 Prest.)", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                        Text("CONSULT LOBBY TRUST", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
                     }
 
                     OutlinedButton(
                         onClick = {
                             OrchidDeepStateManager.requestNewDirective()
                         },
-                        border = BorderStroke(1.dp, Color(0xFFBA68C8)),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFBA68C8)),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
                         shape = RoundedCornerShape(8.dp),
                         enabled = !isLoading,
                         modifier = Modifier.weight(1f).height(38.dp)
                     ) {
-                        Text("NEW DIRECTIVE", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("REFRESH PRIORITIES", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -4650,31 +4773,33 @@ fun DispensaryCabinetPanel(viewModel: SimulationViewModel) {
         }
 
         Text(
-            text = "Dispense prescribed drugs or contraband directly to the bedside. Violating active sovereign scheduling acts or dispensing rebel contraband will trigger state trials with severe penalties!",
+            text = "Dispense prescribed medications directly to the patient's bedside. Adhere safely to national drug schedules and active safety protocols. Statutory regulatory guidelines regulate narcotics and critical prescriptions.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        OrchidDeepStateManager.availableCatalog.forEach { item ->
+        val dynamicCatalog by OrchidDeepStateManager.availableCatalogFlow.collectAsStateWithLifecycle()
+
+        dynamicCatalog.forEach { item ->
             val stock = stockMap[item.id] ?: 0
             val containerColor = when {
-                item.isContraband -> Color(0xFF2E1A47) // Dark violet
-                item.classification.contains("Schedule 8") -> Color(0xFF421C1C) // Dark ruby
-                item.classification.contains("Schedule 4") -> Color(0xFF42301C) // Dark bronze
+                item.classification.contains("Schedule 8", ignoreCase = true) -> Color(0xFF421C1C) // Dark ruby
+                item.classification.contains("Schedule 5", ignoreCase = true) -> Color(0xFF2E1A47) // Dark violet
+                item.classification.contains("Schedule 4", ignoreCase = true) -> Color(0xFF42301C) // Dark bronze
                 else -> Color(0xFF1C3A1C) // Dark emerald
             }
             val labelColor = when {
-                item.isContraband -> Color(0xFFE1BEE7)
-                item.classification.contains("Schedule 8") -> Color(0xFFFFCDD2)
-                item.classification.contains("Schedule 4") -> Color(0xFFFFE0B2)
+                item.classification.contains("Schedule 8", ignoreCase = true) -> Color(0xFFFFCDD2)
+                item.classification.contains("Schedule 5", ignoreCase = true) -> Color(0xFFE1BEE7)
+                item.classification.contains("Schedule 4", ignoreCase = true) -> Color(0xFFFFE0B2)
                 else -> Color(0xFFC8E6C9)
             }
             val chipColor = when {
-                item.isContraband -> Color(0xFF8E24AA)
-                item.classification.contains("Schedule 8") -> Color(0xFFC62828)
-                item.classification.contains("Schedule 4") -> Color(0xFFEF6C00)
+                item.classification.contains("Schedule 8", ignoreCase = true) -> Color(0xFFC62828)
+                item.classification.contains("Schedule 5", ignoreCase = true) -> Color(0xFF8E24AA)
+                item.classification.contains("Schedule 4", ignoreCase = true) -> Color(0xFFEF6C00)
                 else -> Color(0xFF2E7D32)
             }
 

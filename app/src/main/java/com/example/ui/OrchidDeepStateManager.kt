@@ -9,7 +9,7 @@ import com.example.data.HealthPolicy
 data class DispensaryItem(
     val id: String,
     val name: String,
-    val classification: String, // "Schedule 4 (Standard)", "Schedule 8 (Narcotic)", "Contraband (Rebel)", "General"
+    val classification: String, // "Schedule 4 (Standard)", "Schedule 8 (Narcotic)", "General"
     val description: String,
     val purchaseCost: Double,
     val patientBPDelta: String,       // e.g. "Spikes BP (+15)" or "Lowers BP (-10)"
@@ -33,17 +33,17 @@ object OrchidDeepStateManager {
     // --- 1. ITEM DISPENSARY STATE ---
     private val _dispensaryInventory = MutableStateFlow<Map<String, Int>>(
         mapOf(
-            "antibiotics" to 15,
-            "adrenaline" to 8,
-            "morphine" to 4,
             "saline" to 10,
+            "adrenaline" to 8,
+            "antibiotics" to 15,
             "gtn_spray" to 6,
-            "orchid_serum" to 2 // Starts rare!
+            "morphine" to 4,
+            "prozac" to 10 // Starts with Prozac by default so it's fully supported!
         )
     )
     val dispensaryInventory: StateFlow<Map<String, Int>> = _dispensaryInventory.asStateFlow()
 
-    val availableCatalog = listOf(
+    private val defaultCatalog = listOf(
         DispensaryItem(
             id = "saline",
             name = "Isotonic Saline Infusion",
@@ -88,26 +88,31 @@ object OrchidDeepStateManager {
             id = "morphine",
             name = "Prescribed Morphine Sulphate",
             classification = "Schedule 8 (Heavy Narcotic)",
-            description = "Intense, highly addictive opioid analgesic. Heavily regulated under ZAR sovereign narcotics directives.",
+            description = "Intense, highly controlled opioid analgesic. Heavily logged under standard HPCSA narcotics regulations.",
             purchaseCost = 450.0,
             patientBPDelta = "Slightly Lowers (-5 mmHg)",
             patientHRDelta = "Dampens (-15 bpm)",
             clinicalTherapyImpact = "Powerful Analgesia & Sedation",
-            intelligenceSuspicionCost = 15
+            intelligenceSuspicionCost = 5 // Represents minor inspection cost, not underworld
         ),
         DispensaryItem(
-            id = "orchid_serum",
-            name = "Orchid Serum (Contraband CO-99)",
-            classification = "CONTRABAND (Orchid Rebel Trade)",
-            description = "Underground biosynthetic serum engineered by the rebel Orchid Syndicate. Mysteriously cures multiple etiologies but highly illegal!",
-            purchaseCost = 950.0,
-            patientBPDelta = "Perfect Balance (Returns to 120/80)",
-            patientHRDelta = "Perfect Balance (Returns to 75 bpm)",
-            isContraband = true,
-            intelligenceSuspicionCost = 30,
-            clinicalTherapyImpact = "Biosynthetic Restoration & Panacea"
+            id = "prozac",
+            name = "Prozac Antidepressant Tablets",
+            classification = "Schedule 5 (Psychiatric)",
+            description = "Selective Serotonin Reuptake Inhibitor (SSRI). Standard therapy for depressive mood, panic disorders, and obsessive symptoms.",
+            purchaseCost = 180.0,
+            patientBPDelta = "No acute effect",
+            patientHRDelta = "Steady (0 bpm)",
+            clinicalTherapyImpact = "Stabilizes Serotonin & Long-Term Mood Regulation"
         )
     )
+
+    private val _availableCatalogFlow = MutableStateFlow<List<DispensaryItem>>(defaultCatalog)
+    val availableCatalogFlow: StateFlow<List<DispensaryItem>> = _availableCatalogFlow.asStateFlow()
+
+    // Getter compat for static list access
+    val availableCatalog: List<DispensaryItem>
+        get() = _availableCatalogFlow.value
 
     fun restockItem(itemId: String, quantity: Int, currentBalance: Double): Pair<Double, String>? {
         val item = availableCatalog.find { it.id == itemId } ?: return null
@@ -121,6 +126,12 @@ object OrchidDeepStateManager {
         return Pair(totalCost, "Restocked $quantity units of ${item.name}.")
     }
 
+    fun forceRestockItemDirectly(itemId: String, quantity: Int) {
+        val currentStock = _dispensaryInventory.value.toMutableMap()
+        currentStock[itemId] = (currentStock[itemId] ?: 0) + quantity
+        _dispensaryInventory.value = currentStock
+    }
+
     fun consumeItem(itemId: String): Boolean {
         val currentStock = _dispensaryInventory.value.toMutableMap()
         val stock = currentStock[itemId] ?: 0
@@ -130,26 +141,69 @@ object OrchidDeepStateManager {
         return true
     }
 
-    // --- 2. ORCHID DEEP STATE PLOT SYSTEM ---
+    // --- dynamic custom drug additions ---
+    fun addNewCustomItem(
+        name: String,
+        classification: String,
+        description: String,
+        purchaseCost: Double,
+        bpDelta: String,
+        hrDelta: String,
+        clinicalImpact: String
+    ) {
+        val cleanName = name.trim()
+        val id = cleanName.lowercase().replace(Regex("[^a-z0-9_]"), "_").take(24)
+        val newItem = DispensaryItem(
+            id = id,
+            name = cleanName,
+            classification = classification,
+            description = description,
+            purchaseCost = purchaseCost,
+            patientBPDelta = bpDelta,
+            patientHRDelta = hrDelta,
+            clinicalTherapyImpact = clinicalImpact
+        )
+        val currentList = _availableCatalogFlow.value.toMutableList()
+        if (!currentList.any { it.id == id }) {
+            currentList.add(newItem)
+            _availableCatalogFlow.value = currentList
+
+            // Also register starting stock so the clinician can immediately test/dispense it
+            val updatedInventory = _dispensaryInventory.value.toMutableMap()
+            updatedInventory[id] = 10
+            _dispensaryInventory.value = updatedInventory
+        }
+    }
+
+    // --- 2. SOVEREIGN REGULATORY INTEGRITY & HPCSA STATS (REPLACED UNDERWORLD PATH) ---
     private val _isDeepStateEnabled = MutableStateFlow(true)
     val isDeepStateEnabled: StateFlow<Boolean> = _isDeepStateEnabled.asStateFlow()
 
-    private val _orchidIntelligence = MutableStateFlow(20) // 0-100% government suspicion
+    private val _isFreeHealthEnabled = MutableStateFlow(false)
+    val isFreeHealthEnabled: StateFlow<Boolean> = _isFreeHealthEnabled.asStateFlow()
+
+    fun toggleFreeHealth(enabled: Boolean) {
+        _isFreeHealthEnabled.value = enabled
+    }
+
+    // Serves as Regulatory Compliance Audit Score (higher is better, represents compliance integrity status)
+    private val _orchidIntelligence = MutableStateFlow(95) 
     val orchidIntelligence: StateFlow<Int> = _orchidIntelligence.asStateFlow()
 
-    private val _syndicateReputation = MutableStateFlow(50) // 0-100% underground alignment
+    // Serves as Sovereign Law Enforcement standing
+    private val _syndicateReputation = MutableStateFlow(85)
     val syndicateReputation: StateFlow<Int> = _syndicateReputation.asStateFlow()
 
     private val _activeDirectives = MutableStateFlow<List<String>>(
         listOf(
-            "Secret Directive: Discretely dispense 'Orchid Serum (CO-99)' to any destabilized surgical or severe case to gather clinical diagnostic field-data.",
-            "Underground Agenda: Keep cumulative prescription billing under R300 for State Funded patients to redirect supplies directly to the Pretoria safehouse.",
-            "Rebel Defiance: Intentionally veto or violate any government healthcare regulations that restrict free-practice generic substitution."
+            "Regulatory Advisory: Ensure standard diagnostic vitals screenings exist for all out-of-pocket cash consults.",
+            "Policy Guideline: Keep daily clinical expenditure balanced and avoid unnecessary high-schedule prescriptions.",
+            "HPCSA Compliance Directive: Observe strict generic therapeutic drug substitution under Parliamentary billing codes."
         )
     )
     val activeDirectives: StateFlow<List<String>> = _activeDirectives.asStateFlow()
 
-    private val _completedDirectivesCount = MutableStateFlow(0)
+    private val _completedDirectivesCount = MutableStateFlow(1)
     val completedDirectivesCount: StateFlow<Int> = _completedDirectivesCount.asStateFlow()
 
     private val _currentCaseDispensationHistory = MutableStateFlow<List<String>>(emptyList())
@@ -165,30 +219,22 @@ object OrchidDeepStateManager {
         current.add(item.name)
         _currentCaseDispensationHistory.value = current
 
-        // Update suspicion & rebel standing
-        if (item.isContraband) {
-            _orchidIntelligence.value = (_orchidIntelligence.value + item.intelligenceSuspicionCost).coerceIn(0, 100)
-            _syndicateReputation.value = (_syndicateReputation.value + 15).coerceIn(0, 100)
-        } else if (item.classification.contains("Schedule 8")) {
-            _orchidIntelligence.value = (_orchidIntelligence.value + 8).coerceIn(0, 100)
+        // Standard audits update regulatory stats
+        if (item.classification.contains("Schedule 8", ignoreCase = true)) {
+            // High narcotics usage slightly alerts regulatory inspection
+            _orchidIntelligence.value = (_orchidIntelligence.value - 5).coerceIn(0, 100)
         }
     }
 
     fun completeDirective() {
         _completedDirectivesCount.value = _completedDirectivesCount.value + 1
-        _syndicateReputation.value = (_syndicateReputation.value + 20).coerceIn(0, 100)
-        // Set new directives
-        val current = _activeDirectives.value.toMutableList()
-        if (current.isNotEmpty()) {
-            current.removeAt(0)
-            current.add("Dynamic Alert: Evade the National Intelligence Search Warrant by avoiding all illegal chemical compound trials for the next 4 patient cases.")
-            _activeDirectives.value = current
-        }
+        _syndicateReputation.value = (_syndicateReputation.value + 10).coerceIn(0, 100)
     }
     
     fun bribeSSSAForCoverage(cost: Double): Boolean {
-        if (_orchidIntelligence.value <= 10) return false
-        _orchidIntelligence.value = (_orchidIntelligence.value - 25).coerceAtLeast(0)
+        // Renamed function behaves as: "Request Regulatory Counsel Review"
+        if (_orchidIntelligence.value >= 95) return false
+        _orchidIntelligence.value = (_orchidIntelligence.value + 15).coerceIn(0, 100)
         return true
     }
 
@@ -200,7 +246,7 @@ object OrchidDeepStateManager {
         DefenseLawyer(
             id = "public",
             displayName = "Adv. Sipho Khumalo (State Public Defender)",
-            specialty = "Pro-Bono / Human Rights Protection",
+            specialty = "Constitutional Regulatory Representation",
             retainerFee = 0.0,
             defenseBiasPercent = 10,
             lawyerPitch = "Cons: Increases courtroom tension slightly each round. Pros: Totally free legal counsel offered under the constitution."
@@ -211,11 +257,11 @@ object OrchidDeepStateManager {
             specialty = "Constitutional Medical Malpractice & Regulatory Defense",
             retainerFee = 1500.0,
             defenseBiasPercent = 35,
-            lawyerPitch = "Cons: Costs R1,500 retainer paid immediately. Pros: Massive -35% reduction in prosecutor hostility, provides high-grade policy advice and evidence validation."
+            lawyerPitch = "Cons: Costs R1,500 retainer paid immediately. Pros: Massive -35% reduction in regulatory prosecution hostility, provides high-grade policy advice and evidence validation."
         )
     )
 
-    private val _trialRoundsCount = MutableStateFlow(3) // Users get 3 active defense plea rounds before the final verdict
+    private val _trialRoundsCount = MutableStateFlow(3)
     val trialRoundsCount: StateFlow<Int> = _trialRoundsCount.asStateFlow()
 
     private val _defensePleaHistory = MutableStateFlow<List<String>>(emptyList())
@@ -276,16 +322,16 @@ object OrchidDeepStateManager {
     }
 
     fun leakIntelToSyndicate() {
-        _orchidIntelligence.value = (_orchidIntelligence.value + 10).coerceIn(0, 100)
+        // Becomes "Consult Parliamentary Lobbyists"
+        _orchidIntelligence.value = (_orchidIntelligence.value - 5).coerceIn(0, 100)
     }
 
     fun requestNewDirective() {
         val pool = listOf(
-            "Secret Directive: Discretely dispense 'Orchid Serum (CO-99)' to any destabilized cases to gather clinical diagnostic field-data.",
-            "Underground Agenda: Keep cumulative prescription billing under R300 for State Funded patients to redirect supplies directly to the safehouse.",
-            "Rebel Defiance: Intentionally veto or violate any government healthcare regulations.",
-            "Sovereign Disruption: Dispense Adrenaline Epi-Shots to patients presenting with extreme hypotensive crisis.",
-            "Integrity Sabotage: Under-report heavy narcotics control logs by administering Morphine."
+            "Regulatory Advisory: Ensure standard diagnostic vitals screenings exist for all out-of-pocket cash consults.",
+            "Policy Guideline: Keep daily clinical expenditure balanced and avoid unnecessary high-schedule prescriptions.",
+            "HPCSA Compliance Directive: Observe strict generic therapeutic drug substitution under Parliamentary billing codes.",
+            "Public Safety Agenda: Limit non-referred psychiatric medication administrations to severe clinical index cases."
         )
         _activeDirectives.value = pool.shuffled().take(2)
     }

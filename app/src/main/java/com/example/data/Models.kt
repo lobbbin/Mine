@@ -130,6 +130,9 @@ data class HealthPolicy(
     val economicImpact: String,
     val clinicalRule: String,
     val status: String, // "Draft", "Voting", "PresidentDesk", "Approved", "Vetoed", "Defeated"
+    val requiresFreeHealth: Boolean = false,
+    val customEngineDirectives: String = "", 
+    val runtimeConstraints: Map<String, Boolean> = emptyMap(),
     val yesVotes: Int = 0,
     val noVotes: Int = 0,
     val abstainVotes: Int = 0,

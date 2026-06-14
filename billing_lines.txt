@@ -1,0 +1,38 @@
+286:    private var lastExtractedBillingAmount: Double = 0.0
+611:                            if (!curr.billingReceipt.isNullOrBlank()) {
+612:                                val billingTitle = "🧾 Itemized Invoice Bill (ZAR Rands R) | Human Approved: ${if (curr.billingApprovedByHuman) "Approved" else "Skipped/Admin"} | Status: ${if (curr.paymentCollected) "Paid / Collected" else "Unpaid"}"
+613:                                document.add(createPdfShadedBox(curr.billingReceipt, billingTitle, normalFont, boldFont))
+882:                    lastExtractedBillingAmount = if (!latest.billingReceipt.isNullOrBlank()) extractRandAmount(latest.billingReceipt!!) else 0.0
+906:                        billingReceipt = latest.billingReceipt,
+921:                        billingApprovedByHuman = latest.billingApprovedByHuman,
+971:        lastExtractedBillingAmount = 0.0
+1154:                    billingReceipt = null,
+1164:                    billingApprovedByHuman = false
+1193:                billingReceipt = _uiState.value.billingReceipt,
+1196:                revenueEarned = if (lastExtractedBillingAmount > 0.0) {
+1197:                    lastExtractedBillingAmount
+1211:                billingApprovedByHuman = _uiState.value.billingApprovedByHuman,
+1236:                    billingReceipt = null,
+1385:            5 - Billing: Return "billingReceipt".
+1397:              "billingReceipt": "null or string", "evaluation": "null or string",
+1624:            currentPhase = "Phase 5 - Medical Billing & Collection"
+1631:            [CRITICAL: STRICT HYPOTHETICAL BILLING PROHIBITION]
+1651:            Return this invoice itemized inside the "billingReceipt" JSON field. Set currentPhase to "Phase 5 - Medical Billing & Collection" and keep dialogueResponse polite regarding payment collection.
+1658:                    billingApprovedByHuman = true,
+1659:                    currentPhase = "Phase 5 - Medical Billing & Collection"
+1682:            systemInstructionOverride = "Generate the final CPD-aligned medical scorecard, rating, and feedback for this simulation. Award an objective clinical competency score out of 100 based on history, exams, correct interventions, prescription appropriateness, letters completeness, financial billing, and resource management. Under a distinct heading 'PATIENT SAFETY NAME AUDIT', evaluate if the practitioner referenced the patient by their correct name (${getPatientName()}) and if the compiled prescription, referral, and sick notes correctly printed and matched this specific patient identity. Deduct 10 points if there was any identity mismatch. Populate the 'evaluation' field and populate the 'clinicalScore' numeric field (0-100). Set isEncounterComplete to true, and currentPhase to 'Phase 6 - Case Evaluation & Feedback'.",
+1722:            systemInstructionOverride = "The doctor is finalizing this encounter. Based on the clinical history, infer the diagnosis, generate the final billing receipt in ZAR, and provide the Phase 4 evaluation score out of 100.",
+1800:                // Perform South African clinical consultation billing charge
+2084:            billingReceipt = null,
+2258:                    val newBillingReceipt = update.billingReceipt?.takeIf { it.isNotBlank() }
+2260:                    if (newBillingReceipt != null) {
+2261:                        val rxAmount = extractRandAmount(newBillingReceipt)
+2262:                        if (rxAmount > 0.0 && rxAmount != lastExtractedBillingAmount) {
+2263:                            addedRevenue = rxAmount - lastExtractedBillingAmount
+2264:                            lastExtractedBillingAmount = rxAmount
+2429:                        billingReceipt = newBillingReceipt ?: _uiState.value.billingReceipt,
+3442:    private fun extractRandAmount(billingText: String): Double {
+3443:        if (billingText.isBlank()) return 0.0
+3450:            val match = regex.find(billingText)
+3463:        val matches = rRegex.findAll(billingText)
+4370:        lastExtractedBillingAmount = 0.0
