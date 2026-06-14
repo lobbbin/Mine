@@ -200,6 +200,13 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
     private val _currentCmoAdvice = MutableStateFlow<String?>(null)
     val currentCmoAdvice: StateFlow<String?> = _currentCmoAdvice.asStateFlow()
 
+    private val _wildAiUninsuredMode = MutableStateFlow(false)
+    val wildAiUninsuredMode: StateFlow<Boolean> = _wildAiUninsuredMode.asStateFlow()
+
+    fun toggleWildAiUninsuredMode(enabled: Boolean) {
+        _wildAiUninsuredMode.value = enabled
+    }
+
     private val _isVotingActive = MutableStateFlow(false)
     val isVotingActive: StateFlow<Boolean> = _isVotingActive.asStateFlow()
 
@@ -229,6 +236,9 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
 
     private val _sickPoliticianAlert = MutableStateFlow<String?>(null)
     val sickPoliticianAlert: StateFlow<String?> = _sickPoliticianAlert.asStateFlow()
+
+    private val _aiStockingProposal = MutableStateFlow<AiStockingProposal?>(null)
+    val aiStockingProposal: StateFlow<AiStockingProposal?> = _aiStockingProposal.asStateFlow()
 
     fun updateCountryName(name: String) {
         viewModelScope.launch { settingsDataStore.saveCountryName(name) }
@@ -963,6 +973,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     private fun startNextPatientInternal() {
+        OrchidDeepStateManager.resetCaseDispensation()
         val currentSeen = _uiState.value.patientsSeen
         val currentRevenue = _uiState.value.dailyRevenue
 
@@ -1314,13 +1325,34 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         val policyInstructions = if (activePolList.isNotEmpty()) {
             val sb = java.lang.StringBuilder()
             sb.append("\n\nCRITICAL CONTEXT - NATIONWIDE HEALTH LEGISLATION LAWS ACTIVE IN THE LAND:")
-            activePolList.takeLast(3).forEachIndexed { i, p ->
+            activePolList.forEachIndexed { i, p ->
                 sb.append("\nLAW ${i+1}: ${p.title}\n")
+                sb.append("- Summary: ${p.summary}\n")
                 sb.append("- Rule: ${p.clinicalRule}\n")
+                if (p.extendedClauses.isNotEmpty()) {
+                    sb.append("- Clauses: ${p.extendedClauses.joinToString("; ")}\n")
+                }
             }
             sb.append("\nCRITICAL CLINICAL SCORECARD ENFORCEMENT RULES:")
-            sb.append("\nStrictly respect the active laws. In Phase 6, deduct 15-20 points per violation if the clinician broke any requirements (e.g., failing to order vitals/tests). Cite the LAW exactly.")
+            sb.append("\nYou have COMPLETE AND ABSOLUTE CONTROL over diagnosing and registering statutory health law and clause violations! If the clinician broke any requirements under any active law or its signed clauses (including any custom laws or regulations passed by the user), you MUST:")
+            sb.append("\n1. Deduct the points specified in the law or decide an appropriate deduction (e.g., -20 CPD points per violation) directly from your 'clinicalScore' value.")
+            sb.append("\n2. Declare the violation and levy a regulatory penalty fine specified by the law (e.g., R500 or any appropriate custom amount) directly in the 'policyViolations' list.")
+            sb.append("\n3. If a violation occurred, populate the 'policyViolations' JSON array. The system will register a formal Statutory Law Violation, deduct the CPD points, fine the clinic, and launch an interactive High Court Trial with a unique indictment sheet based exactly on your reasons and those signed clauses! If no violations occurred, return an empty array or null.")
             sb.toString()
+        } else ""
+
+        val wildAiInstruction = if (_wildAiUninsuredMode.value && 
+            (_hiddenCase.value?.insuranceStatus?.contains("Uninsured", ignoreCase = true) == true || 
+             _hiddenCase.value?.insuranceStatus?.contains("Out-of-Pocket", ignoreCase = true) == true || 
+             _hiddenCase.value?.insuranceStatus?.contains("Cash", ignoreCase = true) == true)
+        ) {
+            """
+                
+                🔥 WILD CLINICAL OVERWRITE (ACTIVE - ALLOW WILD AI CHAT & INTERVENTIONS):
+                The physician has officially disabled standard health guidelines & bypassed insurance restrictions for this uninsured patient ("State Funded / Uninsured"). 
+                You are granted COMPLETE FREE ROAM AND FULL WILL. You must introduce highly unexpected, exotic, bizarre, or alternative rebel treatment methods and symptoms (e.g., secret clinical bio-hacking, experimental syndicate serum trials, bizarre medical anomalies, alternative bio-reconstructors, extreme adrenal surge symptoms, highly risky underground procedures, or sovereign clinical mutations). Play along with the doctor's wild mind, create dramatic patient responses, and unlock complete medical defiance!
+                
+            """.trimIndent()
         } else ""
 
         return """
@@ -1330,6 +1362,8 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             - HIDDEN CASE PROFILE (NEVER REVEAL UNTIL PHASE 6): $profileJson
             - CLINICAL CONTEXT: General Practitioner Clinic in ${countryName.value} (Metric conversions, Celsius, kg/cm, mmol/L, local treasury currency represented by 'R' or '$' or dynamic currency, default 'R').
             - PRACTITIONER CONTEXT: The user is Dr. Tim, operating JB Consultation Practice (PR# 1234567). Use these specific details whenever referencing the doctor or practice in any generated paperwork, labs, or receipts. Do NOT use placeholders.
+            
+            $wildAiInstruction
             
             $pastClinicalHistoryPrompt
             $policyInstructions
@@ -1361,7 +1395,17 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
               "labResults": "null or string",
               "prescriptionString": "null or string", "referralLetterString": null, "sickNoteString": null,
               "billingReceipt": "null or string", "evaluation": "null or string",
-              "isEncounterComplete": boolean, "additionalExpenses": double_or_null, "clinicalScore": double_or_null
+              "isEncounterComplete": boolean, "additionalExpenses": double_or_null, "clinicalScore": double_or_null,
+              "policyViolations": [
+                {
+                  "policyTitle": "Exact Title of the Act",
+                  "triggeredClause": "e.g. Section 3.1 Vitals Mandate",
+                  "isViolation": true,
+                  "penaltyAmount": 500.0,
+                  "scoreDeduction": 20,
+                  "auditMessage": "🚨 VIOLATION: Detailed custom explanation of how the clinician's actions or omissions violated this specific clause of the enacted statute."
+                }
+              ]
             }
         """.trimIndent()
     }
@@ -1810,6 +1854,142 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    fun dismissAiStockingProposal() {
+        _aiStockingProposal.value = null
+    }
+
+    fun approveAndExecuteStockingProposal() {
+        val proposal = _aiStockingProposal.value ?: return
+        if (!proposal.isValidPurchase) {
+            logAndEmitError("Cannot execute proposal: ${proposal.validationMessage}")
+            return
+        }
+        val currentBal = clinicBalance.value
+        if (currentBal < proposal.estimatedTotalCost) {
+            logAndEmitError("Cannot execute: Insufficient clinic funds!")
+            return
+        }
+        viewModelScope.launch {
+            val newSyringes = syringeStock.value + proposal.syringeQty
+            val newSaline = salineStock.value + proposal.salineQty
+            val newAdrenaline = adrenalineStock.value + proposal.adrenalineQty
+            val newReagents = reagentsStock.value + proposal.reagentsQty
+            val newMeds = medsStock.value + proposal.medsQty
+
+            settingsDataStore.saveInventory(newSyringes, newSaline, newAdrenaline, newReagents, newMeds)
+            settingsDataStore.updateClinicStats(currentBal - proposal.estimatedTotalCost, reputationStars.value)
+            settingsDataStore.addDailyExpenses(proposal.estimatedTotalCost)
+            _aiStockingProposal.value = null
+        }
+    }
+
+    fun submitAiStockingRequest(instruction: String) {
+        if (_isLoading.value) return
+        if (instruction.isBlank()) {
+            logAndEmitError("Please enter some instructions for the AI Stocking Assistant!")
+            return
+        }
+        _isLoading.value = true
+
+        val bal = clinicBalance.value
+        val curSyrings = syringeStock.value
+        val curSaline = salineStock.value
+        val curAdren = adrenalineStock.value
+        val curReag = reagentsStock.value
+        val curMeds = medsStock.value
+
+        val prompt = """
+            You are the Medical Clinic Stocking Planner Assistant.
+            The user (a clinic doctor/manager in South Africa) has provided the following stocking/purchasing instruction:
+            "$instruction"
+
+            Current Clinic Resource Wallet Balance: R $bal ZAR
+            Current Inventory Stock Levels:
+            - Syringes: $curSyrings units (packs of 1 can be purchased. Unit price: R 10.00 ZAR each)
+            - Isotonic Saline Bags: $curSaline units (packs of 1 can be purchased. Unit price: R 80.00 ZAR each)
+            - Adrenaline Vials: $curAdren units (packs of 1 can be purchased. Unit price: R 150.00 ZAR each)
+            - Clinical Lab Reagents: $curReag units (packs of 1 can be purchased. Unit price: R 25.00 ZAR each)
+            - Emergency Scheduled Meds: $curMeds units (packs of 1 can be purchased. Unit price: R 200.00 ZAR each)
+
+            Your high-priority task rules:
+            1. Analyze the user's instruction. Determine which items they want to buy and in what quantities.
+            2. If they ask for general advice or optimization (e.g. "Optimize my stock under R1000" or "We are running low, buy what we need most"), prioritize stocking the items that have the lowest quantities first, and ensure the total price does not exceed their balance or requested limit.
+            3. Compute the exact quantities of each item to purchase. All quantities must be non-negative integers.
+            4. Calculate the precise total cost:
+               totalCost = (syringeQty * 10.0) + (salineQty * 80.0) + (adrenalineQty * 150.0) + (reagentsQty * 25.0) + (medsQty * 200.0)
+            5. Validate if the purchase is valid:
+               - Is totalCost <= current balance ($bal)?
+               - Are the quantities realistic and non-negative?
+            6. Produce a realistic explanation/message summarizing what you are doing (e.g., "Certainly! Purchasing 10 Syringes (R100) and 2 Saline Bags (R160) to support your emergency consult workflows.").
+            
+            Return raw JSON matching this EXACT schema:
+            {
+               "explanation": "Brief description of the proposed procurement plan and itemization breakdown.",
+               "syringeQty": 10,
+               "salineQty": 5,
+               "adrenalineQty": 0,
+               "reagentsQty": 0,
+               "medsQty": 0,
+               "estimatedTotalCost": 500.0,
+               "isValidPurchase": true,
+               "validationMessage": ""
+            }
+            If the purchase cannot be completed (e.g., they specified something too expensive or requested invalid negative numbers), set "isValidPurchase" to false and explain why in "validationMessage".
+        """.trimIndent()
+
+        viewModelScope.launch {
+            try {
+                val currentProvider = provider.value
+                val currentModel = model.value
+                val userKey = apiKey.value ?: ""
+                val activeKey = if (userKey.isBlank()) {
+                    when {
+                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
+                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
+                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
+                        else -> ""
+                    }
+                } else {
+                    userKey
+                }
+
+                if (activeKey.isNotBlank()) {
+                    val responseRaw = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt)
+                    val sanitized = extractJsonString(responseRaw)
+                    val json = org.json.JSONObject(sanitized)
+
+                    val exp = json.optString("explanation", "Suggested stocking plan based on your guidelines.")
+                    val syr = json.optInt("syringeQty", 0)
+                    val sal = json.optInt("salineQty", 0)
+                    val adr = json.optInt("adrenalineQty", 0)
+                    val rea = json.optInt("reagentsQty", 0)
+                    val med = json.optInt("medsQty", 0)
+                    val cost = json.optDouble("estimatedTotalCost", 0.0)
+                    val isValid = json.optBoolean("isValidPurchase", true)
+                    val valMsg = json.optString("validationMessage", "")
+
+                    _aiStockingProposal.value = AiStockingProposal(
+                        explanation = exp,
+                        syringeQty = syr,
+                        salineQty = sal,
+                        adrenalineQty = adr,
+                        reagentsQty = rea,
+                        medsQty = med,
+                        estimatedTotalCost = cost,
+                        isValidPurchase = isValid && (cost <= bal),
+                        validationMessage = if (cost > bal) "Insufficient clinic balance (R$bal) for the total cost of R$cost!" else valMsg
+                    )
+                } else {
+                    logAndEmitError("Missing LLM API Key to run Stocking Assistant!")
+                }
+            } catch (e: Exception) {
+                logAndEmitError("Stocking Assistant LLM connection failed: ${e.localizedMessage}")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
     fun registerDailyExpense(amount: Double) {
         viewModelScope.launch {
             settingsDataStore.addDailyExpenses(amount)
@@ -1978,7 +2158,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     stateAdapter.fromJson(sanitized)
                 } catch (e: Exception) {
                     e.printStackTrace()
-                    logAndEmitError("Failed to parse valid JSON from AI. Exception: ${e.message}. Raw AI text snippet: ${sanitized.take(100)}")
+                    logAndEmitError("The local diagnostic database had a momentary synchronization latency. Please retry sending your query.")
                     null
                 }
 
@@ -2055,7 +2235,74 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         )
                         
                         val auditResults = auditEncounterForActivePolicies(simStateForAudit, _hiddenCase.value)
-                        val violations = auditResults.filter { it.isViolation }
+                        val violations = auditResults.filter { it.isViolation }.toMutableList()
+                        
+                        // 1. Parse dynamic policy violations directly from the AI model response!
+                        update.policyViolations?.forEach { pViol ->
+                            if (pViol.isViolation) {
+                                val matchedPolicy = activePolicies.value.find { it.title.equals(pViol.policyTitle, ignoreCase = true) }
+                                val pId = matchedPolicy?.id ?: java.util.UUID.randomUUID().toString()
+                                val alreadyTracked = violations.any { it.policyTitle.equals(pViol.policyTitle, ignoreCase = true) }
+                                if (!alreadyTracked) {
+                                    violations.add(
+                                        PolicyAuditResult(
+                                            policyId = pId,
+                                            policyTitle = pViol.policyTitle,
+                                            triggeredClause = pViol.triggeredClause,
+                                            isViolation = true,
+                                            penaltyAmount = pViol.penaltyAmount,
+                                            scoreDeduction = pViol.scoreDeduction,
+                                            auditMessage = pViol.auditMessage
+                                        )
+                                    )
+                                } else {
+                                    val idx = violations.indexOfFirst { it.policyTitle.equals(pViol.policyTitle, ignoreCase = true) }
+                                    if (idx >= 0) {
+                                        violations[idx] = PolicyAuditResult(
+                                            policyId = pId,
+                                            policyTitle = pViol.policyTitle,
+                                            triggeredClause = pViol.triggeredClause,
+                                            isViolation = true,
+                                            penaltyAmount = pViol.penaltyAmount,
+                                            scoreDeduction = pViol.scoreDeduction,
+                                            auditMessage = pViol.auditMessage
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // 2. Parse extra dynamic custom violations flagged in the LLM feedback text (Fallback)
+                        val lowerEval = finalEvaluation?.lowercase() ?: ""
+                        for (policy in activePolicies.value) {
+                            val titleLower = policy.title.lowercase()
+                            if (lowerEval.contains("violation") && lowerEval.contains(titleLower)) {
+                                val alreadyTracked = violations.any { it.policyTitle.equals(policy.title, ignoreCase = true) }
+                                if (!alreadyTracked) {
+                                    var reason = "The doctor violated the national regulations and clauses detailed under active law '${policy.title}'."
+                                    val lines = finalEvaluation?.split("\n") ?: emptyList()
+                                    for (line in lines) {
+                                        if (line.lowercase().contains(titleLower) && (line.lowercase().contains("violat") || line.lowercase().contains("penal") || line.lowercase().contains("deduct"))) {
+                                            reason = line.trim()
+                                            break
+                                        }
+                                    }
+                                    
+                                    violations.add(
+                                        PolicyAuditResult(
+                                            policyId = policy.id,
+                                            policyTitle = policy.title,
+                                            triggeredClause = "Sovereign Health Legislative Clause",
+                                            isViolation = true,
+                                            penaltyAmount = 500.0, // R500 penalty for parliamentary law breach
+                                            scoreDeduction = 20,   // -20 pts
+                                            auditMessage = "🚨 VIOLATION: Clinical non-compliance with the signed health act '${policy.title}'. Detail: $reason"
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                        
                         violationsList = violations
                         
                         if (violations.isNotEmpty()) {
@@ -2409,11 +2656,12 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         // 2. Fix partial or invalid literal "nul" to "null"
         clean = clean.replace(Regex(":\\s*nul\\b"), ": null")
 
-        // 3. Extract first valid JSON object
+        // 3. Extract exact JSON boundaries from first { to last }
         val startIdx = clean.indexOf("{")
-        if (startIdx < 0) return "{}"
+        val endIdx = clean.lastIndexOf("}")
+        if (startIdx < 0 || endIdx < 0 || endIdx < startIdx) return "{}"
         
-        clean = clean.substring(startIdx).trim()
+        clean = clean.substring(startIdx, endIdx + 1).trim()
         
         // 4. Try to balance brackets and build a structurally valid JSON if truncated
         clean = balanceAndFixJson(clean)
@@ -2614,7 +2862,363 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         }
         initialLog.add(initialLine)
         _lawsuitLog.value = initialLog
+
+        // Populate SSSA & Judiciary Evidence Pool from actual encounter parameters
+        val caseVitalsText = _uiState.value.vitals?.let { "BP: ${it.bp}, HR: ${it.hr}, TempC: ${it.tempC}, SpO2: ${it.spo2}" } ?: "Not Monitored"
+        val labResultsStr = _uiState.value.labResults
+        val policyViolationsSummary = violations.joinToString("; ") { it.policyTitle }
+        OrchidDeepStateManager.setEvidencePool(caseVitalsText, labResultsStr, policyViolationsSummary)
+        OrchidDeepStateManager.resetTrialRounds()
     }
+
+    // --- NEW DEEP STATE APIS (RESTOCK & DISPENSING ACTIONS) ---
+
+    fun buyDispensaryRestock(itemId: String, quantity: Int) {
+        val currentBal = clinicBalance.value
+        val result = OrchidDeepStateManager.restockItem(itemId, quantity, currentBal)
+        if (result != null) {
+            val totalCost = result.first
+            val successMsg = result.second
+            viewModelScope.launch {
+                settingsDataStore.updateClinicStats(currentBal - totalCost, reputationStars.value)
+                settingsDataStore.addDailyExpenses(totalCost)
+                val newLogs = _votingLog.value.toMutableList()
+                newLogs.add("📦 $successMsg deducted R${String.format("%.2f", totalCost)} from clinic funds.")
+                _votingLog.value = newLogs
+            }
+        } else {
+            logAndEmitError("Cannot restock: Insufficient clinic funds!")
+        }
+    }
+
+    fun dispenseDispensaryItemToPatient(itemId: String) {
+        if (_isLoading.value || _uiState.value.isEncounterComplete) return
+        
+        val item = OrchidDeepStateManager.availableCatalog.find { it.id == itemId } ?: return
+        val map = OrchidDeepStateManager.dispensaryInventory.value
+        val stock = map[itemId] ?: 0
+        if (stock <= 0) {
+            logAndEmitError("Cannot dispense ${item.name}: Stock is empty! Restock in the Sovereign Deep State/Cabinet center first.")
+            return
+        }
+
+        // Consume stock
+        OrchidDeepStateManager.consumeItem(itemId)
+        OrchidDeepStateManager.recordDispensation(itemId)
+
+        // Modify vitals locally
+        val oldVitals = _uiState.value.vitals ?: Vitals("120/80", "75", 37.0, "16", "98%")
+        var currentBPString = oldVitals.bp ?: "120/80"
+        var currentHRString = oldVitals.hr ?: "75"
+        var currentTemp = oldVitals.tempC ?: 37.0
+        var currentSPO2 = oldVitals.spo2 ?: "98"
+        var currentRR = oldVitals.rr ?: "16"
+
+        when (itemId) {
+            "saline" -> {
+                currentBPString = shiftBP(currentBPString, 12)
+                currentHRString = shiftHR(currentHRString, -5)
+            }
+            "adrenaline" -> {
+                currentBPString = shiftBP(currentBPString, 25)
+                currentHRString = shiftHR(currentHRString, 30)
+                currentRR = "22"
+            }
+            "gtn_spray" -> {
+                currentBPString = shiftBP(currentBPString, -20)
+                currentHRString = shiftHR(currentHRString, 10)
+            }
+            "morphine" -> {
+                currentBPString = shiftBP(currentBPString, -5)
+                currentHRString = shiftHR(currentHRString, -12)
+                currentRR = "11"
+            }
+            "orchid_serum" -> {
+                currentBPString = "120/80"
+                currentHRString = "75"
+                currentTemp = 37.0
+                currentSPO2 = "100%"
+                currentRR = "14"
+            }
+        }
+
+        val newVitals = oldVitals.copy(
+            _bp = currentBPString,
+            _hr = currentHRString,
+            _tempC = currentTemp,
+            _rr = currentRR,
+            _spo2 = currentSPO2
+        )
+
+        val updatedHistory = _uiState.value.chatHistory.toMutableList()
+        val formattedTime = String.format("%02d:%02d", (_uiState.value.virtualTimeElapsed / 60) + 8, _uiState.value.virtualTimeElapsed % 60)
+        updatedHistory.add(ChatMessage("system", "System Action: Administered ${item.name} (${item.classification}) to patient.", virtualTimestampStr = formattedTime))
+
+        _uiState.value = _uiState.value.copy(
+            vitals = newVitals,
+            chatHistory = updatedHistory,
+            virtualTimeElapsed = _uiState.value.virtualTimeElapsed + 5
+        )
+        saveCurrentStateToDatabase()
+
+        // Call LLM for physical effect
+        performAiAction(
+            systemInstructionOverride = """
+                The doctor has physically dispensed and administered '${item.name}' (${item.classification}) to you.
+                Item description: '${item.description}'.
+                Your vitals have clinically updated to: BP $currentBPString, Pulse $currentHRString, RR $currentRR, SpO2 $currentSPO2.
+                Roleplay your response reacting specifically to this medical delivery!
+                Acknowledge this specific drug and describe the immediate bodily changes (e.g. chest easing for GTN, severe anxiety/racing core for Epinephrine, or deep, warm sedative comfort for Morphine).
+                If Orchid Serum was dispensed, speak directly as 'The Orchid Traitor' or 'Syndicate Operative', dropping a subtle hint that the rebel faction is grateful, while warning the doctor of Pretoria's intelligence agency!
+            """.trimIndent()
+        )
+    }
+
+    private fun shiftBP(bp: String, delta: Int): String {
+        val parts = bp.split("/")
+        if (parts.size == 2) {
+            val sys = ((parts[0].toIntOrNull() ?: 120) + delta).coerceIn(40, 240)
+            val dia = ((parts[1].toIntOrNull() ?: 80) + (delta / 2)).coerceIn(30, 150)
+            return "$sys/$dia"
+        }
+        return bp
+    }
+
+    private fun shiftHR(hr: String, delta: Int): String {
+        val count = ((hr.toIntOrNull() ?: 75) + delta).coerceIn(30, 200)
+        return count.toString()
+    }
+
+    // --- COURTROOM INTERACTIVE ADVOCACY SERVICE ---
+
+    fun hireLawyerForTrial(lawyerId: String) {
+        val lawyer = OrchidDeepStateManager.defenseLawyersCatalog.find { it.id == lawyerId } ?: return
+        val currentBal = clinicBalance.value
+        if (currentBal >= lawyer.retainerFee) {
+            OrchidDeepStateManager.hireDefenseLawyer(lawyerId)
+            if (lawyer.retainerFee > 0.0) {
+                viewModelScope.launch {
+                    settingsDataStore.updateClinicStats(currentBal - lawyer.retainerFee, reputationStars.value)
+                    settingsDataStore.addDailyExpenses(lawyer.retainerFee)
+                    
+                    val logs = _lawsuitLog.value.toMutableList()
+                    logs.add("💼 RETAINER INVOICE: Paid R${String.format("%.2f", lawyer.retainerFee)} to hire ${lawyer.displayName}.")
+                    _lawsuitLog.value = logs
+                }
+            }
+            _lawsuitProsecutorAggression.value = (_lawsuitProsecutorAggression.value - lawyer.defenseBiasPercent).coerceAtLeast(10)
+            _lawsuitTension.value = (_lawsuitTension.value - (lawyer.defenseBiasPercent / 2)).coerceAtLeast(10)
+        } else {
+            logAndEmitError("Cannot hire lawyer: Insufficient clinic balance of R${clinicBalance.value} for retainer!")
+        }
+    }
+
+    fun submitInteractiveLawsuitPlea(pleaMsg: String, selectedEvidence: List<String>) {
+        if (_isLoading.value) return
+        if (pleaMsg.isBlank()) {
+            logAndEmitError("Courtroom requires written testimony! Please type your defense pleading.")
+            return
+        }
+        _isLoading.value = true
+        OrchidDeepStateManager.spendTrialRound()
+        OrchidDeepStateManager.recordDefensePleaArgument(pleaMsg)
+
+        val activePolList = activePolicies.value
+        val policyDetailsStr = if (activePolList.isNotEmpty()) {
+            val sb = java.lang.StringBuilder()
+            sb.append("\nACTLY ENACTED SOVEREIGN HEALTH LAWS:")
+            activePolList.forEachIndexed { idx, p ->
+                sb.append("\n[LAW ${idx+1}] TITLE: ${p.title}\n")
+                sb.append("  - Requirements: ${p.clinicalRule}\n")
+            }
+            sb.toString()
+        } else "No clinical laws enacted."
+
+        val lawyer = OrchidDeepStateManager.hiredLawyer.value
+        val lawyerContext = if (lawyer != null) {
+            "Accused is professionally represented by: ${lawyer.displayName} (${lawyer.specialty}). Defense Advantage Level: ${lawyer.defenseBiasPercent}%"
+        } else "Accused has representing lawyer: NONE (Self-Representation)."
+
+        val currentHistoryLog = _lawsuitLog.value.joinToString("\n\n")
+
+        val prompt = """
+            You are simulating an interactive clinical trial hearing in the Supreme Medical Court of the Republic of ${countryName.value}.
+            
+            SOVEREIGN COURT STATE INFO:
+            - Defendant: Dr. Tim, GP (JB Consultation Practice, PR# 1234567)
+            - Patient Case: Treated patient "${_lawsuitPatientName.value}" for condition "${_lawsuitCaseDiag.value}".
+            - Current Courtroom Transcript & History:
+            $currentHistoryLog
+            
+            ACTIVE LEGISLATION CODES:
+            $policyDetailsStr
+            
+            LEGAL DEFENSE DETAILS IN THIS PLEA ROUND:
+            - Defendant's Written Testimony / Pleading speech: "$pleaMsg"
+            - Submitted Physical Exhibits / Clinical evidence: ${if (selectedEvidence.isNotEmpty()) selectedEvidence.joinToString(", ") else "None"}
+            - Legal Representation: $lawyerContext
+            
+            YOUR JOB IN THIS INTERIM ROUND:
+            1. Roleplay the intense, sharp voice of the State Prosecutor and the impartial questioning of the Presiding Judge in Pretoria.
+            2. The state prosecutor must cross-examine the doctor's specific typed statement "$pleaMsg" and check the validity of their submitted evidence: "${selectedEvidence.joinToString("; ")}".
+            3. If the defense makes clinical sense (e.g. they dispensed adrenaline because the patient was in anaphylaxis, or ordered saline due to shock, backed by appropriate evidence), reduce the tension and aggression metrics. If the excuse is weak or contradicts standard health protocols, increase tension and aggression metrics.
+            4. Provide the prosecutor's aggressive response and the Judge's subsequent inquiry in 'courtDialogue'.
+            5. Return raw JSON matching this EXACT schema:
+            {
+               "courtDialogue": "Prosecutor's sharp rebuttal questioning the evidence, followed by the Presiding Judge's formal query on the record.",
+               "tensionAdjustment": -10,
+               "aggressionAdjustment": -15,
+               "defenseInsightText": "A quick note of guidance or strategic legal advice from Dr. Tim's hired defense lawyer."
+            }
+        """.trimIndent()
+
+        viewModelScope.launch {
+            try {
+                val currentProvider = provider.value
+                val currentModel = model.value
+                val userKey = apiKey.value ?: ""
+                val activeKey = if (userKey.isBlank()) {
+                    when {
+                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
+                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
+                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
+                        else -> ""
+                    }
+                } else {
+                    userKey
+                }
+
+                if (activeKey.isNotBlank()) {
+                    val responseRaw = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt)
+                    val sanitized = extractJsonString(responseRaw)
+                    val json = org.json.JSONObject(sanitized)
+
+                    val dialogue = json.optString("courtDialogue", "Prosecution submits cross-examination statement.")
+                    val dAdj = json.optInt("tensionAdjustment", 5)
+                    val aAdj = json.optInt("aggressionAdjustment", 5)
+                    val insight = json.optString("defenseInsightText", "Ensure you back up your claims with physical vitals evidence.")
+
+                    val logs = _lawsuitLog.value.toMutableList()
+                    logs.add("🗣️ DOCTOR'S DEFENSE:\n\"$pleaMsg\"")
+                    if (selectedEvidence.isNotEmpty()) {
+                        logs.add("📁 SUBMITTED EVIDENCE TO COURT:\n" + selectedEvidence.joinToString("\n"))
+                    }
+                    logs.add("👨‍⚖️ TRIBUNAL HEARINGS & INQUEST:\n$dialogue")
+                    logs.add("💼 LAWYER'S INSIGHT: $insight")
+
+                    _lawsuitLog.value = logs
+                    _lawsuitTension.value = (_lawsuitTension.value + dAdj).coerceIn(10, 100)
+                    _lawsuitProsecutorAggression.value = (_lawsuitProsecutorAggression.value + aAdj).coerceIn(10, 100)
+                    _lawsuitCurrentStage.value = "cross_exam"
+                }
+            } catch (e: Exception) {
+                logAndEmitError("Court connecting line error: ${e.localizedMessage}")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun concludeLawsuitInteractiveVerdict() {
+        if (_isLoading.value) return
+        _isLoading.value = true
+
+        val activePolList = activePolicies.value
+        val policyDetailsStr = if (activePolList.isNotEmpty()) {
+            val sb = java.lang.StringBuilder()
+            sb.append("\nSOVEREIGN LAWS UNDER WHICH JUDGMENT IS RENDERED:")
+            activePolList.forEachIndexed { idx, p ->
+                sb.append("\nLaw ${idx+1}: ${p.title} | Rule: ${p.clinicalRule}\n")
+            }
+            sb.toString()
+        } else "No formal laws active."
+
+        val currentHistoryLog = _lawsuitLog.value.joinToString("\n\n")
+        val lawyer = OrchidDeepStateManager.hiredLawyer.value
+        val activeSeledEvid = OrchidDeepStateManager.selectedEvidenceToPresent.value
+
+        val prompt = """
+            You are the Presiding Judge and Supreme Justice of the High Court Medical Tribunal of ${countryName.value}.
+            You are delivering the final, legally-binding VERDICT and penalty decree for Dr. Tim (JB Consultation Practice).
+            
+            CASE SPECIFICATION:
+            - Case: Treated "${_lawsuitPatientName.value}" for "${_lawsuitCaseDiag.value}".
+            - Cumulative Case Court Transcript (Plea history and prosecutorial arguments):
+            $currentHistoryLog
+            
+            EVIDENTIARY EXHIBITS RULING ON:
+            - Selected evidence submitted to court: ${if (activeSeledEvid.isNotEmpty()) activeSeledEvid.joinToString(", ") else "None"}
+            - Defense Representation: ${lawyer?.displayName ?: "None (Self-represented)"}
+            - Court Tension Level: ${_lawsuitTension.value}%
+            - Prosecution Hostility/Aggression Level: ${_lawsuitProsecutorAggression.value}%
+            
+            HEALTH STATUTES IN SCOPE:
+            $policyDetailsStr
+            
+            YOUR DIRECTIVE:
+            1. Formulate a final, realistic sentencing judgment.
+            2. Verdict types allowed: "Exonerated" (if tension < 45% and appropriate evidence was provided), "Warning" (tension 45-60%), "Fined" (tension 60-80% or severe statutory breaches), "Suspension" (tension > 80% or repeated violations).
+            3. If Fined, define a numeric cash fine (e.g. R500.00 to R3000.00). Deduct this from the clinic's balance.
+            4. If Suspension, define the suspension weeks (e.g. 1 to 3 weeks).
+            5. Return raw JSON matching this schema:
+            {
+               "verdictType": "Fined",
+               "fineAmount": 1200.0,
+               "suspensionWeeks": 0,
+               "finalVerdictText": "Chief Justice's Formal Judicial Verdict Decree. Outline the logical rationale, reference the defense's testimony and whether their submitted evidence was sufficient, and declare the legal sentence penalty."
+            }
+        """.trimIndent()
+
+        viewModelScope.launch {
+            try {
+                val currentProvider = provider.value
+                val currentModel = model.value
+                val userKey = apiKey.value ?: ""
+                val activeKey = if (userKey.isBlank()) {
+                    when {
+                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
+                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
+                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
+                        else -> ""
+                    }
+                } else {
+                    userKey
+                }
+
+                if (activeKey.isNotBlank()) {
+                    val responseRaw = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt)
+                    val sanitized = extractJsonString(responseRaw)
+                    val json = org.json.JSONObject(sanitized)
+
+                    val vType = json.optString("verdictType", "Warning")
+                    val fine = json.optDouble("fineAmount", 0.0)
+                    val weeks = json.optInt("suspensionWeeks", 0)
+                    val text = json.optString("finalVerdictText", "A final warning has been logged under the regulatory guidelines.")
+
+                    val logs = _lawsuitLog.value.toMutableList()
+                    logs.add("⚖️ SUPREME COURT OF RULING - VERDICT ISSUED:\n$text")
+                    _lawsuitLog.value = logs
+
+                    _lawsuitVerdict.value = vType
+                    _lawsuitFine.value = fine
+                    _lawsuitSuspension.value = weeks
+
+                    if (fine > 0.0) {
+                        settingsDataStore.updateClinicStats(clinicBalance.value - fine, reputationStars.value)
+                        registerDailyExpense(fine)
+                    }
+
+                    _lawsuitCurrentStage.value = "verdict"
+                }
+            } catch (e: Exception) {
+                logAndEmitError("Court judgment finalization failed: ${e.localizedMessage}")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    // --- ORIGINAL DEFENSE BACKWARD COMPATIBLE FLOWS ---
 
     fun submitLawsuitDefense(strategy: String) {
         if (_isLoading.value) return
@@ -4062,6 +4666,40 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 }
             }
 
+            // 11. Narcotics & Rebel Contraband Checking
+            val dispensedList = OrchidDeepStateManager.currentCaseDispensationHistory.value
+            if (dispensedList.contains("Orchid Serum (Contraband CO-99)")) {
+                results.add(
+                    PolicyAuditResult(
+                        policyId = policy.id,
+                        policyTitle = policy.title,
+                        triggeredClause = "Illicit Rebel Contraband Smuggling Restriction",
+                        isViolation = true,
+                        penaltyAmount = penaltyAmt.coerceAtLeast(1500.0),
+                        scoreDeduction = scoreDeduct.coerceAtLeast(30),
+                        auditMessage = "🚨 VIOLATION: Bypassed national drug safety borders to administer unapproved, illicit rebel contraband 'Orchid Serum (CO-99)' to the patient. Flagged under State Security Acts."
+                    )
+                )
+                continue
+            }
+            if (dispensedList.contains("Prescribed Morphine Sulphate")) {
+                val hasRRCheck = encounter.vitals != null && encounter.vitals.rr != "..." && encounter.vitals.rr != ""
+                if (!hasRRCheck) {
+                    results.add(
+                        PolicyAuditResult(
+                            policyId = policy.id,
+                            policyTitle = policy.title,
+                            triggeredClause = "Schedule 8 Narcotic Respiratory Screening Mandate",
+                            isViolation = true,
+                            penaltyAmount = penaltyAmt.coerceAtLeast(1000.0),
+                            scoreDeduction = scoreDeduct.coerceAtLeast(20),
+                            auditMessage = "🚨 VIOLATION: Dispensed heavy addictive Schedule 8 Painkiller (Morphine) without checking and monitoring patient respiratory rate (RR) safety. Severe regulatory fine enforced."
+                        )
+                    )
+                    continue
+                }
+            }
+
             // Default compliance success!
             results.add(
                 PolicyAuditResult(
@@ -4089,4 +4727,17 @@ data class PolicyAuditResult(
     val scoreDeduction: Int,
     val auditMessage: String
 )
+
+data class AiStockingProposal(
+    val explanation: String,
+    val syringeQty: Int = 0,
+    val salineQty: Int = 0,
+    val adrenalineQty: Int = 0,
+    val reagentsQty: Int = 0,
+    val medsQty: Int = 0,
+    val estimatedTotalCost: Double = 0.0,
+    val isValidPurchase: Boolean = false,
+    val validationMessage: String = ""
+)
+
 

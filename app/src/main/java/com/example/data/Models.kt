@@ -95,7 +95,18 @@ data class AIResponseStateUpdate(
     val patientStability: String? = null,
     val prescriptionString: String? = null,
     val referralLetterString: String? = null,
-    val sickNoteString: String? = null
+    val sickNoteString: String? = null,
+    val policyViolations: List<AIPolicyViolation>? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class AIPolicyViolation(
+    val policyTitle: String,
+    val triggeredClause: String,
+    val isViolation: Boolean,
+    val penaltyAmount: Double,
+    val scoreDeduction: Int,
+    val auditMessage: String
 )
 
 @JsonClass(generateAdapter = true)
