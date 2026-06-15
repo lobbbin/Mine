@@ -66,314 +66,20 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
     private var lastLawsuitEncounterId: Long = 0L
     private var pastClinicalHistoryPrompt: String = ""
 
-    private val geminiTools: List<GeminiTool> = listOf(
-        GeminiTool(
-            functionDeclarations = listOf(
-                GeminiFunctionDeclaration(
-                    name = "applyFee",
-                    description = "Apply a financial penalty fine to the clinic.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "amount" to mapOf("type" to "number", "description" to "The ZAR amount of the fine"),
-                            "reason" to mapOf("type" to "string", "description" to "The legal justification for the fine")
-                        ),
-                        "required" to listOf("amount", "reason")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "enactStatute",
-                    description = "Pass a new healthcare law or statutory regulation into effect.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "id" to mapOf("type" to "string", "description" to "Unique short ID for the law"),
-                            "name" to mapOf("type" to "string", "description" to "Formal title of the law"),
-                            "description" to mapOf("type" to "string", "description" to "Complete text of the regulation"),
-                            "penalty" to mapOf("type" to "string", "description" to "Standard penalty for violation")
-                        ),
-                        "required" to listOf("id", "name", "description", "penalty")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "repealStatute",
-                    description = "Remove an existing law from the books.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "id" to mapOf("type" to "string", "description" to "The ID of the law to repeal")
-                        ),
-                        "required" to listOf("id")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "updateLicense",
-                    description = "Modify the status of the practitioner's medical license.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "status" to mapOf("type" to "string", "enum" to listOf("ACTIVE", "PROBATION", "SUSPENDED", "REVOKED")),
-                            "justification" to mapOf("type" to "string", "description" to "Why the status changed")
-                        ),
-                        "required" to listOf("status", "justification")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "adjustReserves",
-                    description = "Directly debit or credit the clinic's cash reserves.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "amount" to mapOf("type" to "number", "description" to "Positive for credit, negative for debit"),
-                            "reason" to mapOf("type" to "string", "description" to "Accounting reason")
-                        ),
-                        "required" to listOf("amount", "reason")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "publishNews",
-                    description = "Broadcast a breaking news alert to the app's ticker.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "headline" to mapOf("type" to "string"),
-                            "body" to mapOf("type" to "string")
-                        ),
-                        "required" to listOf("headline", "body")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "modifyInventory",
-                    description = "Change the quantity of items in the clinical dispensary.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "item" to mapOf("type" to "string", "description" to "Item name"),
-                            "change" to mapOf("type" to "integer", "description" to "Amount to add or subtract")
-                        ),
-                        "required" to listOf("item", "change")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "sendCmoDirective",
-                    description = "Send a high-priority textual instruction as the Chief Medical Officer.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "message" to mapOf("type" to "string")
-                        ),
-                        "required" to listOf("message")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "update_patient_vitals_and_symptoms",
-                    description = "Update the active patient's vitals (HR, BP, O2) and append new symptoms dynamically.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "heart_rate" to mapOf("type" to "integer"),
-                            "blood_pressure_systolic" to mapOf("type" to "integer"),
-                            "blood_pressure_diastolic" to mapOf("type" to "integer"),
-                            "oxygen_saturation" to mapOf("type" to "integer"),
-                            "new_symptoms" to mapOf("type" to "string")
-                        ),
-                        "required" to listOf("heart_rate", "blood_pressure_systolic", "blood_pressure_diastolic", "oxygen_saturation", "new_symptoms")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "trigger_dynamic_clinical_event",
-                    description = "Trigger a random dynamic clinical crisis or sudden health emergency for the patient.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "event_type" to mapOf("type" to "string"),
-                            "urgency_level" to mapOf("type" to "integer")
-                        ),
-                        "required" to listOf("event_type", "urgency_level")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "modify_patient_trust_and_compliance",
-                    description = "Adjust patient trust levels or reveal a hidden medical secret.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "trust_delta" to mapOf("type" to "integer"),
-                            "hidden_secret_revealed" to mapOf("type" to "boolean")
-                        ),
-                        "required" to listOf("trust_delta", "hidden_secret_revealed")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "execute_staff_action_or_morale_shift",
-                    description = "Trigger clinical staff actions or shift workplace morale.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "staff_member_name" to mapOf("type" to "string"),
-                            "morale_change" to mapOf("type" to "integer"),
-                            "action_taken" to mapOf("type" to "string")
-                        ),
-                        "required" to listOf("staff_member_name", "morale_change", "action_taken")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "simulate_supply_chain_or_market_event",
-                    description = "Modify price factors or trigger scarcity for clinical consumable items.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "item_id" to mapOf("type" to "string"),
-                            "price_multiplier" to mapOf("type" to "number"),
-                            "stock_depleted" to mapOf("type" to "integer"),
-                            "reason" to mapOf("type" to "string")
-                        ),
-                        "required" to listOf("item_id", "price_multiplier", "stock_depleted", "reason")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "trigger_facility_infrastructure_crisis",
-                    description = "Trigger physical failures in the clinic like load-shedding power blackouts or water leaks.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "crisis_type" to mapOf("type" to "string"),
-                            "affected_areas" to mapOf("type" to "array", "items" to mapOf("type" to "string"))
-                        ),
-                        "required" to listOf("crisis_type", "affected_areas")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "evaluate_and_award_clinical_xp",
-                    description = "Award career XP, clinical revenue tokens, and post reasoning feedback.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "xp_awarded" to mapOf("type" to "integer"),
-                            "cash_revenue" to mapOf("type" to "number"),
-                            "reasoning_grade" to mapOf("type" to "string")
-                        ),
-                        "required" to listOf("xp_awarded", "cash_revenue", "reasoning_grade")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "generate_attending_socratic_feedback",
-                    description = "Provide Socratic query hints as a senior MD attending supervisor.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "mentor_name" to mapOf("type" to "string"),
-                            "feedback_text" to mapOf("type" to "string"),
-                            "focus_area" to mapOf("type" to "string")
-                        ),
-                        "required" to listOf("mentor_name", "feedback_text", "focus_area")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "shift_community_reputation_and_demographics",
-                    description = "Shift community health reputation stars and configure upcoming patient profile demographics.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "reputation_delta" to mapOf("type" to "integer"),
-                            "next_patient_archetype" to mapOf("type" to "string")
-                        ),
-                        "required" to listOf("reputation_delta", "next_patient_archetype")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "initiate_regulatory_investigation",
-                    description = "Open an HPCSA or state malpractice investigation audit on the doctor.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "investigation_reason" to mapOf("type" to "string"),
-                            "severity" to mapOf("type" to "string"),
-                            "deadline_days" to mapOf("type" to "integer")
-                        ),
-                        "required" to listOf("investigation_reason", "severity", "deadline_days")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "enact_new_medical_statute",
-                    description = "Enact a new health statute directly into Elyisum's sovereign archives.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "statute_name" to mapOf("type" to "string"),
-                            "statute_description" to mapOf("type" to "string"),
-                            "effective_immediately" to mapOf("type" to "boolean")
-                        ),
-                        "required" to listOf("statute_name", "statute_description", "effective_immediately")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "resolve_political_lobbying_outcome",
-                    description = "Resolve ongoing party lobbying adjustments automatically via narrative outcomes.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "faction_name" to mapOf("type" to "string"),
-                            "influence_shift" to mapOf("type" to "integer"),
-                            "bill_status" to mapOf("type" to "string"),
-                            "narrative_outcome" to mapOf("type" to "string")
-                        ),
-                        "required" to listOf("faction_name", "influence_shift", "bill_status", "narrative_outcome")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "issue_legal_subpoena_for_records",
-                    description = "Issue a formal legal subpoena demand for patient medical logs.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "requested_record_type" to mapOf("type" to "string"),
-                            "compliance_deadline" to mapOf("type" to "string")
-                        ),
-                        "required" to listOf("requested_record_type", "compliance_deadline")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "generate_media_scandal_or_news_event",
-                    description = "Formulate a breaking news media scandal impacting clinic prestige.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "headline" to mapOf("type" to "string"),
-                            "article_body" to mapOf("type" to "string"),
-                            "public_outcry_level" to mapOf("type" to "integer")
-                        ),
-                        "required" to listOf("headline", "article_body", "public_outcry_level")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "finalize_patient_encounter_outcome",
-                    description = "Conclude the active clinical dialogue, billing rates, and malpractice liabilities.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "disposition" to mapOf("type" to "string"),
-                            "final_billing_amount" to mapOf("type" to "number"),
-                            "malpractice_risk" to mapOf("type" to "integer")
-                        ),
-                        "required" to listOf("disposition", "final_billing_amount", "malpractice_risk")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "auditEncounter",
-                    description = "Check the clinical conversation history details against signed laws to flag violations.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "transcript" to mapOf("type" to "string"),
-                            "active_laws" to mapOf("type" to "string")
-                        ),
-                        "required" to listOf("transcript", "active_laws")
-                    )
-                )
-            )
-        )
-    )
+    val gameAgent = GameAgent(executeToolCall = { name, args -> executeToolCallFromAgent(name, args) })
+
+    fun resolveActiveApiKey(providerVal: String, userKey: String, customEndVal: String = ""): String {
+        val endpoint = customEndVal.ifBlank { customEndpoint.value }
+        return if (userKey.isBlank()) {
+            if (endpoint.isNotBlank() || providerVal in listOf("Ollama", "vLLM", "G4F (OpenAI-compatible)", "Custom (OpenAI-compatible)")) {
+                "dummy-local-key"
+            } else {
+                ""
+            }
+        } else {
+            userKey
+        }
+    }
 
     val apiKey: StateFlow<String?> = settingsDataStore.apiKeyFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
@@ -1386,16 +1092,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val currentModel = model.value
                 val userKey = apiKey.value ?: ""
 
-                val activeKey = if (userKey.isBlank()) {
-                    when {
-                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
-                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
-                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
-                        else -> ""
-                    }
-                } else {
-                    userKey
-                }
+                val activeKey = resolveActiveApiKey(currentProvider, userKey)
 
                 var generatedCase: GeneratedCaseWrapper? = null
 
@@ -2426,16 +2123,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val currentProvider = provider.value
                 val currentModel = model.value
                 val userKey = apiKey.value ?: ""
-                val activeKey = if (userKey.isBlank()) {
-                    when {
-                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
-                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
-                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
-                        else -> ""
-                    }
-                } else {
-                    userKey
-                }
+                val activeKey = resolveActiveApiKey(currentProvider, userKey)
 
                 if (activeKey.isNotBlank()) {
                     val responseRaw = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt)
@@ -2741,16 +2429,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val currentProvider = provider.value
                 val currentModel = model.value
                 val userKey = apiKey.value ?: ""
-                val activeKey = if (userKey.isBlank()) {
-                    when {
-                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
-                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
-                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
-                        else -> ""
-                    }
-                } else {
-                    userKey
-                }
+                val activeKey = resolveActiveApiKey(currentProvider, userKey)
 
                 if (activeKey.isBlank()) {
                     logAndEmitError("API Key missing! Please configure your credentials in the Settings Screen.")
@@ -2765,7 +2444,14 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     systemPrompt
                 }
 
-                val resultJson = makeDirectApiCall(currentProvider, currentModel, activeKey, finalSystemPrompt)
+                val resultJson = gameAgent.makeDirectApiCall(
+                    provider = currentProvider,
+                    modelName = currentModel,
+                    apiKey = activeKey,
+                    systemPrompt = finalSystemPrompt,
+                    chatHistory = _uiState.value.chatHistory,
+                    customUrl = customEndpoint.value
+                )
                 val sanitized = extractJsonString(resultJson)
 
                 val update = try {
@@ -2779,197 +2465,6 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 if (update != null) {
                     // 1. Process Universal Agent Actions (From JSON)
                     processUniversalAgentActions(update.agentActions)
-
-                    val activeCall: GeminiFunctionCall? = lastGeminiFunctionCall
-                    activeCall?.let { call ->
-                        val result = withContext(Dispatchers.IO) {
-                            when (call.name) {
-                                "applyFee" -> {
-                                    val amount = (call.args["amount"] as? Number)?.toDouble() ?: 0.0
-                                    val reason = call.args["reason"] as? String ?: ""
-                                    legalWorldAgent.applyPenaltyFine(amount, reason)
-                                }
-                                "enactStatute" -> {
-                                    val id = call.args["id"] as? String ?: ""
-                                    val name = call.args["name"] as? String ?: ""
-                                    val desc = call.args["description"] as? String ?: ""
-                                    val penalty = call.args["penalty"] as? String ?: ""
-                                    legalWorldAgent.enactNewStatute(id, name, desc, penalty)
-                                }
-                                "repealStatute" -> {
-                                    val id = call.args["id"] as? String ?: ""
-                                    legalWorldAgent.repealStatute(id)
-                                }
-                                "updateLicense" -> {
-                                    val statusStr = call.args["status"] as? String ?: "ACTIVE"
-                                    val status = try { com.example.data.LicenseStatus.valueOf(statusStr) } catch(e: Exception) { com.example.data.LicenseStatus.ACTIVE }
-                                    val reason = call.args["justification"] as? String ?: ""
-                                    legalWorldAgent.updateMedicalLicense(status, reason)
-                                }
-                                "adjustReserves" -> {
-                                    val amount = (call.args["amount"] as? Number)?.toDouble() ?: 0.0
-                                    val reason = call.args["reason"] as? String ?: ""
-                                    legalWorldAgent.modifyClinicReserves(amount, reason)
-                                }
-                                "publishNews" -> {
-                                    val headline = call.args["headline"] as? String ?: ""
-                                    val body = call.args["body"] as? String ?: ""
-                                    _currentNewsReport.value = "$headline: $body"
-                                    legalWorldAgent.publishNewsEvent(headline, body)
-                                }
-                                "modifyInventory" -> {
-                                    val itemInput = call.args["item"] as? String ?: ""
-                                    val change = (call.args["change"] as? Number)?.toInt() ?: 0
-                                    
-                                    val catalog = OrchidDeepStateManager.availableCatalog
-                                    val targetId = catalog.find { it.id.equals(itemInput, ignoreCase = true) || it.name.equals(itemInput, ignoreCase = true) }?.id 
-                                        ?: itemInput.lowercase().replace(" ", "_")
-
-                                    OrchidDeepStateManager.forceRestockItemDirectly(targetId, change)
-                                    legalWorldAgent.updateDispensaryStock(targetId, change)
-                                }
-                                "sendCmoDirective" -> {
-                                    val msg = call.args["message"] as? String ?: ""
-                                    _currentCmoAdvice.value = msg
-                                    "URGENT CMO DIRECTIVE ISSUED"
-                                }
-                                "update_patient_vitals_and_symptoms" -> {
-                                    val hr = (call.args["heart_rate"] as? Number)?.toInt() ?: 80
-                                    val bps = (call.args["blood_pressure_systolic"] as? Number)?.toInt() ?: 120
-                                    val bpd = (call.args["blood_pressure_diastolic"] as? Number)?.toInt() ?: 80
-                                    val o2 = (call.args["oxygen_saturation"] as? Number)?.toInt() ?: 98
-                                    val sym = call.args["new_symptoms"] as? String ?: ""
-                                    _uiState.value = _uiState.value.copy(
-                                        vitals = Vitals(
-                                            _bp = "${bps}/${bpd}",
-                                            _hr = hr.toString(),
-                                            _tempC = 37.0,
-                                            _rr = _uiState.value.vitals?.rr ?: "16",
-                                            _spo2 = o2.toString()
-                                        )
-                                    )
-                                    "Patient vitals updated to HR:$hr BP:$bps/$bpd O2:$o2. Symptoms: $sym"
-                                }
-                                "trigger_dynamic_clinical_event" -> {
-                                    val eventType = call.args["event_type"] as? String ?: ""
-                                    val urgency = (call.args["urgency_level"] as? Number)?.toInt() ?: 1
-                                    "Dynamic clinical event triggered: $eventType (Level $urgency)"
-                                }
-                                "modify_patient_trust_and_compliance" -> {
-                                    val delta = (call.args["trust_delta"] as? Number)?.toInt() ?: 0
-                                    val secret = (call.args["hidden_secret_revealed"] as? Boolean) ?: false
-                                    val oldMood = _uiState.value.patientMood
-                                    val newMood = if (delta >= 0) "cooperative" else "anxious/resistant"
-                                    _uiState.value = _uiState.value.copy(patientMood = newMood)
-                                    "Patient compliance adjusted. Secret revealed: $secret"
-                                }
-                                "execute_staff_action_or_morale_shift" -> {
-                                    val name = call.args["staff_member_name"] as? String ?: ""
-                                    val change = (call.args["morale_change"] as? Number)?.toInt() ?: 0
-                                    val action = call.args["action_taken"] as? String ?: ""
-                                    "Staff member $name morale shifted by $change due to $action"
-                                }
-                                "simulate_supply_chain_or_market_event" -> {
-                                    val itemId = call.args["item_id"] as? String ?: ""
-                                    val mult = (call.args["price_multiplier"] as? Number)?.toDouble() ?: 1.0
-                                    val dep = (call.args["stock_depleted"] as? Number)?.toInt() ?: 0
-                                    val reason = call.args["reason"] as? String ?: ""
-                                    OrchidDeepStateManager.forceRestockItemDirectly(itemId, -dep)
-                                    "Supply chain: $reason. Depleted $dep of $itemId. Multiplier: x$mult"
-                                }
-                                "trigger_facility_infrastructure_crisis" -> {
-                                    val type = call.args["crisis_type"] as? String ?: ""
-                                    val areasList = call.args["affected_areas"] as? List<*>
-                                    val areas = areasList?.filterIsInstance<String>()?.joinToString(", ") ?: "All"
-                                    "Facility Alert: Infrastructure crisis of type '$type' affecting '$areas'."
-                                }
-                                "evaluate_and_award_clinical_xp" -> {
-                                    val xp = (call.args["xp_awarded"] as? Number)?.toLong() ?: 100L
-                                    val rev = (call.args["cash_revenue"] as? Number)?.toDouble() ?: 0.0
-                                    val grade = call.args["reasoning_grade"] as? String ?: "B"
-                                    settingsDataStore.addXp(xp)
-                                    if (rev > 0) {
-                                        val oldBal = settingsDataStore.clinicBalanceFlow.first()
-                                        settingsDataStore.updateClinicStats(oldBal + rev, settingsDataStore.reputationStarsFlow.first())
-                                        settingsDataStore.addDailyRevenue(rev)
-                                    }
-                                    "XP Awarded: +$xp XP, Premium clinical bonus: +R$rev. Grade: $grade."
-                                }
-                                "generate_attending_socratic_feedback" -> {
-                                    val name = call.args["mentor_name"] as? String ?: ""
-                                    val text = call.args["feedback_text"] as? String ?: ""
-                                    val area = call.args["focus_area"] as? String ?: ""
-                                    "🎓 SOCRATIC FEEDBACK from Dr. $name ($area): $text"
-                                }
-                                "shift_community_reputation_and_demographics" -> {
-                                    val delta = (call.args["reputation_delta"] as? Number)?.toInt() ?: 0
-                                    val arch = call.args["next_patient_archetype"] as? String ?: "General"
-                                    val oldRep = reputationStars.value
-                                    val newRep = (oldRep + delta / 20f).coerceIn(1f, 5f)
-                                    settingsDataStore.updateClinicStats(clinicBalance.value, newRep)
-                                    "Reputation adjusted to $newRep. Next patient profile: $arch."
-                                }
-                                "initiate_regulatory_investigation" -> {
-                                    val reason = call.args["investigation_reason"] as? String ?: ""
-                                    val sev = call.args["severity"] as? String ?: "Low"
-                                    val dl = (call.args["deadline_days"] as? Number)?.toInt() ?: 7
-                                    courtroomViewModel.resetLawsuit(
-                                        patientName = _uiState.value.patientDemographics.split(" ").firstOrNull() ?: "Patient",
-                                        diag = _uiState.value.patientOutcome ?: "Competency Audit",
-                                        charges = listOf("Breach identified: $reason ($sev severity).")
-                                    )
-                                    "Regulatory Malpractice Inquest launched under severity $sev. Reason: $reason"
-                                }
-                                "enact_new_medical_statute" -> {
-                                    val name = call.args["statute_name"] as? String ?: ""
-                                    val desc = call.args["statute_description"] as? String ?: ""
-                                    legalWorldAgent.enactNewStatute(java.util.UUID.randomUUID().toString(), name, desc, "R1000 fine")
-                                    "Enacted statute: $name"
-                                }
-                                "resolve_political_lobbying_outcome" -> {
-                                    val faction = call.args["faction_name"] as? String ?: ""
-                                    val shift = (call.args["influence_shift"] as? Number)?.toInt() ?: 0
-                                    val status = call.args["bill_status"] as? String ?: ""
-                                    val note = call.args["narrative_outcome"] as? String ?: ""
-                                    "Lobby resolve: Faction '$faction' shifted by $shift%. Status: $status. $note"
-                                }
-                                "issue_legal_subpoena_for_records" -> {
-                                    val recType = call.args["requested_record_type"] as? String ?: ""
-                                    val deadline = call.args["compliance_deadline"] as? String ?: "7 days"
-                                    "Subpoena Issued: Please dispatch clinical notes for type: $recType within $deadline."
-                                }
-                                "generate_media_scandal_or_news_event" -> {
-                                    val headline = call.args["headline"] as? String ?: ""
-                                    val body = call.args["article_body"] as? String ?: ""
-                                    val cry = (call.args["public_outcry_level"] as? Number)?.toInt() ?: 10
-                                    _currentNewsReport.value = "💥 SCANDAL: $headline"
-                                    val curStar = reputationStars.value
-                                    settingsDataStore.updateClinicStats(clinicBalance.value, (curStar - cry / 50f).coerceIn(1f, 5f))
-                                    "Media Scandal: $headline. Public outcry: $cry%"
-                                }
-                                "finalize_patient_encounter_outcome" -> {
-                                    val disp = call.args["disposition"] as? String ?: "Discharged"
-                                    val bill = (call.args["final_billing_amount"] as? Number)?.toDouble() ?: 0.0
-                                    val msg = call.args["malpractice_risk"] as? Number ?: 0
-                                    val curBal = settingsDataStore.clinicBalanceFlow.first()
-                                    settingsDataStore.updateClinicStats(curBal + bill, reputationStars.value)
-                                    _uiState.value = _uiState.value.copy(patientOutcome = disp)
-                                    "Encounter Finalized: $disp. Total billing generated: R$bill. Risk: $msg%"
-                                }
-                                "auditEncounter" -> {
-                                    val trans = call.args["transcript"] as? String ?: ""
-                                    val laws = call.args["active_laws"] as? String ?: ""
-                                    legalWorldAgent.auditEncounter(trans, laws)
-                                }
-                                else -> "Unknown tool called"
-                            }
-                        }
-                        // Add DM notification about the action result
-                        _uiState.value.chatHistory.toMutableList().let { history ->
-                            history.add(ChatMessage("system", "WORLD ENGINE ALERT: $result"))
-                            _uiState.value = _uiState.value.copy(chatHistory = history)
-                        }
-                    }
 
                     val currentHistory = _uiState.value.chatHistory.toMutableList()
                     update.dialogueResponse?.let { diag ->
@@ -3451,7 +2946,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         maxOutputTokens = 8192,
                         temperature = 0.7
                     ),
-                    tools = if (provider.equals("Google", ignoreCase = true)) geminiTools else null
+                    tools = null
                 )
 
                 val activeUrl = getActiveUrl("Google", modelName, apiKey, customUrl)
@@ -3517,6 +3012,205 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         }
         
         return s.trim()
+    }
+
+    private suspend fun executeToolCallFromAgent(name: String, args: Map<String, Any>): String {
+        return withContext(Dispatchers.IO) {
+            try {
+                when (name) {
+                    "applyFee" -> {
+                        val amount = (args["amount"] as? Number)?.toDouble() ?: 0.0
+                        val reason = args["reason"] as? String ?: ""
+                        legalWorldAgent.applyPenaltyFine(amount, reason)
+                        "Penalty fine of R$amount successfully applied with reason: $reason"
+                    }
+                    "enactStatute" -> {
+                        val id = args["id"] as? String ?: ""
+                        val title = args["name"] as? String ?: ""
+                        val desc = args["description"] as? String ?: ""
+                        val penalty = args["penalty"] as? String ?: ""
+                        legalWorldAgent.enactNewStatute(id, title, desc, penalty)
+                        "Statute successfully enacted: $title (ID: $id)"
+                    }
+                    "repealStatute" -> {
+                        val id = args["id"] as? String ?: ""
+                        legalWorldAgent.repealStatute(id)
+                        "Statute with ID $id successfully repealed"
+                    }
+                    "updateLicense" -> {
+                        val statusStr = args["status"] as? String ?: "ACTIVE"
+                        val status = try { com.example.data.LicenseStatus.valueOf(statusStr) } catch(e: Exception) { com.example.data.LicenseStatus.ACTIVE }
+                        val reason = args["justification"] as? String ?: ""
+                        legalWorldAgent.updateMedicalLicense(status, reason)
+                        "License status updated to $status with reason: $reason"
+                    }
+                    "adjustReserves" -> {
+                        val amount = (args["amount"] as? Number)?.toDouble() ?: 0.0
+                        val reason = args["reason"] as? String ?: ""
+                        legalWorldAgent.modifyClinicReserves(amount, reason)
+                        "Clinic cash reserves adjusted by R$amount, reason: $reason"
+                    }
+                    "publishNews" -> {
+                        val headline = args["headline"] as? String ?: ""
+                        val body = args["body"] as? String ?: ""
+                        _currentNewsReport.value = "$headline: $body"
+                        legalWorldAgent.publishNewsEvent(headline, body)
+                        "News published successfully: '$headline'"
+                    }
+                    "modifyInventory" -> {
+                        val itemInput = args["item"] as? String ?: ""
+                        val change = (args["change"] as? Number)?.toInt() ?: 0
+                        val catalog = OrchidDeepStateManager.availableCatalog
+                        val targetId = catalog.find { it.id.equals(itemInput, ignoreCase = true) || it.name.equals(itemInput, ignoreCase = true) }?.id 
+                            ?: itemInput.lowercase().replace(" ", "_")
+                        OrchidDeepStateManager.forceRestockItemDirectly(targetId, change)
+                        legalWorldAgent.updateDispensaryStock(targetId, change)
+                        "Dispensary inventory item $targetId adjusted by $change"
+                    }
+                    "sendCmoDirective" -> {
+                        val msg = args["message"] as? String ?: ""
+                        _currentCmoAdvice.value = msg
+                        "CMO Directive issued: '$msg'"
+                    }
+                    "update_patient_vitals_and_symptoms" -> {
+                        val hr = (args["heart_rate"] as? Number)?.toInt() ?: 80
+                        val bps = (args["blood_pressure_systolic"] as? Number)?.toInt() ?: 120
+                        val bpd = (args["blood_pressure_diastolic"] as? Number)?.toInt() ?: 80
+                        val o2 = (args["oxygen_saturation"] as? Number)?.toInt() ?: 98
+                        val sym = args["new_symptoms"] as? String ?: ""
+                        viewModelScope.launch(Dispatchers.Main) {
+                            _uiState.value = _uiState.value.copy(
+                                vitals = Vitals(
+                                    _bp = "${bps}/${bpd}",
+                                    _hr = hr.toString(),
+                                    _tempC = 37.0,
+                                    _rr = _uiState.value.vitals?.rr ?: "16",
+                                    _spo2 = o2.toString()
+                                )
+                            )
+                        }
+                        "Vitals updated to HR:$hr BP:$bps/$bpd O2:$o2. New symptoms: $sym"
+                    }
+                    "trigger_dynamic_clinical_event" -> {
+                        val eventType = args["event_type"] as? String ?: ""
+                        val urgency = (args["urgency_level"] as? Number)?.toInt() ?: 1
+                        "Dynamic clinical event triggered: $eventType (Level $urgency)"
+                    }
+                    "modify_patient_trust_and_compliance" -> {
+                        val delta = (args["trust_delta"] as? Number)?.toInt() ?: 0
+                        val secret = (args["hidden_secret_revealed"] as? Boolean) ?: false
+                        viewModelScope.launch(Dispatchers.Main) {
+                            val newMood = if (delta >= 0) "cooperative" else "anxious/resistant"
+                            _uiState.value = _uiState.value.copy(patientMood = newMood)
+                        }
+                        "Patient compliance modified by $delta. Secret revealed: $secret"
+                    }
+                    "execute_staff_action_or_morale_shift" -> {
+                        val name = args["staff_member_name"] as? String ?: ""
+                        val change = (args["morale_change"] as? Number)?.toInt() ?: 0
+                        val action = args["action_taken"] as? String ?: ""
+                        "Staff member $name morale shifted by $change due to $action"
+                    }
+                    "simulate_supply_chain_or_market_event" -> {
+                        val itemId = args["item_id"] as? String ?: ""
+                        val mult = (args["price_multiplier"] as? Number)?.toDouble() ?: 1.0
+                        val dep = (args["stock_depleted"] as? Number)?.toInt() ?: 0
+                        val reason = args["reason"] as? String ?: ""
+                        OrchidDeepStateManager.forceRestockItemDirectly(itemId, -dep)
+                        "Supply chain: $reason. Scarcity of x$mult for $itemId. Depleted $dep units."
+                    }
+                    "trigger_facility_infrastructure_crisis" -> {
+                        val type = args["crisis_type"] as? String ?: ""
+                        val areasList = args["affected_areas"] as? List<*>
+                        val areas = areasList?.filterIsInstance<String>()?.joinToString(", ") ?: "All"
+                        "Facility crisis of type '$type' affecting '$areas'"
+                    }
+                    "evaluate_and_award_clinical_xp" -> {
+                        val xp = (args["xp_awarded"] as? Number)?.toLong() ?: 100L
+                        val rev = (args["cash_revenue"] as? Number)?.toDouble() ?: 0.0
+                        val grade = args["reasoning_grade"] as? String ?: "B"
+                        settingsDataStore.addXp(xp)
+                        if (rev > 0) {
+                            val oldBal = settingsDataStore.clinicBalanceFlow.first()
+                            settingsDataStore.updateClinicStats(oldBal + rev, settingsDataStore.reputationStarsFlow.first())
+                            settingsDataStore.addDailyRevenue(rev)
+                        }
+                        "XP Awarded: +$xp XP, Premium clinical bonus: +R$rev. Grade: $grade."
+                    }
+                    "generate_attending_socratic_feedback" -> {
+                        val name = args["mentor_name"] as? String ?: ""
+                        val text = args["feedback_text"] as? String ?: ""
+                        val area = args["focus_area"] as? String ?: ""
+                        "Socratic Feedback from Dr. $name ($area): $text"
+                    }
+                    "shift_community_reputation_and_demographics" -> {
+                        val delta = (args["reputation_delta"] as? Number)?.toInt() ?: 0
+                        val oldRep = reputationStars.value
+                        val newRep = (oldRep + delta / 20f).coerceIn(1f, 5f)
+                        settingsDataStore.updateClinicStats(clinicBalance.value, newRep)
+                        "Reputation adjusted to $newRep stars"
+                    }
+                    "initiate_regulatory_investigation" -> {
+                        val reason = args["investigation_reason"] as? String ?: ""
+                        val sev = args["severity"] as? String ?: "Low"
+                        val dl = (args["deadline_days"] as? Number)?.toInt() ?: 7
+                        courtroomViewModel.resetLawsuit(
+                            patientName = _uiState.value.patientDemographics.split(" ").firstOrNull() ?: "Patient",
+                            diag = _uiState.value.patientOutcome ?: "Competency Audit",
+                            charges = listOf("Breach identified: $reason ($sev severity)")
+                        )
+                        "Regulatory Malpractice Inquest launched ($sev severity) due to: $reason"
+                    }
+                    "enact_new_medical_statute" -> {
+                        val name = args["statute_name"] as? String ?: ""
+                        val desc = args["statute_description"] as? String ?: ""
+                        legalWorldAgent.enactNewStatute(java.util.UUID.randomUUID().toString(), name, desc, "R1000 fine")
+                        "Successfully enacted custom medical statute: $name"
+                    }
+                    "resolve_political_lobbying_outcome" -> {
+                        val faction = args["faction_name"] as? String ?: ""
+                        val shift = (args["influence_shift"] as? Number)?.toInt() ?: 0
+                        val status = args["bill_status"] as? String ?: ""
+                        val note = args["narrative_outcome"] as? String ?: ""
+                        "Lobby resolved faction '$faction' shifted influence by $shift%. Narrative outline: $note"
+                    }
+                    "issue_legal_subpoena_for_records" -> {
+                        val recType = args["requested_record_type"] as? String ?: ""
+                        val deadline = args["compliance_deadline"] as? String ?: "7 days"
+                        "Subpoena demands complete clinical histories of type $recType by $deadline"
+                    }
+                    "generate_media_scandal_or_news_event" -> {
+                        val headline = args["headline"] as? String ?: ""
+                        _currentNewsReport.value = "💥 SCANDAL: $headline"
+                        val outcry = (args["public_outcry_level"] as? Number)?.toInt() ?: 10
+                        val curStar = reputationStars.value
+                        settingsDataStore.updateClinicStats(clinicBalance.value, (curStar - outcry / 50f).coerceIn(1f, 5f))
+                        "Media scandal launched: '$headline' (Outcry: $outcry%)"
+                    }
+                    "finalize_patient_encounter_outcome" -> {
+                        val disp = args["disposition"] as? String ?: "Discharged"
+                        val bill = (args["final_billing_amount"] as? Number)?.toDouble() ?: 0.0
+                        val risk = args["malpractice_risk"] as? Number ?: 0
+                        val curBal = settingsDataStore.clinicBalanceFlow.first()
+                        settingsDataStore.updateClinicStats(curBal + bill, reputationStars.value)
+                        viewModelScope.launch(Dispatchers.Main) {
+                            _uiState.value = _uiState.value.copy(patientOutcome = disp)
+                        }
+                        "Clinical encounter outcome finalized: $disp, total billing: R$bill, malpractice risk assessment: $risk%"
+                    }
+                    "auditEncounter" -> {
+                        val trans = args["transcript"] as? String ?: ""
+                        val laws = args["active_laws"] as? String ?: ""
+                        val finalResult = legalWorldAgent.auditEncounter(trans, laws)
+                        "Audit completed. Active laws evaluation logged: $finalResult"
+                    }
+                    else -> "Unknown helper action or no programmatic side effect for: $name"
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                "Error executing tool action $name: ${e.message}"
+            }
+        }
     }
 
     private fun extractJsonString(raw: String?): String {
@@ -3618,13 +3312,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
     ) {
         viewModelScope.launch {
             try {
-                val activeKey = if (testKey.isBlank() && testProvider.equals("Google", ignoreCase = true)) {
-                    BuildConfig.GEMINI_API_KEY
-                } else if (testKey.isBlank() && (testCustomEndpoint.isNotBlank() || testProvider in listOf("Ollama", "vLLM", "G4F (OpenAI-compatible)", "Custom (OpenAI-compatible)"))) {
-                    "dummy-local-key"
-                } else {
-                    testKey
-                }
+                val activeKey = resolveActiveApiKey(testProvider, testKey, testCustomEndpoint)
 
                 if (activeKey.isBlank()) {
                     onResult(false, "API Key is required to test connection.")
@@ -3954,16 +3642,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val currentProvider = provider.value
                 val currentModel = model.value
                 val userKey = apiKey.value ?: ""
-                val activeKey = if (userKey.isBlank()) {
-                    when {
-                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
-                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
-                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
-                        else -> ""
-                    }
-                } else {
-                    userKey
-                }
+                val activeKey = resolveActiveApiKey(currentProvider, userKey)
 
                 if (activeKey.isNotBlank()) {
                     val responseRaw = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt)
@@ -4056,16 +3735,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val currentProvider = provider.value
                 val currentModel = model.value
                 val userKey = apiKey.value ?: ""
-                val activeKey = if (userKey.isBlank()) {
-                    when {
-                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
-                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
-                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
-                        else -> ""
-                    }
-                } else {
-                    userKey
-                }
+                val activeKey = resolveActiveApiKey(currentProvider, userKey)
 
                 if (activeKey.isNotBlank()) {
                     val responseRaw = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt)
@@ -4171,16 +3841,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val currentProvider = provider.value
                 val currentModel = model.value
                 val userKey = apiKey.value ?: ""
-                val activeKey = if (userKey.isBlank()) {
-                    when {
-                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
-                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
-                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
-                        else -> ""
-                    }
-                } else {
-                    userKey
-                }
+                val activeKey = resolveActiveApiKey(currentProvider, userKey)
 
                 if (activeKey.isBlank()) {
                     logAndEmitError("API Key missing! Please configure credentials in Settings to run the Trial Simulator.")
@@ -4342,16 +4003,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val currentProvider = provider.value
                 val currentModel = model.value
                 val userKey = apiKey.value ?: ""
-                val activeKey = if (userKey.isBlank()) {
-                    when {
-                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
-                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
-                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
-                        else -> ""
-                    }
-                } else {
-                    userKey
-                }
+                val activeKey = resolveActiveApiKey(currentProvider, userKey)
 
                 if (activeKey.isBlank()) {
                     logAndEmitError("API Key missing! Cannot generate National News Broadcast.")
@@ -4425,16 +4077,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val currentProvider = provider.value
                 val currentModel = model.value
                 val userKey = apiKey.value ?: ""
-                val activeKey = if (userKey.isBlank()) {
-                    when {
-                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
-                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
-                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
-                        else -> ""
-                    }
-                } else {
-                    userKey
-                }
+                val activeKey = resolveActiveApiKey(currentProvider, userKey)
 
                 if (activeKey.isBlank()) {
                     logAndEmitError("API Key missing! Cannot consult CMO.")
@@ -4494,16 +4137,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val currentProvider = provider.value
                 val currentModel = model.value
                 val userKey = apiKey.value ?: ""
-                val activeKey = if (userKey.isBlank()) {
-                    when {
-                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
-                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
-                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
-                        else -> ""
-                    }
-                } else {
-                    userKey
-                }
+                val activeKey = resolveActiveApiKey(currentProvider, userKey)
 
                 if (activeKey.isBlank()) {
                     logAndEmitError("API Key missing! Cannot perform AI AI Legal Scan.")
@@ -4561,16 +4195,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val currentProvider = provider.value
                 val currentModel = model.value
                 val userKey = apiKey.value ?: ""
-                val activeKey = if (userKey.isBlank()) {
-                    when {
-                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
-                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
-                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
-                        else -> ""
-                    }
-                } else {
-                    userKey
-                }
+                val activeKey = resolveActiveApiKey(currentProvider, userKey)
 
                 if (activeKey.isBlank()) {
                     logAndEmitError("API Key missing! Configure your credentials in settings to formulate legislation.")
@@ -4703,16 +4328,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             val currentProvider = provider.value
             val currentModel = model.value
             val userKey = apiKey.value ?: ""
-            val activeKey = if (userKey.isBlank()) {
-                when {
-                    currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
-                    currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
-                    customEndpoint.value.isNotBlank() -> "dummy-local-key"
-                    else -> ""
-                }
-            } else {
-                userKey
-            }
+            val activeKey = resolveActiveApiKey(currentProvider, userKey)
 
             if (activeKey.isBlank()) {
                 logAndEmitError("API Key missing! Cannot run AI parliamentary simulation.")
@@ -4821,16 +4437,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val currentProvider = provider.value
                 val currentModel = model.value
                 val userKey = apiKey.value ?: ""
-                val activeKey = if (userKey.isBlank()) {
-                    when {
-                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
-                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
-                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
-                        else -> ""
-                    }
-                } else {
-                    userKey
-                }
+                val activeKey = resolveActiveApiKey(currentProvider, userKey)
 
                 val prompt = """
                     You are the Executive Head of State, "${presidentName.value}". 
@@ -4899,16 +4506,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val currentProvider = provider.value
                 val currentModel = model.value
                 val userKey = apiKey.value ?: ""
-                val activeKey = if (userKey.isBlank()) {
-                    when {
-                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
-                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
-                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
-                        else -> ""
-                    }
-                } else {
-                    userKey
-                }
+                val activeKey = resolveActiveApiKey(currentProvider, userKey)
 
                 val prompt = """
                     You are the Executive Head of State, "${presidentName.value}". 
@@ -5090,16 +4688,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val currentProvider = provider.value
                 val currentModel = model.value
                 val userKey = apiKey.value ?: ""
-                val activeKey = if (userKey.isBlank()) {
-                    when {
-                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
-                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
-                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
-                        else -> ""
-                    }
-                } else {
-                    userKey
-                }
+                val activeKey = resolveActiveApiKey(currentProvider, userKey)
                 
                 if (activeKey.isBlank()) {
                     logAndEmitError("API Key missing! Configure your credentials.")
@@ -5276,16 +4865,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val currentProvider = provider.value
                 val currentModel = model.value
                 val userKey = apiKey.value ?: ""
-                val activeKey = if (userKey.isBlank()) {
-                    when {
-                        currentProvider.equals("Google", ignoreCase = true) -> BuildConfig.GEMINI_API_KEY
-                        currentProvider.equals("Cerebras", ignoreCase = true) -> BuildConfig.CEREBRAS_API_KEY
-                        customEndpoint.value.isNotBlank() -> "dummy-local-key"
-                        else -> ""
-                    }
-                } else {
-                    userKey
-                }
+                val activeKey = resolveActiveApiKey(currentProvider, userKey)
 
                 if (activeKey.isNotBlank()) {
                     val apiResponse = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt)
