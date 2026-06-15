@@ -200,7 +200,6 @@ class CourtroomViewModel(
                     contents = contents,
                     systemInstruction = GeminiSystemInstruction(listOf(GeminiPart("You are a Supreme Medical Court tribunal simulator. Return only valid raw JSON."))),
                     generationConfig = GeminiGenerationConfig(
-                        responseMimeType = "application/json",
                         temperature = 0.7
                     )
                 )

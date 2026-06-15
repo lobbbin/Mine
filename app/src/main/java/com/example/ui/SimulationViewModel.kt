@@ -3,7 +3,6 @@ package com.example.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.BuildConfig
 import com.example.data.AIResponseStateUpdate
 import com.example.data.AppDatabase
 import com.example.data.ChatMessage
@@ -2992,7 +2991,6 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     contents = contents,
                     systemInstruction = GeminiSystemInstruction(listOf(GeminiPart(systemPrompt))),
                     generationConfig = GeminiGenerationConfig(
-                        responseMimeType = "application/json",
                         maxOutputTokens = 8192,
                         temperature = 0.7
                     ),
@@ -4033,7 +4031,6 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     contents = contents,
                     systemInstruction = GeminiSystemInstruction(listOf(GeminiPart("You are a legislative text draftsman. Return only valid raw JSON."))),
                     generationConfig = GeminiGenerationConfig(
-                        responseMimeType = "application/json",
                         temperature = 0.7
                     )
                 )

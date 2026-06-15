@@ -304,7 +304,6 @@ class ParliamentViewModel(
                     contents = contents,
                     systemInstruction = GeminiSystemInstruction(listOf(GeminiPart("You are a legislative text draftsman. Return only valid raw JSON."))),
                     generationConfig = GeminiGenerationConfig(
-                        responseMimeType = "application/json",
                         temperature = 0.7
                     )
                 )
