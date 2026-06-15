@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit
 @JsonClass(generateAdapter = true)
 data class OpenAIMessage(
     val role: String,
-    val content: String
+    val content: String? = null
 )
 
 @JsonClass(generateAdapter = true)

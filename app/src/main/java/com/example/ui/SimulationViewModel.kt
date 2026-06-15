@@ -318,10 +318,14 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
     val sessionErrorLog = mutableListOf<String>()
 
     fun logAndEmitError(msg: String) {
+        var finalMsg = msg
+        if (msg.contains("429") || msg.contains("Too Many Requests")) {
+            finalMsg = "HTTP 429: Rate Limit Exceeded. The AI provider is temporarily throttling requests. Please wait a few seconds and try again."
+        }
         val time = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
-        sessionErrorLog.add("[$time] $msg")
+        sessionErrorLog.add("[$time] $finalMsg")
         viewModelScope.launch {
-            _errorEvents.emit(msg)
+            _errorEvents.emit(finalMsg)
         }
     }
 
@@ -1894,10 +1898,13 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             systemInstructionOverride = "Generate the final CPD-aligned medical scorecard, rating, and feedback for this simulation. Award an objective clinical competency score out of 100 based on history, exams, correct interventions, prescription appropriateness, letters completeness, financial billing, and resource management. Under a distinct heading 'PATIENT SAFETY NAME AUDIT', evaluate if the practitioner referenced the patient by their correct name (${getPatientName()}) and if the compiled prescription, referral, and sick notes correctly printed and matched this specific patient identity. Deduct 10 points if there was any identity mismatch. Populate the 'evaluation' field and populate the 'clinicalScore' numeric field (0-100). Set isEncounterComplete to true, and currentPhase to 'Phase 6 - Case Evaluation & Feedback'.",
             onSuccessExtra = {
                 // Perform final accounting! Cash flow is received.
-                val profit = amountCollected + (if (_hiddenCase.value?.insuranceStatus == "Private Medical Aid") consultationFee.value * 0.8 else 0.0) - _uiState.value.expensesIncurred - 200.0 // R200 clinic fixed overhead
+                val medicalAidCover = if (_hiddenCase.value?.insuranceStatus == "Private Medical Aid") lastExtractedBillingAmount * 0.8 else if (_hiddenCase.value?.insuranceStatus == "State Funded") lastExtractedBillingAmount else 0.0
+                val trueCopay = if (_hiddenCase.value?.insuranceStatus == "Private Medical Aid") lastExtractedBillingAmount * 0.2 else if (_hiddenCase.value?.insuranceStatus == "State Funded") 0.0 else lastExtractedBillingAmount
+                val totalRevenueCollected = trueCopay + medicalAidCover
+                val profit = totalRevenueCollected - _uiState.value.expensesIncurred - 200.0 // R200 clinic fixed overhead
                 
                 _uiState.value = _uiState.value.copy(
-                    dailyRevenue = _uiState.value.dailyRevenue + amountCollected,
+                    dailyRevenue = _uiState.value.dailyRevenue + totalRevenueCollected,
                     patientsSeen = _uiState.value.patientsSeen + 1,
                     isEncounterComplete = true,
                     currentPhase = "Phase 6 - Case Evaluation & Feedback"
@@ -1907,11 +1914,11 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     val currentBal = clinicBalance.value
                     settingsDataStore.updateClinicStats(currentBal + profit, (reputationStars.value + 0.1f).coerceIn(1.0f, 5.0f))
                     settingsDataStore.addXp(200L) // Gain 200 XP on successful closed loop!
-                    settingsDataStore.addDailyRevenue(amountCollected)
+                    settingsDataStore.addDailyRevenue(totalRevenueCollected)
                     settingsDataStore.incrementPatientsSeenToday()
                     settingsDataStore.addDailyExpenses(200.0) // Fixed overhead
                 }
-                saveCurrentStateToDatabase(revenueForEncounter = amountCollected)
+                saveCurrentStateToDatabase(revenueForEncounter = totalRevenueCollected)
                 updatePastClinicalHistoryPrompt()
             }
         )
@@ -3942,22 +3949,25 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
     private fun extractRandAmount(billingText: String): Double {
         if (billingText.isBlank()) return 0.0
         
-        val totalKeywords = listOf("total amount due", "amount due", "total due", "grand total", "total", "subtotal")
+        // Attempt to match Total/Grand Total/Amount Due variations specifically
+        val totalKeywords = listOf("total amount payable", "total amount due", "amount due", "grand total", "total", "subtotal")
         
         for (keyword in totalKeywords) {
-            val pattern = "(?i)$keyword\\s*[:\\-]?\\s*R?\\s*([\\d\\s,\\.]+)"
+            val pattern = "(?i)$keyword.*?(?:R|ZAR)\\s*([\\d\\s,\\.]+)"
             val regex = Regex(pattern)
             val match = regex.find(billingText)
             if (match != null) {
                 val groupVal = match.groups[1]?.value ?: continue
                 val normalizedVal = groupVal.replace(" ", "").replace(",", "")
                 val doubleVal = normalizedVal.toDoubleOrNull()
-                if (doubleVal != null && doubleVal > 0.0) {
+                // Ensure we don't accidentally pick up a tiny number if the regex catches something weird
+                if (doubleVal != null && doubleVal > 50.0) {
                     return doubleVal
                 }
             }
         }
         
+        // Fallback to highest R value parsed
         val rPattern = "(?i)R\\s*([\\d\\s,\\.]+)"
         val rRegex = Regex(rPattern)
         val matches = rRegex.findAll(billingText)
