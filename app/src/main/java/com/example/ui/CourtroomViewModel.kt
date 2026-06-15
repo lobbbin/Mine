@@ -1,0 +1,548 @@
+package com.example.ui
+
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.data.*
+import com.example.network.*
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import org.json.JSONObject
+
+class CourtroomViewModel(
+    application: Application,
+    private val settingsDataStore: SettingsDataStore
+) : AndroidViewModel(application) {
+
+    // --- LAW CASE & JUDICIAL PROCESS STATE ---
+    private val _lawsuitPatientName = MutableStateFlow("")
+    val lawsuitPatientName: StateFlow<String> = _lawsuitPatientName.asStateFlow()
+
+    private val _lawsuitCaseDiag = MutableStateFlow("")
+    val lawsuitCaseDiag: StateFlow<String> = _lawsuitCaseDiag.asStateFlow()
+
+    private val _lawsuitCharges = MutableStateFlow<List<String>>(emptyList())
+    val lawsuitCharges: StateFlow<List<String>> = _lawsuitCharges.asStateFlow()
+
+    private val _lawsuitViolatedPolicies = MutableStateFlow<List<PolicyAuditResult>>(emptyList())
+    val lawsuitViolatedPolicies: StateFlow<List<PolicyAuditResult>> = _lawsuitViolatedPolicies.asStateFlow()
+
+    private val _lawsuitLog = MutableStateFlow<List<String>>(emptyList())
+    val lawsuitLog: StateFlow<List<String>> = _lawsuitLog.asStateFlow()
+
+    private val _lawsuitTension = MutableStateFlow(40) // 0-100%
+    val lawsuitTension: StateFlow<Int> = _lawsuitTension.asStateFlow()
+
+    private val _lawsuitProsecutorAggression = MutableStateFlow(50) // 0-100%
+    val lawsuitProsecutorAggression: StateFlow<Int> = _lawsuitProsecutorAggression.asStateFlow()
+
+    private val _lawsuitCurrentStage = MutableStateFlow("pleading") // pleading, cross_exam, verdict
+    val lawsuitCurrentStage: StateFlow<String> = _lawsuitCurrentStage.asStateFlow()
+
+    private val _lawsuitVerdict = MutableStateFlow<String?>(null)
+    val lawsuitVerdict: StateFlow<String?> = _lawsuitVerdict.asStateFlow()
+
+    private val _lawsuitFine = MutableStateFlow(0.0)
+    val lawsuitFine: StateFlow<Double> = _lawsuitFine.asStateFlow()
+
+    private val _lawsuitSuspension = MutableStateFlow(0)
+    val lawsuitSuspension: StateFlow<Int> = _lawsuitSuspension.asStateFlow()
+
+    // Pass-through calls to handle general state updates
+    private val _errorFlow = MutableSharedFlow<String>()
+    val errorFlow = _errorFlow.asSharedFlow()
+
+    private val moshi = com.squareup.moshi.Moshi.Builder()
+        .addLast(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory())
+        .build()
+    private val lawsuitStateAdapter = moshi.adapter(LawsuitResponse::class.java).lenient()
+
+    fun resetLawsuit(patientName: String, diag: String, charges: List<String>, violations: List<PolicyAuditResult> = emptyList()) {
+        _lawsuitPatientName.value = patientName
+        _lawsuitCaseDiag.value = diag
+        _lawsuitCharges.value = charges
+        _lawsuitViolatedPolicies.value = violations
+        _lawsuitTension.value = 40
+        _lawsuitProsecutorAggression.value = 50
+        _lawsuitCurrentStage.value = "pleading"
+        _lawsuitVerdict.value = null
+        _lawsuitFine.value = 0.0
+        _lawsuitSuspension.value = 0
+        
+        val initialLogs = mutableListOf<String>()
+        initialLogs.add("⚖️ INQUEST DOCKET OPENED: State Healthcare Regulatory Body vs Dr. Tim.")
+        initialLogs.add("🚨 ALLEGATION PRÉCIS: Professional Malpractice resulting from clinical competency anomalies under patient custody.")
+        charges.forEach { charge ->
+            initialLogs.add("📜 INDICTMENT CLAUSE: $charge")
+        }
+        _lawsuitLog.value = initialLogs
+        OrchidDeepStateManager.resetTrialRounds()
+    }
+
+    fun hireLawyerForTrial(lawyerId: String, clinicBalance: Double, reputationStars: Float, onFinished: (Double) -> Unit) {
+        val lawyer = OrchidDeepStateManager.defenseLawyersCatalog.find { it.id == lawyerId } ?: return
+        val currentBal = clinicBalance
+        if (currentBal >= lawyer.retainerFee) {
+            OrchidDeepStateManager.hireDefenseLawyer(lawyerId)
+            if (lawyer.retainerFee > 0.0) {
+                viewModelScope.launch {
+                    settingsDataStore.updateClinicStats(currentBal - lawyer.retainerFee, reputationStars)
+                    settingsDataStore.addDailyExpenses(lawyer.retainerFee)
+                    
+                    val logs = _lawsuitLog.value.toMutableList()
+                    logs.add("💼 RETAINER INVOICE: Paid R${String.format("%.2f", lawyer.retainerFee)} to hire ${lawyer.displayName}.")
+                    _lawsuitLog.value = logs
+                    onFinished(currentBal - lawyer.retainerFee)
+                }
+            } else {
+                onFinished(currentBal)
+            }
+            _lawsuitProsecutorAggression.value = (_lawsuitProsecutorAggression.value - lawyer.defenseBiasPercent).coerceAtLeast(10)
+            _lawsuitTension.value = (_lawsuitTension.value - (lawyer.defenseBiasPercent / 2)).coerceAtLeast(10)
+        } else {
+            viewModelScope.launch {
+                _errorFlow.emit("Cannot hire lawyer: Insufficient clinic balance of R$clinicBalance for retainer!")
+            }
+        }
+    }
+
+    // Direct helper functions for API calls, duplicated for completeness
+    private fun getActiveUrl(provider: String, modelName: String, apiKey: String, customUrl: String): String {
+        if (customUrl.isNotBlank()) {
+            val base = customUrl.trim()
+            return when (provider) {
+                "Cerebras", "OpenAI", "Nvidia", "Ollama", "vLLM", "G4F (OpenAI-compatible)", "Custom (OpenAI-compatible)" -> {
+                    if (base.contains("chat/completions")) base
+                    else if (base.endsWith("/")) "${base}v1/chat/completions"
+                    else if (base.endsWith("/v1")) "$base/chat/completions"
+                    else "$base/v1/chat/completions"
+                }
+                "Anthropic" -> {
+                    if (base.contains("messages")) base
+                    else if (base.endsWith("/")) "${base}v1/messages"
+                    else "$base/v1/messages"
+                }
+                else -> {
+                    if (base.contains("generateContent")) {
+                        if (base.contains("?key=")) base else "$base?key=$apiKey"
+                    } else {
+                        val path = "v1beta/models/$modelName:generateContent?key=$apiKey"
+                        if (base.endsWith("/")) "$base$path" else "$base/$path"
+                    }
+                }
+            }
+        }
+        return when (provider) {
+            "OpenAI" -> "https://api.openai.com/v1/chat/completions"
+            "Cerebras" -> "https://api.cerebras.ai/v1/chat/completions"
+            "Nvidia" -> "https://integrate.api.nvidia.com/v1/chat/completions"
+            "Anthropic" -> "https://api.anthropic.com/v1/messages"
+            "Ollama" -> "http://10.0.2.2:11434/v1/chat/completions"
+            "vLLM" -> "http://10.0.2.2:8000/v1/chat/completions"
+            "G4F (OpenAI-compatible)" -> "http://10.0.2.2:1337/v1/chat/completions"
+            "Custom (OpenAI-compatible)" -> "http://10.0.2.2:8080/v1/chat/completions"
+            else -> "https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$apiKey"
+        }
+    }
+
+    private suspend fun makeFreshDirectApiCall(
+        provider: String,
+        modelName: String,
+        apiKey: String,
+        systemPrompt: String,
+        customUrl: String
+    ): String {
+        return when (provider) {
+            "Cerebras", "OpenAI", "Nvidia", "Ollama", "vLLM", "G4F (OpenAI-compatible)", "Custom (OpenAI-compatible)" -> {
+                val activeKey = if (apiKey.isBlank()) "sk-no-key-required" else apiKey
+                val messages = listOf(
+                    OpenAIMessage("system", "You are a professional legal tribunal simulator. Return strictly valid raw JSON matching the requested schema. Write nothing else except valid JSON."),
+                    OpenAIMessage("user", "Draft court response based on the following context:\n\n$systemPrompt")
+                )
+                val isCustomUrl = customUrl.isNotBlank()
+                val request = OpenAIRequest(
+                    model = modelName,
+                    messages = messages,
+                    response_format = if (isCustomUrl || provider in listOf("Cerebras", "Nvidia", "Ollama", "vLLM", "G4F (OpenAI-compatible)", "Custom (OpenAI-compatible)")) null else OpenAIResponseFormat("json_object"),
+                    temperature = 0.7,
+                    stream = false
+                )
+                val activeUrl = getActiveUrl(provider, modelName, apiKey, customUrl)
+                val response = RetrofitClient.service.callOpenAI(
+                    url = activeUrl,
+                    authorization = "Bearer $activeKey",
+                    body = request
+                )
+                response.choices.firstOrNull()?.message?.content ?: ""
+            }
+            "Anthropic" -> {
+                val activeKey = if (apiKey.isBlank()) "sk-no-key-required" else apiKey
+                val messages = listOf(AnthropicMessage("user", "Formal trial interaction: $systemPrompt"))
+                val request = AnthropicRequest(
+                    model = modelName,
+                    system = "You are a legal tribunal simulator for the Supreme Medical Court.",
+                    messages = messages,
+                    temperature = 0.7
+                )
+                val activeUrl = getActiveUrl("Anthropic", modelName, apiKey, customUrl)
+                val response = RetrofitClient.service.callAnthropic(
+                    url = activeUrl,
+                    apiKey = activeKey,
+                    version = "2023-06-01",
+                    body = request
+                )
+                response.content.firstOrNull()?.text ?: ""
+            }
+            else -> { // Google Gemini
+                val activeKey = if (apiKey.isBlank()) "sk-no-key-required" else apiKey
+                val contents = listOf(GeminiContent("user", listOf(GeminiPart("Court case scenario: $systemPrompt"))))
+                val request = GeminiRequest(
+                    contents = contents,
+                    systemInstruction = GeminiSystemInstruction(listOf(GeminiPart("You are a Supreme Medical Court tribunal simulator. Return only valid raw JSON."))),
+                    generationConfig = GeminiGenerationConfig(
+                        responseMimeType = "application/json",
+                        temperature = 0.7
+                    )
+                )
+                val activeUrl = "https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$activeKey"
+                val response = RetrofitClient.service.callGemini(activeUrl, request)
+                response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: ""
+            }
+        }
+    }
+
+    private fun extractJsonString(raw: String): String {
+        var clean = raw.trim()
+        if (clean.startsWith("```")) {
+            val lines = clean.split("\n")
+            val filtered = lines.filterNot { it.startsWith("```") }
+            clean = filtered.joinToString("\n").trim()
+        }
+        return clean
+    }
+
+    fun submitInteractiveLawsuitPlea(
+        pleaMsg: String,
+        selectedEvidence: List<String>,
+        activePolicies: List<HealthPolicy>,
+        countryName: String,
+        providerVal: String,
+        modelVal: String,
+        apiKeyVal: String,
+        customEndpoint: String,
+        agentPowersPrompt: String,
+        onActionExecuted: suspend (String) -> Unit,
+        onFinished: () -> Unit
+    ) {
+        if (pleaMsg.isBlank()) {
+            viewModelScope.launch {
+                _errorFlow.emit("Courtroom requires written testimony! Please type your defense pleading.")
+            }
+            onFinished()
+            return
+        }
+
+        viewModelScope.launch {
+            OrchidDeepStateManager.spendTrialRound()
+            OrchidDeepStateManager.recordDefensePleaArgument(pleaMsg)
+
+            val activePolList = activePolicies
+            val policyDetailsStr = if (activePolList.isNotEmpty()) {
+                val sb = java.lang.StringBuilder()
+                sb.append("\nACTLY ENACTED SOVEREIGN HEALTH LAWS:")
+                activePolList.forEachIndexed { idx, p ->
+                    sb.append("\n[LAW ${idx+1}] TITLE: ${p.title}\n")
+                    sb.append("  - Requirements: ${p.clinicalRule}\n")
+                }
+                sb.toString()
+            } else "No clinical laws enacted."
+
+            val lawyer = OrchidDeepStateManager.hiredLawyer.value
+            val lawyerContext = if (lawyer != null) {
+                "Accused is professionally represented by: ${lawyer.displayName} (${lawyer.specialty}). Defense Advantage Level: ${lawyer.defenseBiasPercent}%"
+            } else "Accused has representing lawyer: NONE (Self-Representation)."
+
+            val currentHistoryLog = _lawsuitLog.value.joinToString("\n\n")
+
+            val prompt = """
+                You are simulating an interactive clinical trial hearing in the Supreme Medical Court of the Republic of $countryName.
+                
+                SOVEREIGN COURT STATE INFO:
+                - Defendant: Dr. Tim, GP (JB Consultation Practice, PR# 1234567)
+                - Patient Case: Treated patient "${_lawsuitPatientName.value}" for condition "${_lawsuitCaseDiag.value}".
+                - Current Courtroom Transcript & History:
+                $currentHistoryLog
+                
+                ACTIVE LEGISLATION CODES:
+                $policyDetailsStr
+                
+                $agentPowersPrompt
+                
+                LEGAL DEFENSE DETAILS IN THIS PLEA ROUND:
+                - Defendant's Written Testimony / Pleading speech: "$pleaMsg"
+                - Submitted Physical Exhibits / Clinical evidence: ${if (selectedEvidence.isNotEmpty()) selectedEvidence.joinToString(", ") else "None"}
+                - Legal Representation: $lawyerContext
+                
+                YOUR JOB IN THIS INTERIM ROUND:
+                1. Roleplay the intense, sharp voice of the State Prosecutor and the impartial questioning of the Presiding Judge in Pretoria.
+                2. The state prosecutor must cross-examine the doctor's specific typed statement "$pleaMsg" and check the validity of their submitted evidence: "${selectedEvidence.joinToString("; ")}".
+                3. If the defense makes clinical sense (e.g. they dispensed adrenaline because the patient was in anaphylaxis, or ordered saline due to shock, backed by appropriate evidence), reduce the tension and aggression metrics. If the excuse is weak or contradicts standard health protocols, increase tension and aggression metrics.
+                4. Provide the prosecutor's aggressive response and the Judge's subsequent inquiry in 'courtDialogue'.
+                5. Return raw JSON matching this EXACT schema:
+                {
+                   "courtDialogue": "Prosecutor's sharp rebuttal questioning the evidence, followed by the Presiding Judge's formal query on the record.",
+                   "tensionAdjustment": -10,
+                   "aggressionAdjustment": -15,
+                   "defenseInsightText": "A quick note of guidance or strategic legal advice from Dr. Tim's hired defense lawyer."
+                }
+            """.trimIndent()
+
+            try {
+                if (apiKeyVal.isNotBlank()) {
+                    val responseRaw = makeFreshDirectApiCall(providerVal, modelVal, apiKeyVal, prompt, customEndpoint)
+                    val sanitized = extractJsonString(responseRaw)
+                    val json = JSONObject(sanitized)
+
+                    val dialogue = json.optString("courtDialogue", "Prosecution submits cross-examination statement.")
+                    val dAdj = json.optInt("tensionAdjustment", 5)
+                    val aAdj = json.optInt("aggressionAdjustment", 5)
+                    val insight = json.optString("defenseInsightText", "Ensure you back up your claims with physical vitals evidence.")
+                    
+                    onActionExecuted(sanitized)
+
+                    val logs = _lawsuitLog.value.toMutableList()
+                    logs.add("🗣️ DOCTOR'S DEFENSE:\n\"$pleaMsg\"")
+                    if (selectedEvidence.isNotEmpty()) {
+                        logs.add("📁 SUBMITTED EVIDENCE TO COURT:\n" + selectedEvidence.joinToString("\n"))
+                    }
+                    logs.add("👨‍⚖️ TRIBUNAL HEARINGS & INQUEST:\n$dialogue")
+                    logs.add("💼 LAWYER'S INSIGHT: $insight")
+
+                    _lawsuitLog.value = logs
+                    _lawsuitTension.value = (_lawsuitTension.value + dAdj).coerceIn(10, 100)
+                    _lawsuitProsecutorAggression.value = (_lawsuitProsecutorAggression.value + aAdj).coerceIn(10, 100)
+                    _lawsuitCurrentStage.value = "cross_exam"
+                }
+            } catch (e: Exception) {
+                _errorFlow.emit("Court connecting line error: ${e.localizedMessage}")
+            } finally {
+                onFinished()
+            }
+        }
+    }
+
+    fun concludeLawsuitInteractiveVerdict(
+        activePolicies: List<HealthPolicy>,
+        clinicBalance: Double,
+        reputationStars: Float,
+        countryName: String,
+        providerVal: String,
+        modelVal: String,
+        apiKeyVal: String,
+        customEndpoint: String,
+        agentPowersPrompt: String,
+        onActionExecuted: suspend (String) -> Unit,
+        onRegisterExpense: (Double) -> Unit,
+        onFinished: () -> Unit
+    ) {
+        viewModelScope.launch {
+            val activePolList = activePolicies
+            val policyDetailsStr = if (activePolList.isNotEmpty()) {
+                val sb = java.lang.StringBuilder()
+                sb.append("\nSOVEREIGN LAWS UNDER WHICH JUDGMENT IS RENDERED:")
+                activePolList.forEachIndexed { idx, p ->
+                    sb.append("\nLaw ${idx+1}: ${p.title} | Rule: ${p.clinicalRule}\n")
+                }
+                sb.toString()
+            } else "No formal laws active."
+
+            val currentHistoryLog = _lawsuitLog.value.joinToString("\n\n")
+            val lawyer = OrchidDeepStateManager.hiredLawyer.value
+            val activeSeledEvid = OrchidDeepStateManager.selectedEvidenceToPresent.value
+
+            val prompt = """
+                You are the Presiding Judge and Supreme Justice of the High Court Medical Tribunal of $countryName.
+                You are delivering the final, legally-binding VERDICT and penalty decree for Dr. Tim (JB Consultation Practice).
+                
+                CASE SPECIFICATION:
+                - Case: Treated "${_lawsuitPatientName.value}" for "${_lawsuitCaseDiag.value}".
+                - Cumulative Case Court Transcript (Plea history and prosecutorial arguments):
+                $currentHistoryLog
+                
+                EVIDENTIARY EXHIBITS RULING ON:
+                - Selected evidence submitted to court: ${if (activeSeledEvid.isNotEmpty()) activeSeledEvid.joinToString(", ") else "None"}
+                - Defense Representation: ${lawyer?.displayName ?: "None (Self-represented)"}
+                - Court Tension Level: ${_lawsuitTension.value}%
+                - Prosecution Hostility/Aggression Level: ${_lawsuitProsecutorAggression.value}%
+                
+                HEALTH STATUTES IN SCOPE:
+                $policyDetailsStr
+                
+                $agentPowersPrompt
+                
+                YOUR DIRECTIVE:
+                1. Formulate a final, realistic sentencing judgment.
+                2. Verdict types allowed: "Exonerated" (if tension < 45% and appropriate evidence was provided), "Warning" (tension 45-60%), "Fined" (tension 60-80% or severe statutory breaches), "Suspension" (tension > 80% or repeated violations).
+                3. If Fined, define a numeric cash fine (e.g. R500.00 to R3000.00). Deduct this from the clinic's balance.
+                4. If Suspension, define the suspension weeks (e.g. 1 to 3 weeks).
+                5. Return raw JSON matching this schema:
+                {
+                   "verdictType": "Fined",
+                   "fineAmount": 1200.0,
+                   "suspensionWeeks": 0,
+                   "finalVerdictText": "Chief Justice's Formal Judicial Verdict Decree. Outline the logical rationale, reference the defense's testimony and whether their submitted evidence was sufficient, and declare the legal sentence penalty."
+                }
+            """.trimIndent()
+
+            try {
+                if (apiKeyVal.isNotBlank()) {
+                    val responseRaw = makeFreshDirectApiCall(providerVal, modelVal, apiKeyVal, prompt, customEndpoint)
+                    val sanitized = extractJsonString(responseRaw)
+                    val json = JSONObject(sanitized)
+
+                    val vType = json.optString("verdictType", "Warning")
+                    val fine = json.optDouble("fineAmount", 0.0)
+                    val weeks = json.optInt("suspensionWeeks", 0)
+                    val text = json.optString("finalVerdictText", "A final warning has been logged under the regulatory guidelines.")
+                    
+                    onActionExecuted(sanitized)
+
+                    val logs = _lawsuitLog.value.toMutableList()
+                    logs.add("⚖️ SUPREME COURT OF RULING - VERDICT ISSUED:\n$text")
+                    _lawsuitLog.value = logs
+
+                    _lawsuitVerdict.value = vType
+                    _lawsuitFine.value = fine
+                    _lawsuitSuspension.value = weeks
+
+                    if (fine > 0.0) {
+                        settingsDataStore.updateClinicStats(clinicBalance - fine, reputationStars)
+                        onRegisterExpense(fine)
+                    }
+
+                    _lawsuitCurrentStage.value = "verdict"
+                }
+            } catch (e: Exception) {
+                _errorFlow.emit("Court judgment finalization failed: ${e.localizedMessage}")
+            } finally {
+                onFinished()
+            }
+        }
+    }
+
+    fun submitLawsuitDefense(
+        strategy: String,
+        clinicBalance: Double,
+        reputationStars: Float,
+        activePolicies: List<HealthPolicy>,
+        countryName: String,
+        presidentName: String,
+        presidentParty: String,
+        providerVal: String,
+        modelVal: String,
+        apiKeyVal: String,
+        customEndpoint: String,
+        onActionExecuted: suspend (String) -> Unit,
+        onRegisterExpense: (Double) -> Unit,
+        onFinished: () -> Unit
+    ) {
+        val currentHistoryLog = _lawsuitLog.value.joinToString("\n\n")
+        val activePolList = activePolicies
+        val policyDetailsStr = if (activePolList.isNotEmpty()) {
+            val sb = java.lang.StringBuilder()
+            sb.append("\nACTLY ENACTED SOVEREIGN HEALTH LAWS OF THE COUNTRY:")
+            activePolList.forEachIndexed { idx, p ->
+                sb.append("\n[LAW ${idx+1}] TITLE: ${p.title}\n")
+                sb.append("  - Requirements: ${p.clinicalRule}\n")
+                sb.append("  - Clauses: ${p.extendedClauses.joinToString("; ")}\n")
+            }
+            sb.toString()
+        } else "No clinical laws are currently enacted."
+
+        val violatedPolStr = if (_lawsuitViolatedPolicies.value.isNotEmpty()) {
+            val sb = java.lang.StringBuilder()
+            sb.append("\nOFFICIALLY LOGGED STATUTORY VIOLATIONS BEING TRIED:")
+            _lawsuitViolatedPolicies.value.forEach { v ->
+                sb.append("\n- Law: ${v.policyTitle} | Triggered Clause: ${v.triggeredClause} | Details: ${v.auditMessage}")
+            }
+            sb.toString()
+        } else "Accused of overall malpractice and poor competency score (${_lawsuitCharges.value.firstOrNull() ?: ""})."
+
+        val prompt =    """
+            We are simulating an interactive trial in the Supreme Medical Court / Sovereign Judiciary Department of the Republic of $countryName under President $presidentName ($presidentParty).
+            
+            SOVEREIGN CONTEXT:
+            - Accused: Dr. Tim, General Practitioner of JB Consultation Practice (PR# 1234567)
+            - Patient Case: Treated patient "${_lawsuitPatientName.value}" for "${_lawsuitCaseDiag.value}" under Pretoria Jurisdiction.
+            - Current Judiciary Trial Record:
+            $currentHistoryLog
+            
+            POLICIES & LEGAL STATUTES FOR JUDGMENT:
+            $policyDetailsStr
+            $violatedPolStr
+            
+            PRACTITIONER'S CHOSEN DEFENSE STRATEGY:
+            "$strategy"
+            
+            INSTRUCTIONS FOR THE MODEL:
+            1. Roleplay the intellectual, sharp dialogue of the Presiding Judge and the fast-talking State Prosecutor in Pretoria Court.
+            2. Analyze if the doctor's defense strategy addresses the active health policies (laws) of the nation, and their specific violations.
+            3. If they violated any of the enacted laws and presented an excuse, the prosecutor should dismantle their defense using law clauses and medical/legal terminology, referencing the specific enacted policies!
+            4. If the laws have rigid fines or suspension instructions (e.g. R500 fine, R1000 fine, or license suspension mentioned in the policy clauses), the Judge MUST sentence the doctor to pay those specific statutory fines + damages!
+            5. Determine the final verdict type ("Exonerated", "Warning", "Suspension", "Fined") based on compliance level. If they are standard compliant or have no registered violations, offer exoneration. Or if they had severe violations, enforce heavier fines (R1000 - R5000) or license suspension (1 to 4 weeks).
+            6. Return your response STRICTLY as a valid JSON object matching this schema. Write nothing else except this JSON:
+            {
+               "courtDialogue": "The prosecutor's aggressive cross-examination, and the Judge's legal questioning, citing the sovereign laws. Speak with formal legislative language.",
+               "tensionAdjustment": 15,
+               "aggressionAdjustment": 10,
+               "judgmentStageReached": true,
+               "verdictType": "Fined",
+               "fineAmount": 1500.0,
+               "suspensionWeeks": 2,
+               "finalVerdictText": "Chief Justice's Formal Judicial Decree. Detail the legal and clinical reasons, cite which Enacted Policies were violated, and outline the penalty sanction (e.g., Warning, Suspension, or Fined)."
+            }
+        """.trimIndent()
+
+        viewModelScope.launch {
+            try {
+                if (apiKeyVal.isNotBlank()) {
+                    val responseRaw = makeFreshDirectApiCall(providerVal, modelVal, apiKeyVal, prompt, customEndpoint)
+                    val sanitized = extractJsonString(responseRaw)
+                    val reply = lawsuitStateAdapter.fromJson(sanitized)
+
+                    if (reply != null) {
+                        val newLog = _lawsuitLog.value.toMutableList()
+                        newLog.add("🎒 DEFENSE SUBMITTED: $strategy")
+                        newLog.add("🗣️ PROSECUTION CROSS-EXAMINATION:\n${reply.courtDialogue ?: "The prosecution presents their cross-examination arguments."}")
+                        newLog.add("⚖️ FINAL COMMITTEE VERDICT:\n${reply.finalVerdictText ?: "A verdict was reached by the supreme compliance committee."}")
+
+                        _lawsuitLog.value = newLog
+                        _lawsuitTension.value = (_lawsuitTension.value + (reply.tensionAdjustment ?: 0)).coerceIn(10, 100)
+                        _lawsuitProsecutorAggression.value = (_lawsuitProsecutorAggression.value + (reply.aggressionAdjustment ?: 0)).coerceIn(10, 100)
+                        
+                        _lawsuitVerdict.value = reply.verdictType ?: "Warning"
+                        val fine = reply.fineAmount ?: 0.0
+                        _lawsuitFine.value = fine
+                        val suspension = reply.suspensionWeeks ?: 0
+                        _lawsuitSuspension.value = suspension
+                        
+                        onActionExecuted(sanitized)
+
+                        if (fine > 0.0) {
+                            settingsDataStore.updateClinicStats(clinicBalance - fine, reputationStars)
+                            onRegisterExpense(fine)
+                        }
+
+                        _lawsuitCurrentStage.value = "verdict"
+                    } else {
+                        _errorFlow.emit("Failed to parse tribunal verdict. Re-submitting defense...")
+                    }
+                }
+            } catch (e: Exception) {
+                _errorFlow.emit("Tribunal connection error: ${e.localizedMessage}")
+            } finally {
+                onFinished()
+            }
+        }
+    }
+}

@@ -189,13 +189,13 @@ data class PingResponse(
 
 object RetrofitClient {
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY
+        level = HttpLoggingInterceptor.Level.NONE
     }
 
     private val okHttpClient = OkHttpClient.Builder()
-        .connectTimeout(60, TimeUnit.MINUTES)
-        .readTimeout(60, TimeUnit.MINUTES)
-        .writeTimeout(60, TimeUnit.MINUTES)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
         .addInterceptor(loggingInterceptor)
         .build()
 

@@ -3,6 +3,7 @@ package com.example.ui
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import com.example.data.HealthPolicy
 
 // --- HIGH FIDELITY DISPENSARY DATA MODEL ---
@@ -120,25 +121,30 @@ object OrchidDeepStateManager {
         if (currentBalance < totalCost) {
             return null
         }
-        val currentStock = _dispensaryInventory.value.toMutableMap()
-        currentStock[itemId] = (currentStock[itemId] ?: 0) + quantity
-        _dispensaryInventory.value = currentStock
+        _dispensaryInventory.update { current ->
+            current.toMutableMap().apply { this[itemId] = (this[itemId] ?: 0) + quantity }
+        }
         return Pair(totalCost, "Restocked $quantity units of ${item.name}.")
     }
 
     fun forceRestockItemDirectly(itemId: String, quantity: Int) {
-        val currentStock = _dispensaryInventory.value.toMutableMap()
-        currentStock[itemId] = (currentStock[itemId] ?: 0) + quantity
-        _dispensaryInventory.value = currentStock
+        _dispensaryInventory.update { current ->
+            current.toMutableMap().apply { this[itemId] = (this[itemId] ?: 0) + quantity }
+        }
     }
 
     fun consumeItem(itemId: String): Boolean {
-        val currentStock = _dispensaryInventory.value.toMutableMap()
-        val stock = currentStock[itemId] ?: 0
-        if (stock <= 0) return false
-        currentStock[itemId] = stock - 1
-        _dispensaryInventory.value = currentStock
-        return true
+        var consumed = false
+        _dispensaryInventory.update { current ->
+            val stock = current[itemId] ?: 0
+            if (stock > 0) {
+                consumed = true
+                current.toMutableMap().apply { this[itemId] = stock - 1 }
+            } else {
+                current
+            }
+        }
+        return consumed
     }
 
     // --- dynamic custom drug additions ---
@@ -163,15 +169,21 @@ object OrchidDeepStateManager {
             patientHRDelta = hrDelta,
             clinicalTherapyImpact = clinicalImpact
         )
-        val currentList = _availableCatalogFlow.value.toMutableList()
-        if (!currentList.any { it.id == id }) {
-            currentList.add(newItem)
-            _availableCatalogFlow.value = currentList
-
-            // Also register starting stock so the clinician can immediately test/dispense it
-            val updatedInventory = _dispensaryInventory.value.toMutableMap()
-            updatedInventory[id] = 10
-            _dispensaryInventory.value = updatedInventory
+        
+        var added = false
+        _availableCatalogFlow.update { currentList ->
+            if (!currentList.any { it.id == id }) {
+                added = true
+                currentList + newItem
+            } else {
+                currentList
+            }
+        }
+        
+        if (added) {
+            _dispensaryInventory.update { current ->
+                current.toMutableMap().apply { this[id] = 10 }
+            }
         }
     }
 
