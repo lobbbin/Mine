@@ -4435,6 +4435,59 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         _lastLobbyReport.value = null
     }
 
+    fun autoArchitectCompound(primaryMandate: String, onSuccess: (name: String, category: String, cost: String, bp: String, hr: String, effect: String, desc: String) -> Unit) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val currentProvider = provider.value
+                val currentModel = model.value
+                val userKey = apiKey.value ?: ""
+                val activeKey = resolveActiveApiKey(currentProvider, userKey)
+                
+                if (activeKey.isBlank()) {
+                    logAndEmitError("API Key missing! Cannot auto-architect compound.")
+                    _isLoading.value = false
+                    return@launch
+                }
+
+                val prompt = """
+                    You are formulating a brand new fictional therapeutic drug/compound that adheres to the nation's parliamentary health directive:
+                    "$primaryMandate"
+                    
+                    Return a JSON object with the following string fields matching the requirements of the directory:
+                    - "name": Drug Name (e.g. Synthetix-500)
+                    - "scheduleCategory": e.g. "Schedule 4 (Prescription Medication)", "Schedule 5", or "Schedule 2 (OTC)"
+                    - "costZar": e.g. "350" (just the number)
+                    - "bpDelta": e.g. "Raises (+10 mmHg)" or "Neutral"
+                    - "hrDelta": e.g. "Stabilizes (-5 bpm)" or "Increases (+20 bpm)"
+                    - "therapeuticEffect": Clinical indication effect (e.g. Rapidly combats acute respiratory infections while avoiding antibiotic resistance)
+                    - "pharmacologyDescription": A short, realistic pharmacology description.
+
+                    Make the compound creative but medically rigorous and directly suited to satisfy the provided governmental health directive.
+                    Ensure that the JSON is valid.
+                """.trimIndent()
+                
+                val apiResponse = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt, customEndpoint.value)
+                val sanitized = extractJsonString(apiResponse)
+                val json = org.json.JSONObject(sanitized)
+                
+                val name = json.optString("name", "Novocaine-Ultra")
+                val category = json.optString("scheduleCategory", "Schedule 4 (Prescription Medication)")
+                val cost = json.optString("costZar", "150.0")
+                val bp = json.optString("bpDelta", "Neutral")
+                val hr = json.optString("hrDelta", "Neutral")
+                val effect = json.optString("therapeuticEffect", "Provides immediate relief.")
+                val desc = json.optString("pharmacologyDescription", "A highly effective new generation compound.")
+                
+                onSuccess(name, category, cost, bp, hr, effect, desc)
+            } catch (e: Exception) {
+                logAndEmitError("AI Architect failed: ${e.message}")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
 }
 
 data class PolicyAuditResult(

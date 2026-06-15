@@ -3526,7 +3526,22 @@ fun StateAndLegislationTab(
                     HorizontalDivider()
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    Text("🧪 ARCHITECT A NEW THERAPEUTIC COMPOUND", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("🧪 ARCHITECT A NEW THERAPEUTIC COMPOUND", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                        TextButton(onClick = { 
+                            viewModel.autoArchitectCompound(primaryMandate) { name, category, cost, bp, hr, effect, desc ->
+                                newDrugName = name
+                                newDrugCategory = category
+                                newDrugCostInput = cost
+                                newDrugBPChange = bp
+                                newDrugHRChange = hr
+                                newDrugTherapyEffect = effect
+                                newDrugDescription = desc
+                            }
+                        }) {
+                            Text("✨ AI Auto-Architect", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = MaterialTheme.colorScheme.tertiary)
+                        }
+                    }
                     Spacer(modifier = Modifier.height(8.dp))
 
                     OutlinedTextField(
