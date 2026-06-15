@@ -241,6 +241,21 @@ class GameAgent(
                     )
                 ),
                 GeminiFunctionDeclaration(
+                    name = "restructure_national_medical_aid",
+                    description = "Change the terms, coverage, and payout rates of the national medical aid schemes.",
+                    parameters = mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "scheme_id" to mapOf("type" to "string"),
+                            "scheme_name" to mapOf("type" to "string"),
+                            "coverage_percent" to mapOf("type" to "number"),
+                            "requires_pre_auth" to mapOf("type" to "boolean"),
+                            "rejection_probability" to mapOf("type" to "number")
+                        ),
+                        "required" to listOf("scheme_id", "scheme_name", "coverage_percent", "requires_pre_auth", "rejection_probability")
+                    )
+                ),
+                GeminiFunctionDeclaration(
                     name = "enact_new_medical_statute",
                     description = "Enact a new health statute directly into Elyisum's sovereign archives.",
                     parameters = mapOf(

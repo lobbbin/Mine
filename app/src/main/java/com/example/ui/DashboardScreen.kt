@@ -1467,21 +1467,26 @@ fun DashboardScreen(
             val labCostVal = viewModel.labCost.collectAsState().value
             val totalEst = consultFeeVal + labCostVal + 50.0
             
-            val insuranceStatus = hiddenCase?.insuranceStatus ?: "Private Medical Aid"
-            val (copayText, schemeDetails) = when (insuranceStatus) {
-                "Private Medical Aid" -> {
-                    val copayAmount = (consultFeeVal * 0.0) + (labCostVal * 0.20) + 50.0 * 0.20
-                    Pair("R ${String.format("%.2f", copayAmount)} (Discovery Classic • 20% co-pay on pathology)", "Subject to Scheme savings limits.")
-                }
-                "State Funded", "State Funded / Uninsured" -> {
-                    Pair("R 0.00 (GEMS Onyx / State Authorized DSP)", "No co-pays required on network contracted diagnostics.")
-                }
-                "Private Medical Aid (Bonitas)" -> {
-                    val copayAmount = (consultFeeVal * 0.20) + (labCostVal * 0.30)
-                    Pair("R ${String.format("%.2f", copayAmount)} (Bonitas Standard • 30% co-pay on pathology)", "Pathology levy rules apply.")
-                }
-                else -> {
-                    Pair("R ${String.format("%.2f", totalEst)} (Full Cash Paying Out-of-Pocket)", "100% patient private responsibility.")
+            val insuranceStatus = hiddenCase?.insuranceStatus ?: "Out-of-Pocket Cash"
+            val matchedScheme = OrchidDeepStateManager.medicalAidSchemes.value.find { insuranceStatus.contains(it.name, ignoreCase = true) }
+            
+            val (copayText, schemeDetails) = if (matchedScheme != null) {
+                val patientResponsibility = 1.0 - matchedScheme.coveragePercent
+                val copayAmount = totalEst * patientResponsibility
+                val preAuthHint = if (matchedScheme.requiresPreAuth) "PRE-AUTH REQUIRED" else "No Pre-Auth Needed"
+                Pair("R ${String.format("%.2f", copayAmount)} (Co-Pay ${patientResponsibility * 100}%)", "${matchedScheme.name} limit applies. $preAuthHint")
+            } else {
+                when {
+                    insuranceStatus.contains("State") || insuranceStatus.contains("NHS") -> {
+                        Pair("R 0.00 (State Authorized DSP)", "No co-pays required on network contracted diagnostics.")
+                    }
+                    insuranceStatus.contains("Private Medical Aid") -> {
+                        val copayAmount = totalEst * 0.20
+                        Pair("R ${String.format("%.2f", copayAmount)} (Standard Aid)", "20% Pathology levy rules apply.")
+                    }
+                    else -> {
+                        Pair("R ${String.format("%.2f", totalEst)} (Full Cash Paying Out-of-Pocket)", "100% patient private responsibility.")
+                    }
                 }
             }
 
@@ -3747,6 +3752,64 @@ fun StateAndLegislationTab(
                         modifier = Modifier.weight(1f).height(38.dp)
                     ) {
                         Text("REFRESH PRIORITIES", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // --- MEDICAL AID REGISTRY ---
+        val medicalAids by OrchidDeepStateManager.medicalAidSchemes.collectAsStateWithLifecycle()
+        
+        Card(
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("🛡️", fontSize = 20.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = "NATIONAL MEDICAL AID REGISTRY",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Active Clinical Financial Guarantors",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    medicalAids.forEach { aid ->
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(modifier = Modifier.padding(12.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(aid.name, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                    Text("Coverage: ${(aid.coveragePercent * 100).toInt()}% | Rejection Risk: ${(aid.rejectionProbability * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                if (aid.requiresPreAuth) {
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.errorContainer,
+                                        shape = RoundedCornerShape(4.dp),
+                                        modifier = Modifier.padding(start = 8.dp)
+                                    ) {
+                                        Text("Pre-Auth", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), fontWeight = FontWeight.Black)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

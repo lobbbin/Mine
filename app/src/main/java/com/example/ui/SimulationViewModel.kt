@@ -460,7 +460,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         
                         val clinicStats = "Practice Name: ${world?.clinicName ?: "JB Practice"} | Operating Balance: R$balance | License: ${world?.licenseStatus ?: "ACTIVE"}"
                         document.add(com.itextpdf.text.Paragraph(clinicStats, boldFont))
-                        document.add(com.itextpdf.text.Paragraph("Total Patients Seen: $totalSeen | Reputation: ${reputationStars.value} Stars", normalFont))
+                        document.add(com.itextpdf.text.Paragraph("Doctor Rank: ${doctorRank.value} (XP: ${doctorXp.value}) | Total Patients Seen: $totalSeen | Reputation: ${reputationStars.value} Stars", normalFont))
                         document.add(com.itextpdf.text.Paragraph(" "))
 
                         // --- NATIONAL POLITICAL SNAPSHOT ---
@@ -554,6 +554,38 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         )
                         financialSummaryPara.spacingBefore = 8f
                         document.add(financialSummaryPara)
+                        
+                        // --- CLINIC INVENTORY & PHARMACEUTICAL CATALOG ---
+                        document.newPage()
+                        document.add(com.itextpdf.text.Paragraph("Sovereign Clinic Inventory & Master Drug Directory", headerFont))
+                        document.add(com.itextpdf.text.Paragraph(" "))
+                        
+                        val catalog = OrchidDeepStateManager.availableCatalog
+                        val inventory = OrchidDeepStateManager.dispensaryInventory.value
+                        
+                        val invTable = com.itextpdf.text.pdf.PdfPTable(5)
+                        invTable.widthPercentage = 100f
+                        invTable.setWidths(floatArrayOf(1.5f, 1.2f, 1.0f, 1.2f, 3.1f))
+                        
+                        val invHeaders = listOf("Compound Name", "Classification", "Stock", "Cost(ZAR)", "Clinical Effect")
+                        for (h in invHeaders) {
+                            val cell = com.itextpdf.text.pdf.PdfPCell(com.itextpdf.text.Phrase(h, com.itextpdf.text.FontFactory.getFont(com.itextpdf.text.FontFactory.HELVETICA_BOLD, 9f)))
+                            cell.backgroundColor = com.itextpdf.text.BaseColor(230, 235, 245)
+                            cell.setPadding(5f)
+                            invTable.addCell(cell)
+                        }
+                        
+                        for (item in catalog) {
+                            invTable.addCell(com.itextpdf.text.Phrase(item.name, normalFont))
+                            invTable.addCell(com.itextpdf.text.Phrase(item.classification, normalFont))
+                            val stockStr = (inventory[item.id] ?: 0).toString()
+                            invTable.addCell(com.itextpdf.text.Phrase(stockStr, normalFont))
+                            invTable.addCell(com.itextpdf.text.Phrase("R${item.purchaseCost}", normalFont))
+                            
+                            val effectText = "${item.description}\nEffect: ${item.clinicalTherapyImpact}\nBP: ${item.patientBPDelta} | HR: ${item.patientHRDelta}"
+                            invTable.addCell(com.itextpdf.text.Phrase(effectText, smallFont))
+                        }
+                        document.add(invTable)
 
                         // --- INTELLIGENCE & DIRECTIVES ---
                         val news = currentNewsReport.value
@@ -710,8 +742,32 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                             document.add(divider)
                         }
 
-                        // Error log
+                        // Error log & Trails
                         document.newPage()
+                        
+                        if (votingLog.value.isNotEmpty()) {
+                            document.add(com.itextpdf.text.Paragraph("Parliamentary Chamber Debates & Electoral Logs", headerFont))
+                            document.add(com.itextpdf.text.Paragraph(" "))
+                            for (record in votingLog.value) {
+                                document.add(com.itextpdf.text.Paragraph("- $record", normalFont))
+                            }
+                            document.add(com.itextpdf.text.Paragraph(" "))
+                        }
+
+                        if (lawsuitLog.value.isNotEmpty() || lawsuitPatientName.value.isNotBlank()) {
+                            document.add(com.itextpdf.text.Paragraph("Sovereign Courtroom Trial Transcripts", headerFont))
+                            document.add(com.itextpdf.text.Paragraph(" "))
+                            
+                            val lawInfo = "Active Trial against: ${lawsuitPatientName.value}\nCharges: ${lawsuitCharges.value.joinToString()}\nVerdict: ${lawsuitVerdict.value ?: "Ongoing"}\nPenalty/Fine Levied: R${lawsuitFine.value}"
+                            document.add(createPdfShadedBox(lawInfo, "Trial Summary:", normalFont, boldFont))
+                            
+                            document.add(com.itextpdf.text.Paragraph("Full Courtroom Record:", boldFont))
+                            for (record in lawsuitLog.value) {
+                                document.add(com.itextpdf.text.Paragraph("- $record", normalFont))
+                            }
+                            document.add(com.itextpdf.text.Paragraph(" "))
+                        }
+
                         document.add(com.itextpdf.text.Paragraph("App Error Log", headerFont))
                         if (sessionErrorLog.isEmpty()) {
                             document.add(com.itextpdf.text.Paragraph("No errors recorded in this session.", normalFont))
@@ -1185,7 +1241,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                               "pathophysiology": "highly detailed master-level explanation of the mechanical and biological pathophysiology matching the diagnosis.",
                               "expectedLabs": "detailed summary of realistic clinical lab investigations, pathology, or imaging findings. Blood chemistry, counts, CRP, Hb, electrolytes, urine, glucose, or imaging as relevant.",
                               "severity": "$targetSeverity",
-                              "insuranceStatus": "randomly assign either: 'Private Medical Aid', 'State Funded / Uninsured', or 'Out-of-Pocket Cash'",
+                              "insuranceStatus": "randomly assign either: ${OrchidDeepStateManager.medicalAidSchemes.value.joinToString { "'" + it.name + "'" }}, or 'Out-of-Pocket Cash'",
                               "initialVitals": {
                                 "bp": "blood pressure string (e.g. '120/80')",
                                 "hr": "heart rate string",
@@ -1898,8 +1954,28 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             systemInstructionOverride = "Generate the final CPD-aligned medical scorecard, rating, and feedback for this simulation. Award an objective clinical competency score out of 100 based on history, exams, correct interventions, prescription appropriateness, letters completeness, financial billing, and resource management. Under a distinct heading 'PATIENT SAFETY NAME AUDIT', evaluate if the practitioner referenced the patient by their correct name (${getPatientName()}) and if the compiled prescription, referral, and sick notes correctly printed and matched this specific patient identity. Deduct 10 points if there was any identity mismatch. Populate the 'evaluation' field and populate the 'clinicalScore' numeric field (0-100). Set isEncounterComplete to true, and currentPhase to 'Phase 6 - Case Evaluation & Feedback'.",
             onSuccessExtra = {
                 // Perform final accounting! Cash flow is received.
-                val medicalAidCover = if (_hiddenCase.value?.insuranceStatus == "Private Medical Aid") lastExtractedBillingAmount * 0.8 else if (_hiddenCase.value?.insuranceStatus == "State Funded") lastExtractedBillingAmount else 0.0
-                val trueCopay = if (_hiddenCase.value?.insuranceStatus == "Private Medical Aid") lastExtractedBillingAmount * 0.2 else if (_hiddenCase.value?.insuranceStatus == "State Funded") 0.0 else lastExtractedBillingAmount
+                val activeSchemeStr = _hiddenCase.value?.insuranceStatus ?: "Out-of-Pocket Cash"
+                val matchedScheme = OrchidDeepStateManager.medicalAidSchemes.value.find { activeSchemeStr.contains(it.name, ignoreCase = true) }
+                
+                var medicalAidCover = 0.0
+                var trueCopay = lastExtractedBillingAmount
+                
+                if (matchedScheme != null) {
+                    val isRejected = Math.random() < matchedScheme.rejectionProbability
+                    if (!isRejected) {
+                        medicalAidCover = lastExtractedBillingAmount * matchedScheme.coveragePercent
+                        trueCopay = lastExtractedBillingAmount - medicalAidCover
+                    } else {
+                        logAndEmitError("Claim Denied by ${matchedScheme.name}! Patient must pay Out-of-Pocket.")
+                    }
+                } else if (activeSchemeStr.contains("State Funded") || activeSchemeStr.contains("NHS")) {
+                    medicalAidCover = lastExtractedBillingAmount // Assuming 100% covered if old logic hits
+                    trueCopay = 0.0
+                } else if (activeSchemeStr.contains("Private Medical Aid")) { // Fallback for hardcoded legacy patients
+                    medicalAidCover = lastExtractedBillingAmount * 0.8
+                    trueCopay = lastExtractedBillingAmount * 0.2
+                }
+
                 val totalRevenueCollected = trueCopay + medicalAidCover
                 val profit = totalRevenueCollected - _uiState.value.expensesIncurred - 200.0 // R200 clinic fixed overhead
                 
@@ -3179,6 +3255,15 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         val areasList = args["affected_areas"] as? List<*>
                         val areas = areasList?.filterIsInstance<String>()?.joinToString(", ") ?: "All"
                         "Facility crisis of type '$type' affecting '$areas'"
+                    }
+                    "restructure_national_medical_aid" -> {
+                        val id = args["scheme_id"] as? String ?: "custom_aid"
+                        val name = args["scheme_name"] as? String ?: "New Scheme"
+                        val cov = (args["coverage_percent"] as? Number)?.toDouble() ?: 0.5
+                        val auth = args["requires_pre_auth"] as? Boolean ?: false
+                        val rej = (args["rejection_probability"] as? Number)?.toDouble() ?: 0.1
+                        OrchidDeepStateManager.updateOrAddMedicalScheme(id, name, cov, auth, rej)
+                        "National Medical Aid Restructured: $name now covers ${cov * 100}% with ${(rej * 100).toInt()}% rejection probability."
                     }
                     "evaluate_and_award_clinical_xp" -> {
                         val xp = (args["xp_awarded"] as? Number)?.toLong() ?: 100L

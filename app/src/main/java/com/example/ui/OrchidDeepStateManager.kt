@@ -30,7 +30,34 @@ data class DefenseLawyer(
     val lawyerPitch: String
 )
 
+data class MedicalAidScheme(
+    val id: String,
+    val name: String,
+    val coveragePercent: Double,        // 0.0 to 1.0
+    val requiresPreAuth: Boolean,
+    val rejectionProbability: Double    // 0.0 to 1.0 (chance of claim denial)
+)
+
 object OrchidDeepStateManager {
+    // --- 0. MEDICAL AID SCHEME REGISTRY ---
+    private val _medicalAidSchemes = MutableStateFlow<List<MedicalAidScheme>>(
+        listOf(
+            MedicalAidScheme("premium_private", "Discovery Elite Private", 0.90, true, 0.05),
+            MedicalAidScheme("state_fund", "National Health Service (NHS)", 1.00, false, 0.35),
+            MedicalAidScheme("basic_plan", "CarePlus Basic", 0.60, true, 0.15)
+        )
+    )
+    val medicalAidSchemes: StateFlow<List<MedicalAidScheme>> = _medicalAidSchemes.asStateFlow()
+
+    fun updateOrAddMedicalScheme(id: String, name: String, coverage: Double, preAuth: Boolean, rejectionProb: Double) {
+        _medicalAidSchemes.update { current ->
+            val mutable = current.toMutableList()
+            mutable.removeIf { it.id == id || it.name.equals(name, ignoreCase = true) }
+            mutable.add(MedicalAidScheme(id, name, coverage, preAuth, rejectionProb))
+            mutable
+        }
+    }
+
     // --- 1. ITEM DISPENSARY STATE ---
     private val _dispensaryInventory = MutableStateFlow<Map<String, Int>>(
         mapOf(

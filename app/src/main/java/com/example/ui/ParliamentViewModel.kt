@@ -351,18 +351,32 @@ class ParliamentViewModel(
             )
             
             try {
+                val reputation = settingsDataStore.reputationStarsFlow.first()
+                val balance = settingsDataStore.clinicBalanceFlow.first()
+                val activePolicies = settingsDataStore.activePoliciesFlow.first().joinToString { it.title }
+                val medicalSchemes = OrchidDeepStateManager.medicalAidSchemes.value.joinToString { "${it.name} (${(it.coveragePercent * 100).toInt()}% coverage)" }
+
                 val prompt = """
                     You are simulating a strategic parliamentary session voting on a major national bio-security healthcare bill:
                     - Title: ${policy.title}
                     - Summary: ${policy.summary}
                     - Direct Enforced Clinical Rule: ${policy.clinicalRule}
                     
-                    Parliament composition (200 seats total):
-                    - Progressives: ${_progressiveSeats.value} seats (Lobby Bias/Confidence: ${String.format("%.2f", _progressiveLobbyBias.value)})
-                    - Conservatives: ${_conservativeSeats.value} seats (Lobby Bias/Confidence: ${String.format("%.2f", _conservativeLobbyBias.value)})
-                    - Independents: ${_independentSeats.value} seats (Lobby Bias/Confidence: ${String.format("%.2f", _independentLobbyBias.value)})
+                    World State Context:
+                    - Proposing Doctor Reputation: $reputation Stars
+                    - Doctor Clinic Liquidity: R$balance
+                    - Current Active Policies: $activePolicies
+                    - National Medical Aid Landscape: $medicalSchemes
                     
-                    Simulate the debate over 5 intervals. Determine who supports and opposes it realistically based on their philosophy and biases.
+                    Parliament composition (200 seats total):
+                    - Progressives: ${_progressiveSeats.value} seats (Lobby Bias: ${String.format("%.2f", _progressiveLobbyBias.value)})
+                    - Conservatives: ${_conservativeSeats.value} seats (Lobby Bias: ${String.format("%.2f", _conservativeLobbyBias.value)})
+                    - Independents: ${_independentSeats.value} seats (Lobby Bias: ${String.format("%.2f", _independentLobbyBias.value)})
+                    
+                    Simulate the debate over 5 intervals. Determine who supports and opposes it realistically based on their philosophy, the doctor's reputation, and the current medical aid landscape.
+                    
+                    $AGENT_POWERS_PROMPT
+                    
                     Provide a JSON response matching this exact schema:
                     {
                       "stages": [
@@ -371,7 +385,8 @@ class ParliamentViewModel(
                         { "log": "...", "yes": 80, "no": 60, "abs": 10 },
                         { "log": "...", "yes": 110, "no": 70, "abs": 12 },
                         { "log": "Final gavel sounds", "yes": 120, "no": 75, "abs": 5 }
-                      ]
+                      ],
+                      "agentActions": [ ... optional actions ... ]
                     }
                     The last stage represents the final vote count (must sum to exactly 200).
                 """.trimIndent()
@@ -379,6 +394,16 @@ class ParliamentViewModel(
                 val apiResponse = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt, customEndpoint.value)
                 val sanitized = extractJsonString(apiResponse)
                 val json = JSONObject(sanitized)
+                
+                // Process Agent Actions if present
+                if (json.has("agentActions")) {
+                    val actions = json.getJSONArray("agentActions")
+                    for (j in 0 until actions.length()) {
+                        val action = actions.getJSONObject(j)
+                        processAgentAction(action)
+                    }
+                }
+
                 val stagesArray = json.optJSONArray("stages")
                 
                 if (stagesArray != null && stagesArray.length() > 0) {
@@ -473,10 +498,9 @@ class ParliamentViewModel(
                     $AGENT_POWERS_PROMPT
                 """.trimIndent()
                 
-                val apiResponse = if (activeKey.isNotBlank()) {
+                val apiResponseRaw = if (activeKey.isNotBlank()) {
                     try {
-                        val resp = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt, customEndpoint.value)
-                        if (resp.length > 15) resp else "I have decided to sign this act to secure the health and safety checks across all private and public practices."
+                        makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt, customEndpoint.value)
                     } catch (e: Exception) {
                         "I have decided to sign this act to secure the health and safety checks across all private and public practices."
                     }
@@ -484,9 +508,28 @@ class ParliamentViewModel(
                     "I have decided to sign this act to secure the health and safety checks across all private and public practices."
                 }
 
+                var memoText = apiResponseRaw
+                try {
+                    val sanitized = extractJsonString(apiResponseRaw)
+                    if (sanitized.startsWith("{")) {
+                        val json = JSONObject(sanitized)
+                        memoText = if (json.has("memo")) json.optString("memo") else apiResponseRaw
+                        
+                        if (json.has("agentActions")) {
+                            val actions = json.getJSONArray("agentActions")
+                            for (j in 0 until actions.length()) {
+                                val action = actions.getJSONObject(j)
+                                processAgentAction(action)
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Fallback to raw string if JSON parsing fails
+                }
+
                 val finalPolicy = draft.copy(
                     status = "Approved",
-                    summary = "${draft.summary}\n\nPresidential Memorandum: $apiResponse"
+                    summary = "${draft.summary}\n\nPresidential Memorandum: $memoText"
                 )
 
                 val currentPolicies = settingsDataStore.activePoliciesFlow.first().toMutableList()
@@ -510,7 +553,7 @@ class ParliamentViewModel(
                 settingsDataStore.savePresidentApproval((presidentApproval + 6).coerceAtMost(100))
                 
                 _votingLog.value = _votingLog.value + "✍️ President signs the legislation! It is now active nationwide clinical law!"
-                onFinished(finalPolicy, apiResponse)
+                onFinished(finalPolicy, memoText)
             } catch (e: Exception) {
                 // No-op
             }
@@ -548,10 +591,9 @@ class ParliamentViewModel(
                     $AGENT_POWERS_PROMPT
                 """.trimIndent()
                 
-                val apiResponse = if (activeKey.isNotBlank()) {
+                val apiResponseRaw = if (activeKey.isNotBlank()) {
                     try {
-                        val resp = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt, customEndpoint.value)
-                        if (resp.length > 15) resp else "I am vetoing this act due to concerns of financial burden on clinics and over-regulating patient-doctor interactions."
+                        makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt, customEndpoint.value)
                     } catch (e: Exception) {
                         "I am vetoing this act due to concerns of financial burden on clinics and over-regulating patient-doctor interactions."
                     }
@@ -559,9 +601,28 @@ class ParliamentViewModel(
                     "I am vetoing this act due to concerns of financial burden on clinics and over-regulating patient-doctor interactions."
                 }
 
+                var memoText = apiResponseRaw
+                try {
+                    val sanitized = extractJsonString(apiResponseRaw)
+                    if (sanitized.startsWith("{")) {
+                        val json = JSONObject(sanitized)
+                        memoText = if (json.has("memo")) json.optString("memo") else apiResponseRaw
+                        
+                        if (json.has("agentActions")) {
+                            val actions = json.getJSONArray("agentActions")
+                            for (j in 0 until actions.length()) {
+                                val action = actions.getJSONObject(j)
+                                processAgentAction(action)
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Fallback to raw string if JSON parsing fails
+                }
+
                 val finalPolicy = draft.copy(
                     status = "Vetoed",
-                    summary = "${draft.summary}\n\nPresidential Veto Reason:\n$apiResponse"
+                    summary = "${draft.summary}\n\nPresidential Veto Reason:\n$memoText"
                 )
 
                 _currentDraftPolicy.value = finalPolicy
@@ -569,7 +630,7 @@ class ParliamentViewModel(
                 settingsDataStore.savePoliticalPrestige((currentPrestige - 10).coerceAtLeast(0))
                 settingsDataStore.savePresidentApproval((presidentApproval - 5).coerceAtLeast(10))
                 _votingLog.value = _votingLog.value + "🚫 President Arthur Vance vetoed the bill! Sent back to the assembly."
-                onFinished(finalPolicy, apiResponse)
+                onFinished(finalPolicy, memoText)
             } catch (e: Exception) {
                 // No-op
             }
@@ -847,6 +908,45 @@ class ParliamentViewModel(
                 onFinished(newBalance, newPrestige)
             } catch (e: Exception) {
                 // No-op
+            }
+        }
+    }
+
+    private fun processAgentAction(action: JSONObject) {
+        val name = action.optString("actionName")
+        val params = action.optJSONObject("parameters") ?: JSONObject()
+        
+        viewModelScope.launch {
+            when (name) {
+                "applyFee" -> {
+                    val amount = params.optDouble("amount", 0.0)
+                    val reason = params.optString("reason", "Parliamentary fine")
+                    val currentBal = settingsDataStore.clinicBalanceFlow.first()
+                    settingsDataStore.updateClinicStats(currentBal - amount, settingsDataStore.reputationStarsFlow.first())
+                    _votingLog.value = _votingLog.value + "⚠️ ADMINISTRATIVE ACTION: $reason. R$amount deducted from clinic."
+                }
+                "updatePrestige" -> {
+                    val amount = params.optInt("amount", 0)
+                    val currentPrest = settingsDataStore.politicalPrestigeFlow.first()
+                    settingsDataStore.savePoliticalPrestige((currentPrest + amount).coerceIn(0, 100))
+                    val direction = if (amount >= 0) "increased" else "decreased"
+                    _votingLog.value = _votingLog.value + "📈 Political Prestige $direction by ${Math.abs(amount)}."
+                }
+                "broadcastNews" -> {
+                    val headline = params.optString("headline", "Parliamentary Update")
+                    val breaking = params.optBoolean("breaking", false)
+                    val prefix = if (breaking) "🚨 BREAKING NEWS:" else "📰 NEWS:"
+                    _votingLog.value = _votingLog.value + "$prefix $headline"
+                }
+                "restructureMedicalAid" -> {
+                    val id = params.optString("id", "custom_aid")
+                    val schemeName = params.optString("name", "New Scheme")
+                    val cov = params.optDouble("coverage", 0.5)
+                    val auth = params.optBoolean("preAuth", false)
+                    val rej = params.optDouble("rejectionProb", 0.1)
+                    OrchidDeepStateManager.updateOrAddMedicalScheme(id, schemeName, cov, auth, rej)
+                    _votingLog.value = _votingLog.value + "🛡️ SCHEME REFORM: $schemeName restructured successfully."
+                }
             }
         }
     }
