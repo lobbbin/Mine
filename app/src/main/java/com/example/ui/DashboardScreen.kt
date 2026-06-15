@@ -3799,7 +3799,7 @@ fun StateAndLegislationTab(
             }
         } else {
             OutlinedButton(
-                onClick = { viewModel.triggerPoliticianSickness() },
+                onClick = { viewModel.parliamentViewModel.triggerPoliticianSickness(viewModel.presidentName.value) },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = MaterialTheme.colorScheme.primary
@@ -4262,7 +4262,10 @@ fun StateAndLegislationTab(
                             if (draft.status == "Draft") {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     OutlinedButton(
-                                        onClick = { viewModel.AIAutoAmendDraft() },
+                                        onClick = {
+                                            viewModel.setLoading(true)
+                                            viewModel.parliamentViewModel.AIAutoAmendDraft(onFinished = { viewModel.setLoading(false) })
+                                        },
                                         shape = RoundedCornerShape(12.dp),
                                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.tertiary)
                                     ) {
@@ -4508,7 +4511,16 @@ fun StateAndLegislationTab(
                             // Lobby Trigger Button
                             Button(
                                 onClick = { 
-                                    viewModel.lobbyFaction(selectedLobbyFaction, selectedLobbyPitch, lobbyCustomMessage)
+                                    viewModel.setLoading(true)
+                                    viewModel.parliamentViewModel.lobbyFaction(
+                                        selectedLobbyFaction, 
+                                        selectedLobbyPitch, 
+                                        lobbyCustomMessage,
+                                        viewModel.clinicBalance.value,
+                                        viewModel.politicalPrestige.value,
+                                        viewModel.reputationStars.value,
+                                        onFinished = { _, _ -> viewModel.setLoading(false) }
+                                    )
                                     lobbyCustomMessage = "" 
                                 },
                                 modifier = Modifier.fillMaxWidth(),
@@ -4559,7 +4571,19 @@ fun StateAndLegislationTab(
                             
                             // Voting dispatch
                             Button(
-                                onClick = { viewModel.runParliamentVoteSim(draft) },
+                                onClick = { 
+                                    viewModel.parliamentViewModel.runParliamentaryVote(
+                                        draft,
+                                        viewModel.politicalPrestige.value,
+                                        onVoteFinished = { _, passed ->
+                                            if (passed) {
+                                                viewModel.updatePoliticalPrestige((viewModel.politicalPrestige.value + 8).coerceAtMost(100))
+                                            } else {
+                                                viewModel.updatePoliticalPrestige((viewModel.politicalPrestige.value - 6).coerceAtLeast(0))
+                                            }
+                                        }
+                                    )
+                                },
                                 modifier = Modifier.fillMaxWidth(),
                                 enabled = !isVotingActive
                             ) {
@@ -4579,7 +4603,10 @@ fun StateAndLegislationTab(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Button(
-                                    onClick = { viewModel.presidentialSignDraft() },
+                                    onClick = {
+                                        viewModel.setLoading(true)
+                                        viewModel.parliamentViewModel.presidentialSignDraft(onFinished = { _, _ -> viewModel.setLoading(false) })
+                                    },
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = Color(0xFF2E7D32),
                                         contentColor = Color.White
@@ -4589,7 +4616,10 @@ fun StateAndLegislationTab(
                                     Text("✍️ APPROVE & SIGN", fontWeight = FontWeight.Bold)
                                 }
                                 Button(
-                                    onClick = { viewModel.presidentialVetoDraft() },
+                                    onClick = {
+                                        viewModel.setLoading(true)
+                                        viewModel.parliamentViewModel.presidentialVetoDraft(onFinished = { _, _ -> viewModel.setLoading(false) })
+                                    },
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = Color(0xFFC62828),
                                         contentColor = Color.White
@@ -4608,7 +4638,12 @@ fun StateAndLegislationTab(
                                 modifier = Modifier.padding(bottom = 8.dp)
                             )
                             Button(
-                                onClick = { viewModel.attemptParliamentOverride() },
+                                onClick = { 
+                                    viewModel.parliamentViewModel.attemptParliamentOverride(
+                                        viewModel.politicalPrestige.value,
+                                        onFinished = { _, _ -> }
+                                    )
+                                },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = MaterialTheme.colorScheme.tertiary
                                 ),

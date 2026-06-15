@@ -4360,70 +4360,8 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun runParliamentVoteSim(policy: HealthPolicy) {
-        val currentProvider = provider.value
-        val currentModel = model.value
-        val userKey = apiKey.value ?: ""
-        val activeKey = resolveActiveApiKey(currentProvider, userKey)
-
-        if (activeKey.isBlank()) {
-            logAndEmitError("API Key missing! Cannot run AI parliamentary simulation.")
-            return
-        }
-
-        parliamentViewModel.runParliamentaryVote(
-            policy = policy,
-            providerVal = currentProvider,
-            modelVal = currentModel,
-            apiKeyVal = activeKey,
-            customEndpoint = customEndpoint.value,
-            agentPowersPrompt = AGENT_POWERS_PROMPT,
-            politicalPrestige = politicalPrestige.value,
-            onVoteFinished = { updated, passed ->
-                if (passed) {
-                    updatePoliticalPrestige((politicalPrestige.value + 8).coerceAtMost(100))
-                } else {
-                    updatePoliticalPrestige((politicalPrestige.value - 6).coerceAtLeast(0))
-                }
-            }
-        )
-    }
-
-    fun presidentialSignDraft() {
-        _isLoading.value = true
-        parliamentViewModel.presidentialSignDraft(
-            providerVal = provider.value,
-            modelVal = model.value,
-            apiKeyVal = resolveActiveApiKey(provider.value, apiKey.value ?: ""),
-            customEndpoint = customEndpoint.value,
-            agentPowersPrompt = AGENT_POWERS_PROMPT,
-            onFinished = { finalPolicy, memo ->
-                _isLoading.value = false
-            }
-        )
-    }
-
-    fun presidentialVetoDraft() {
-        _isLoading.value = true
-        parliamentViewModel.presidentialVetoDraft(
-            providerVal = provider.value,
-            modelVal = model.value,
-            apiKeyVal = resolveActiveApiKey(provider.value, apiKey.value ?: ""),
-            customEndpoint = customEndpoint.value,
-            agentPowersPrompt = AGENT_POWERS_PROMPT,
-            onFinished = { finalPolicy, memo ->
-                _isLoading.value = false
-            }
-        )
-    }
-
-    fun attemptParliamentOverride() {
-        parliamentViewModel.attemptParliamentOverride(
-            politicalPrestige = politicalPrestige.value,
-            onFinished = { finalPolicy, passed ->
-                // Handled internally in ParliamentViewModel
-            }
-        )
+    fun setLoading(isLoading: Boolean) {
+        _isLoading.value = isLoading
     }
 
     fun clearApprovedPolicies() {
@@ -4471,23 +4409,6 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
 
     // --- POLITICIAN SICKNESS AND EMERGENCY ALERT GENERATION ---
 
-    fun triggerPoliticianSickness() {
-        parliamentViewModel.triggerPoliticianSickness(presidentName.value)
-    }
-
-    fun AIAutoAmendDraft() {
-        _isLoading.value = true
-        parliamentViewModel.AIAutoAmendDraft(
-            providerVal = provider.value,
-            modelVal = model.value,
-            apiKeyVal = resolveActiveApiKey(provider.value, apiKey.value ?: ""),
-            customEndpoint = customEndpoint.value,
-            onFinished = {
-                _isLoading.value = false
-            }
-        )
-    }
-
     fun dismissPoliticianSicknessAlert() {
         _sickPoliticianAlert.value = null
     }
@@ -4505,25 +4426,6 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
 
     fun dismissLobbyReport() {
         _lastLobbyReport.value = null
-    }
-
-    fun lobbyFaction(faction: String, pitchAngle: String, customMessage: String) {
-        _isLoading.value = true
-        parliamentViewModel.lobbyFaction(
-            faction = faction,
-            pitchAngle = pitchAngle,
-            customMessage = customMessage,
-            clinicBalance = clinicBalance.value,
-            politicalPrestige = politicalPrestige.value,
-            reputationStars = reputationStars.value,
-            providerVal = provider.value,
-            modelVal = model.value,
-            apiKeyVal = resolveActiveApiKey(provider.value, apiKey.value ?: ""),
-            customEndpoint = customEndpoint.value,
-            onFinished = { newBalance, newPrestige ->
-                _isLoading.value = false
-            }
-        )
     }
 
 }

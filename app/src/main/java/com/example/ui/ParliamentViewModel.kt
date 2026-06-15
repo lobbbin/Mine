@@ -76,6 +76,48 @@ class ParliamentViewModel(
     private val _errorFlow = MutableSharedFlow<String>()
     val errorFlow = _errorFlow.asSharedFlow()
 
+    val provider: StateFlow<String> = settingsDataStore.providerFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "Google")
+    
+    val model: StateFlow<String> = settingsDataStore.modelFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "gemini-3.5-flash")
+    
+    val apiKey: StateFlow<String?> = settingsDataStore.apiKeyFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    
+    val customEndpoint: StateFlow<String> = settingsDataStore.customEndpointFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
+    private val AGENT_POWERS_PROMPT = """
+        AGENTIC OVERLORD POWERS (MANDATORY):
+        You are the MASTER of the world state variables. Beyond your primary task, if you wish to change variables, enact laws, or notify the world, you MUST include a JSON block in your response containing an "agentActions" array.
+        
+        JSON SCHEMA FOR ACTIONS:
+        { "agentActions": [ { "actionName": "name", "parameters": { ... } } ] }
+        
+        AVAILABLE ACTIONS:
+        - applyFee { "amount": double, "reason": string }
+        - enactStatute { "id": string, "name": string, "description": string, "penalty": string }
+        - repealStatute { "id": string }
+        - updatePrestige { "amount": integer }
+        - broadcastNews { "headline": string, "breaking": boolean }
+        
+        If no systemic actions are necessary, simply OMIT the "agentActions" array.
+    """
+
+    private fun resolveActiveApiKey(providerVal: String, userKey: String, customEndVal: String = ""): String {
+        val endpoint = customEndVal.ifBlank { customEndpoint.value }
+        return if (userKey.isBlank()) {
+            if (endpoint.isNotBlank() || providerVal in listOf("Ollama", "vLLM", "G4F (OpenAI-compatible)", "Custom (OpenAI-compatible)")) {
+                "dummy-local-key"
+            } else {
+                ""
+            }
+        } else {
+            userKey
+        }
+    }
+
     fun updateSeats(prog: Int, cons: Int, ind: Int) {
         _progressiveSeats.value = prog
         _conservativeSeats.value = cons
@@ -285,14 +327,19 @@ class ParliamentViewModel(
 
     fun runParliamentaryVote(
         policy: HealthPolicy,
-        providerVal: String,
-        modelVal: String,
-        apiKeyVal: String,
-        customEndpoint: String,
-        agentPowersPrompt: String,
         politicalPrestige: Int,
         onVoteFinished: (HealthPolicy, Boolean) -> Unit
     ) {
+        val currentProvider = provider.value
+        val currentModel = model.value
+        val userKey = apiKey.value ?: ""
+        val activeKey = resolveActiveApiKey(currentProvider, userKey)
+
+        if (activeKey.isBlank()) {
+            _errorFlow.tryEmit("API Key missing! Cannot run AI parliamentary simulation.")
+            return
+        }
+
         viewModelScope.launch {
             _isVotingActive.value = true
             _voteProgress.value = 0f
@@ -305,10 +352,6 @@ class ParliamentViewModel(
             )
             
             try {
-                val currentProvider = providerVal
-                val currentModel = modelVal
-                val activeKey = apiKeyVal
-
                 val prompt = """
                     You are simulating a strategic parliamentary session voting on a major national bio-security healthcare bill:
                     - Title: ${policy.title}
@@ -334,7 +377,7 @@ class ParliamentViewModel(
                     The last stage represents the final vote count (must sum to exactly 200).
                 """.trimIndent()
                 
-                val apiResponse = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt, customEndpoint)
+                val apiResponse = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt, customEndpoint.value)
                 val sanitized = extractJsonString(apiResponse)
                 val json = JSONObject(sanitized)
                 val stagesArray = json.optJSONArray("stages")
@@ -401,19 +444,15 @@ class ParliamentViewModel(
     }
 
     fun presidentialSignDraft(
-        providerVal: String,
-        modelVal: String,
-        apiKeyVal: String,
-        customEndpoint: String,
-        agentPowersPrompt: String,
         onFinished: (HealthPolicy, String) -> Unit
     ) {
         val draft = _currentDraftPolicy.value ?: return
         viewModelScope.launch {
             try {
-                val currentProvider = providerVal
-                val currentModel = modelVal
-                val activeKey = apiKeyVal
+                val currentProvider = provider.value
+                val currentModel = model.value
+                val userKey = apiKey.value ?: ""
+                val activeKey = resolveActiveApiKey(currentProvider, userKey)
                 val presidentName = settingsDataStore.presidentNameFlow.first()
                 val presidentParty = settingsDataStore.presidentPartyFlow.first()
                 val presidentApproval = settingsDataStore.presidentApprovalFlow.first()
@@ -432,12 +471,12 @@ class ParliamentViewModel(
                     Write a short, professional presidential executive memo (max 3 sentences) commenting on your decision to sign this into active clinical law. Start with "I have decided to sign this act..."
                     Take into account your party's philosophy and your current approval rating.
                     
-                    $agentPowersPrompt
+                    $AGENT_POWERS_PROMPT
                 """.trimIndent()
                 
                 val apiResponse = if (activeKey.isNotBlank()) {
                     try {
-                        val resp = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt, customEndpoint)
+                        val resp = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt, customEndpoint.value)
                         if (resp.length > 15) resp else "I have decided to sign this act to secure the health and safety checks across all private and public practices."
                     } catch (e: Exception) {
                         "I have decided to sign this act to secure the health and safety checks across all private and public practices."
@@ -480,19 +519,15 @@ class ParliamentViewModel(
     }
 
     fun presidentialVetoDraft(
-        providerVal: String,
-        modelVal: String,
-        apiKeyVal: String,
-        customEndpoint: String,
-        agentPowersPrompt: String,
         onFinished: (HealthPolicy, String) -> Unit
     ) {
         val draft = _currentDraftPolicy.value ?: return
         viewModelScope.launch {
             try {
-                val currentProvider = providerVal
-                val currentModel = modelVal
-                val activeKey = apiKeyVal
+                val currentProvider = provider.value
+                val currentModel = model.value
+                val userKey = apiKey.value ?: ""
+                val activeKey = resolveActiveApiKey(currentProvider, userKey)
                 val presidentName = settingsDataStore.presidentNameFlow.first()
                 val presidentParty = settingsDataStore.presidentPartyFlow.first()
                 val presidentApproval = settingsDataStore.presidentApprovalFlow.first()
@@ -511,12 +546,12 @@ class ParliamentViewModel(
                     Write a short, professional presidential veto memo (max 3 sentences) explaining why you are vetoing this and returning it to Parliament.
                     Take into account your party's philosophy and your current approval rating.
                     
-                    $agentPowersPrompt
+                    $AGENT_POWERS_PROMPT
                 """.trimIndent()
                 
                 val apiResponse = if (activeKey.isNotBlank()) {
                     try {
-                        val resp = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt, customEndpoint)
+                        val resp = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt, customEndpoint.value)
                         if (resp.length > 15) resp else "I am vetoing this act due to concerns of financial burden on clinics and over-regulating patient-doctor interactions."
                     } catch (e: Exception) {
                         "I am vetoing this act due to concerns of financial burden on clinics and over-regulating patient-doctor interactions."
@@ -603,18 +638,15 @@ class ParliamentViewModel(
     }
 
     fun AIAutoAmendDraft(
-        providerVal: String,
-        modelVal: String,
-        apiKeyVal: String,
-        customEndpoint: String,
         onFinished: () -> Unit
     ) {
         viewModelScope.launch {
             val draft = _currentDraftPolicy.value ?: return@launch
             try {
-                val currentProvider = providerVal
-                val currentModel = modelVal
-                val activeKey = apiKeyVal
+                val currentProvider = provider.value
+                val currentModel = model.value
+                val userKey = apiKey.value ?: ""
+                val activeKey = resolveActiveApiKey(currentProvider, userKey)
                 
                 val activePolList = settingsDataStore.activePoliciesFlow.first()
                 val existingPoliciesContext = if (activePolList.isNotEmpty()) {
@@ -664,7 +696,7 @@ class ParliamentViewModel(
                     }
                 """.trimIndent()
                 
-                val apiResponse = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt, customEndpoint)
+                val apiResponse = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt, customEndpoint.value)
                 val sanitized = extractJsonString(apiResponse)
                 
                 val json = JSONObject(sanitized)
@@ -712,10 +744,6 @@ class ParliamentViewModel(
         clinicBalance: Double,
         politicalPrestige: Int,
         reputationStars: Float,
-        providerVal: String,
-        modelVal: String,
-        apiKeyVal: String,
-        customEndpoint: String,
         onFinished: (Double, Int) -> Unit
     ) {
         viewModelScope.launch {
@@ -783,12 +811,13 @@ class ParliamentViewModel(
                     }
                 """.trimIndent()
 
-                val currentProvider = providerVal
-                val currentModel = modelVal
-                val activeKey = apiKeyVal
+                val currentProvider = provider.value
+                val currentModel = model.value
+                val userKey = apiKey.value ?: ""
+                val activeKey = resolveActiveApiKey(currentProvider, userKey)
 
                 if (activeKey.isNotBlank()) {
-                    val apiResponse = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt, customEndpoint)
+                    val apiResponse = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt, customEndpoint.value)
                     val sanitized = extractJsonString(apiResponse)
                     
                     val json = JSONObject(sanitized)
