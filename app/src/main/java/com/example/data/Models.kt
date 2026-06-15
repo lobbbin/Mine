@@ -47,6 +47,7 @@ data class SimulationState(
     val prescriptionString: String? = null,
     val referralLetterString: String? = null,
     val sickNoteString: String? = null,
+    val dmEnvironmentalUpdate: String? = null,
     val paymentCollected: Boolean = false,
     val billingApprovedByHuman: Boolean = false,
     val patientOutcome: String = "Recovered",
@@ -76,7 +77,14 @@ data class GeneratedCaseWrapper(
     val severity: String,
     val initialVitals: Vitals,
     val insuranceStatus: String = "Private Medical Aid",
-    val patientDemographics: String = "Unknown Patient"
+    val patientDemographics: String = "Unknown Patient",
+    val agentActions: List<AgentAction>? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class AgentAction(
+    val actionName: String,
+    val parameters: Map<String, Any>? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -96,6 +104,8 @@ data class AIResponseStateUpdate(
     val prescriptionString: String? = null,
     val referralLetterString: String? = null,
     val sickNoteString: String? = null,
+    val dmEnvironmentalUpdate: String? = null,
+    val agentActions: List<AgentAction>? = null,
     val policyViolations: List<AIPolicyViolation>? = null
 )
 
@@ -118,7 +128,8 @@ data class LawsuitResponse(
     val verdictType: String? = null, // "Exonerated", "Warning", "Suspension", "Fined"
     val fineAmount: Double? = null,
     val suspensionWeeks: Int? = null,
-    val finalVerdictText: String? = null
+    val finalVerdictText: String? = null,
+    val agentActions: List<AgentAction>? = null
 )
 
 @JsonClass(generateAdapter = true)

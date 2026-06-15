@@ -661,6 +661,18 @@ fun CaseLogsTabContent(viewModel: SimulationViewModel, onDismiss: () -> Unit) {
                                 }
                                 
                                 IconButton(
+                                    onClick = { viewModel.auditPatientFolder(demographics) },
+                                    modifier = Modifier.size(28.dp).testTag("audit_folder_${latestEnc.id}")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Science,
+                                        contentDescription = "Audit Patient Folder",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+
+                                IconButton(
                                     onClick = { viewModel.deletePatientRecordFolder(demographics) },
                                     modifier = Modifier.size(28.dp).testTag("delete_folder_${latestEnc.id}")
                                 ) {

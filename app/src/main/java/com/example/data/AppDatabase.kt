@@ -6,10 +6,11 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
-@Database(entities = [EncounterEntity::class], version = 5, exportSchema = false)
+@Database(entities = [EncounterEntity::class, WorldStateEntity::class, Law::class, Fine::class], version = 6, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun encounterDao(): EncounterDao
+    abstract fun worldStateDao(): WorldStateDao
 
     companion object {
         @Volatile

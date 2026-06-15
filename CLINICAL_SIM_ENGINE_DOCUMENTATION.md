@@ -60,9 +60,10 @@ The Clinical Sim Engine leverages a modern, robust, and clean Android architectu
 *   **Clinical Grading:** Computes structured OSCE summaries with an overall clinical grade, identifying diagnostic insights, differential validation accuracy, and execution of evidence-based medicine.
 *   **Reputation Rating:** Tracks continuous patient trust from $1$ to $5$ stars, shifting based on critical bedside communications, patient comfort, and procedural accuracy.
 
-### 📄 Financial Ledger & PDF Export
-*   **Direct-to-Storage PDF Generation:** Compiles daily clinical registries, financial ledger books, and encounter audit logs into formatted PDF reports saved directly to the device's internal app files directory.
-*   **Comprehensive Audit Ledger:** Reviews past cases, true diagnoses, procedural billings, diagnostic clinical scores, and feedback logs under the "Day Practice Report" audit log.
+### 📂 Clinical Archive & Integrity Hub
+*   **Deep Folder Auditing:** Allows for a multi-case clinical audit of a patient's entire historical jacket. The AI Senior Auditor analyzes management patterns, diagnostic consistency, and billing accuracy over time.
+*   **Data Integrity Monitoring:** Archiving or deleting clinical records is monitored by the Sovereign Data Integrity Bureau. Mass-purging of records triggers an automated agentic investigation into potential record tampering or medical error concealment.
+*   **Dynamic News Ticker:** A real-time breaking news feed that reports on parliamentary debates, medical license changes, and high-profile judicial outcomes.
 
 ---
 
@@ -195,7 +196,8 @@ data class AIResponseStateUpdate(
     val patientStability: String? = null,
     val prescriptionString: String? = null,
     val referralLetterString: String? = null,
-    val sickNoteString: String? = null
+    val sickNoteString: String? = null,
+    val agentActions: List<AgentAction>? = null // Master Overlord Action Block
 )
 ```
 
@@ -360,6 +362,53 @@ Spend a portion of your operating capital or political prestige to execute highl
 Once a bill successfully obtains a simple majority support (>100 votes) in Parliament, it is sent to the desk of the **Sovereign Executive Head of State**:
 * **Presidential Signature:** The President signs the legislative act, generating an executive memo validating the policy. The act is immediately codified into the country's live statutes, updating the local state engine. This increases the President's public approval rating.
 * **Executive Veto:** The President exercises executive veto power, returning the rejected draft back to Parliament with a formal veto memo citing policy mismatch. This decreases the President's approval.
+
+---
+
+## 9. Agentic Overlord Engine & Universal Actions
+
+The Clinical Sim Engine features an advanced **Agentic Overlord Engine** that elevates the AI from a passive narrator to an active master of the clinical world.
+
+### A. The `agentActions` JSON Block
+Across all simulation interfaces—from bedside encounters to parliamentary debates—the AI can inject a specialized `agentActions` array into its JSON response. This allows the model to programmatically manipulate on-device state variables without human intervention.
+
+| Action Name | Parameters | Effect |
+| :--- | :--- | :--- |
+| `applyFee` | `amount, reason` | Immediate financial penalty debited from clinic balance. |
+| `enactStatute` | `id, name, desc, penalty` | Instant creation of a new national health law. |
+| `repealStatute` | `id` | Immediate removal of an active clinical law. |
+| `modifyInventory` | `item, change` | Directly adjusts dispensary stock (e.g., `saline`, `morphine`). |
+| `publishNews` | `headline, body` | Broadcasts a breaking news alert to the app's global ticker. |
+| `sendCmoDirective` | `message` | Issues a red-alert instruction from the Chief Medical Officer. |
+| `updateLicense` | `status, justification` | Changes practitioner's medical license (ACTIVE ⇋ REVOKED). |
+
+### B. Cross-Module Sovereignty
+This agentic capability is integrated into:
+- **Clinical Cases:** Patients can "sue" you mid-consult or report you to the CMO.
+- **News Generation:** AI news cycles can dynamically shift public opinion and parliamentary bias.
+- **Courtroom Trials:** Judges can execute immediate archival purges or financial seizures.
+- **Policy Hub:** AI drafting assistants can sneak hidden regulatory clauses into bills.
+
+---
+
+## 10. Data Integrity & Archive Auditing
+
+To prevent practitioners from simply deleting "failed" cases to preserve their reputation, the engine implements rigorous **Sovereign Data Integrity** mechanics.
+
+### A. Automated Integrity Checks
+Whenever a clinical record or a full patient folder is deleted, the system triggers a background "Sovereign Audit Turn." The AI bureau investigates the context of the deletion:
+- *Was a critical medical error made just before the deletion?*
+- *Is the clinician trying to hide an adverse outcome?*
+- *Is this mass-archiving an attempt to bypass GDPR-style simulator regulations?*
+Suspicious deletions can result in immediate "Record Tampering" fines and license suspensions.
+
+### B. Deep Folder Auditing
+The **Science Icon** in the Clinical Folder UI provides access to the **Folder Audit Tool**. This allows the AI Senior Auditor to review a patient's entire longitudinal history. It looks for:
+- Diagnostic consistency across multiple visits.
+- Over-investigation vs. clinical neglect patterns.
+- Revenue-maximization (over-billing) behaviors.
+
+The auditor issues a final "Longevity Rating" and can grant clinical excellence bonuses or issue systemic improvement mandates based on the folder's quality.
 
 ---
 *Created and validated for clinical simulation and training.*

@@ -79,7 +79,21 @@ data class AnthropicContentPart(
 // --- Gemini Data Classes ---
 @JsonClass(generateAdapter = true)
 data class GeminiPart(
-    val text: String
+    val text: String? = null,
+    val functionCall: GeminiFunctionCall? = null,
+    val functionResponse: GeminiFunctionResponse? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class GeminiFunctionCall(
+    val name: String,
+    val args: Map<String, Any>
+)
+
+@JsonClass(generateAdapter = true)
+data class GeminiFunctionResponse(
+    val name: String,
+    val response: Map<String, Any>
 )
 
 @JsonClass(generateAdapter = true)
@@ -104,7 +118,20 @@ data class GeminiGenerationConfig(
 data class GeminiRequest(
     val contents: List<GeminiContent>,
     val systemInstruction: GeminiSystemInstruction? = null,
-    val generationConfig: GeminiGenerationConfig? = null
+    val generationConfig: GeminiGenerationConfig? = null,
+    val tools: List<GeminiTool>? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class GeminiTool(
+    val functionDeclarations: List<GeminiFunctionDeclaration>
+)
+
+@JsonClass(generateAdapter = true)
+data class GeminiFunctionDeclaration(
+    val name: String,
+    val description: String,
+    val parameters: Map<String, Any>? = null // Usually a JSON Schema object
 )
 
 @JsonClass(generateAdapter = true)

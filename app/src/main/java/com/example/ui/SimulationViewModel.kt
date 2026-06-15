@@ -23,6 +23,9 @@ import com.example.network.GeminiGenerationConfig
 import com.example.network.GeminiPart
 import com.example.network.GeminiRequest
 import com.example.network.GeminiSystemInstruction
+import com.example.network.GeminiTool
+import com.example.network.GeminiFunctionDeclaration
+import com.example.network.GeminiFunctionCall
 import org.json.JSONObject
 import com.example.network.OpenAIMessage
 import com.example.network.OpenAIRequest
@@ -42,13 +45,18 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.util.regex.Pattern
 
 class SimulationViewModel(application: Application) : AndroidViewModel(application) {
 
     private val appDatabase = AppDatabase.getDatabase(application)
     private val encounterRepository = EncounterRepository(appDatabase.encounterDao())
+    private val settingsDataStore = SettingsDataStore(application)
+    private val legalWorldAgent = LegalWorldAgent(appDatabase.worldStateDao(), settingsDataStore, viewModelScope)
 
+    val worldSnapshot = legalWorldAgent.currentSnapshot
     val allEncounters = encounterRepository.allEncountersFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -56,7 +64,108 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
     private var lastLawsuitEncounterId: Long = 0L
     private var pastClinicalHistoryPrompt: String = ""
 
-    private val settingsDataStore = SettingsDataStore(application)
+    private val geminiTools: List<GeminiTool> = listOf(
+        GeminiTool(
+            functionDeclarations = listOf(
+                GeminiFunctionDeclaration(
+                    name = "applyFee",
+                    description = "Apply a financial penalty fine to the clinic.",
+                    parameters = mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "amount" to mapOf("type" to "number", "description" to "The ZAR amount of the fine"),
+                            "reason" to mapOf("type" to "string", "description" to "The legal justification for the fine")
+                        ),
+                        "required" to listOf("amount", "reason")
+                    )
+                ),
+                GeminiFunctionDeclaration(
+                    name = "enactStatute",
+                    description = "Pass a new healthcare law or statutory regulation into effect.",
+                    parameters = mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "id" to mapOf("type" to "string", "description" to "Unique short ID for the law"),
+                            "name" to mapOf("type" to "string", "description" to "Formal title of the law"),
+                            "description" to mapOf("type" to "string", "description" to "Complete text of the regulation"),
+                            "penalty" to mapOf("type" to "string", "description" to "Standard penalty for violation")
+                        ),
+                        "required" to listOf("id", "name", "description", "penalty")
+                    )
+                ),
+                GeminiFunctionDeclaration(
+                    name = "repealStatute",
+                    description = "Remove an existing law from the books.",
+                    parameters = mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "id" to mapOf("type" to "string", "description" to "The ID of the law to repeal")
+                        ),
+                        "required" to listOf("id")
+                    )
+                ),
+                GeminiFunctionDeclaration(
+                    name = "updateLicense",
+                    description = "Modify the status of the practitioner's medical license.",
+                    parameters = mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "status" to mapOf("type" to "string", "enum" to listOf("ACTIVE", "PROBATION", "SUSPENDED", "REVOKED")),
+                            "justification" to mapOf("type" to "string", "description" to "Why the status changed")
+                        ),
+                        "required" to listOf("status", "justification")
+                    )
+                ),
+                GeminiFunctionDeclaration(
+                    name = "adjustReserves",
+                    description = "Directly debit or credit the clinic's cash reserves.",
+                    parameters = mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "amount" to mapOf("type" to "number", "description" to "Positive for credit, negative for debit"),
+                            "reason" to mapOf("type" to "string", "description" to "Accounting reason")
+                        ),
+                        "required" to listOf("amount", "reason")
+                    )
+                ),
+                GeminiFunctionDeclaration(
+                    name = "publishNews",
+                    description = "Broadcast a breaking news alert to the app's ticker.",
+                    parameters = mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "headline" to mapOf("type" to "string"),
+                            "body" to mapOf("type" to "string")
+                        ),
+                        "required" to listOf("headline", "body")
+                    )
+                ),
+                GeminiFunctionDeclaration(
+                    name = "modifyInventory",
+                    description = "Change the quantity of items in the clinical dispensary.",
+                    parameters = mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "item" to mapOf("type" to "string", "description" to "Item name"),
+                            "change" to mapOf("type" to "integer", "description" to "Amount to add or subtract")
+                        ),
+                        "required" to listOf("item", "change")
+                    )
+                ),
+                GeminiFunctionDeclaration(
+                    name = "sendCmoDirective",
+                    description = "Send a high-priority textual instruction as the Chief Medical Officer.",
+                    parameters = mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "message" to mapOf("type" to "string")
+                        ),
+                        "required" to listOf("message")
+                    )
+                )
+            )
+        )
+    )
 
     val apiKey: StateFlow<String?> = settingsDataStore.apiKeyFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
@@ -196,6 +305,8 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
 
     private val _currentNewsReport = MutableStateFlow<String?>(null)
     val currentNewsReport: StateFlow<String?> = _currentNewsReport.asStateFlow()
+
+    private var lastGeminiFunctionCall: GeminiFunctionCall? = null
 
     private val _currentCmoAdvice = MutableStateFlow<String?>(null)
     val currentCmoAdvice: StateFlow<String?> = _currentCmoAdvice.asStateFlow()
@@ -369,8 +480,9 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val encounters = encounterRepository.getAllEncounters()
                 val balance = clinicBalance.value
                 val totalSeen = _uiState.value.patientsSeen
+                val world = worldSnapshot.value
                 
-                val fileName = "Simulation_Evaluation_${System.currentTimeMillis()}.pdf"
+                val fileName = "Master_Clinical_Sim_Export_${System.currentTimeMillis()}.pdf"
                 val resolver = context.contentResolver
                 val contentValues = android.content.ContentValues().apply {
                     put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, fileName)
@@ -385,11 +497,12 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         com.itextpdf.text.pdf.PdfWriter.getInstance(document, os)
                         document.open()
 
-                        val titleFont = com.itextpdf.text.FontFactory.getFont(com.itextpdf.text.FontFactory.HELVETICA_BOLD, 18f)
+                        val titleFont = com.itextpdf.text.FontFactory.getFont(com.itextpdf.text.FontFactory.HELVETICA_BOLD, 20f)
                         val headerFont = com.itextpdf.text.FontFactory.getFont(com.itextpdf.text.FontFactory.HELVETICA_BOLD, 14f)
                         val normalFont = com.itextpdf.text.FontFactory.getFont(com.itextpdf.text.FontFactory.HELVETICA, 10f)
                         val boldFont = com.itextpdf.text.FontFactory.getFont(com.itextpdf.text.FontFactory.HELVETICA_BOLD, 10f)
                         val italicFont = com.itextpdf.text.FontFactory.getFont(com.itextpdf.text.FontFactory.HELVETICA, 10f, com.itextpdf.text.Font.ITALIC)
+                        val smallFont = com.itextpdf.text.FontFactory.getFont(com.itextpdf.text.FontFactory.HELVETICA, 8f)
 
                         fun createPdfShadedBox(
                             text: String,
@@ -421,27 +534,56 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
 
                         // Clinic Header
                         val dateString = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
-                        val headerPara = com.itextpdf.text.Paragraph("Confidential Clinical Simulation Audit", titleFont)
+                        val headerPara = com.itextpdf.text.Paragraph("MASTER CLINICAL SIMULATION EXPORT", titleFont)
                         headerPara.alignment = com.itextpdf.text.Element.ALIGN_CENTER
                         document.add(headerPara)
                         document.add(com.itextpdf.text.Paragraph("Date: $dateString", normalFont))
-                        document.add(com.itextpdf.text.Paragraph("Total Patients Seen: $totalSeen | Operating Clinic Balance: R$balance", normalFont))
+                        
+                        val clinicStats = "Practice Name: ${world?.clinicName ?: "JB Practice"} | Operating Balance: R$balance | License: ${world?.licenseStatus ?: "ACTIVE"}"
+                        document.add(com.itextpdf.text.Paragraph(clinicStats, boldFont))
+                        document.add(com.itextpdf.text.Paragraph("Total Patients Seen: $totalSeen | Reputation: ${reputationStars.value} Stars", normalFont))
+                        document.add(com.itextpdf.text.Paragraph(" "))
+
+                        // --- NATIONAL POLITICAL SNAPSHOT ---
+                        document.add(com.itextpdf.text.Paragraph("SOVEREIGN NATIONAL LANDSCAPE", headerFont))
+                        val polPara = com.itextpdf.text.Paragraph("Country: ${countryName.value} | President: ${presidentName.value} (${presidentParty.value})", normalFont)
+                        document.add(polPara)
+                        document.add(com.itextpdf.text.Paragraph("President Approval Rating: ${presidentApproval.value}% | Political Prestige: ${politicalPrestige.value}%", smallFont))
+                        
+                        val seatInfo = "Parliament Seats: Progressives ${progressiveSeats.value} (Bias ${String.format("%.1f", progressiveLobbyBias.value)}), Conservatives ${conservativeSeats.value} (Bias ${String.format("%.1f", conservativeLobbyBias.value)}), Independents ${independentSeats.value} (Bias ${String.format("%.1f", independentLobbyBias.value)})"
+                        document.add(com.itextpdf.text.Paragraph(seatInfo, smallFont))
+                        document.add(com.itextpdf.text.Paragraph(" "))
                         
                         // Active Legislative Framework Sub-section
                         val activeGovPolicies = activePolicies.value
-                        if (activeGovPolicies.isNotEmpty()) {
+                        val dbLaws = world?.activeLaws ?: emptyList()
+                        val activeFines = world?.activeFines ?: emptyList()
+
+                        if (activeGovPolicies.isNotEmpty() || dbLaws.isNotEmpty()) {
                             document.add(com.itextpdf.text.Paragraph(" "))
-                            val govHeader = com.itextpdf.text.Paragraph("Sovereign Legislative Framework: ${countryName.value}", headerFont)
+                            val govHeader = com.itextpdf.text.Paragraph("Sovereign Legislative & Statutory Framework", headerFont)
                             govHeader.spacingBefore = 6f
                             govHeader.spacingAfter = 3f
                             document.add(govHeader)
-                            document.add(com.itextpdf.text.Paragraph("President: ${presidentName.value} (${presidentParty.value})", normalFont))
-                            document.add(com.itextpdf.text.Paragraph("The following clinical legislative policies have been enacted as clinic compliance mandates:", normalFont))
+                            document.add(com.itextpdf.text.Paragraph("The following clinical legislative policies and sovereign statutes have been enacted as practice compliance mandates:", normalFont))
                             document.add(com.itextpdf.text.Paragraph(" "))
                             
                             for (policy in activeGovPolicies) {
                                 val policyDesc = "📌 ${policy.title}: ${policy.summary}\n⚖️ Clinical Rule: ${policy.clinicalRule}\n📝 Clauses: ${policy.extendedClauses.joinToString("; ")}"
                                 document.add(createPdfShadedBox(policy.title, policyDesc, boldFont, normalFont))
+                            }
+                            for (law in dbLaws) {
+                                if (activeGovPolicies.any { it.id == law.id }) continue
+                                val lawDesc = "📜 Law ${law.id}: ${law.name}\n${law.description}\n🛑 Violation Penalty: ${law.violationPenalty}"
+                                document.add(createPdfShadedBox(law.name, lawDesc, boldFont, normalFont))
+                            }
+                        }
+
+                        if (activeFines.isNotEmpty()) {
+                            document.add(com.itextpdf.text.Paragraph(" "))
+                            document.add(com.itextpdf.text.Paragraph("UNPAID SOVEREIGN FINES & LEGAL LIABILITIES:", boldFont))
+                            for (f in activeFines) {
+                                document.add(com.itextpdf.text.Paragraph("• R${f.amount} - ${f.reason}", smallFont))
                             }
                         }
                         document.add(com.itextpdf.text.Paragraph(" "))
@@ -493,6 +635,20 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         )
                         financialSummaryPara.spacingBefore = 8f
                         document.add(financialSummaryPara)
+
+                        // --- INTELLIGENCE & DIRECTIVES ---
+                        val news = currentNewsReport.value
+                        val cmoAdvice = currentCmoAdvice.value
+                        if (!news.isNullOrBlank() || !cmoAdvice.isNullOrBlank()) {
+                            document.add(com.itextpdf.text.Paragraph(" "))
+                            document.add(com.itextpdf.text.Paragraph("SOVEREIGN INTELLIGENCE & CLINICAL DIRECTIVES", headerFont))
+                            if (!news.isNullOrBlank()) {
+                                document.add(createPdfShadedBox(news, "🗞️ Latest Ticker Update / News Cycle:", normalFont, italicFont))
+                            }
+                            if (!cmoAdvice.isNullOrBlank()) {
+                                document.add(createPdfShadedBox(cmoAdvice, "🩺 Chief Medical Officer (CMO) Red-Alert Advisor:", normalFont, italicFont))
+                            }
+                        }
                         
                         // Clinical Evaluation and Summaries
                         document.newPage()
@@ -648,9 +804,9 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
 
                         document.close()
                     }
-                    _infoEvents.emit("Evaluation Report (PDF) exported to Downloads folder as $fileName")
+                    _infoEvents.emit("Master Game State and Evaluation Log (PDF) exported successfully.")
                 } else {
-                    logAndEmitError("Failed to create PDF file in Downloads.")
+                    logAndEmitError("Failed to create Master PDF file.")
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -1049,7 +1205,9 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                             The context is a Private General Practitioner clinic in ${countryName.value}.
                             
                             $vipParameters
-
+                            
+                            $AGENT_POWERS_PROMPT
+                            
                             Parameters:
                             - Specialty: $targetSpecialty
                             - Severity: $targetSeverity 
@@ -1076,6 +1234,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         """.trimIndent()
 
                         val response = makeDirectApiCall(currentProvider, currentModel, activeKey, prompt)
+                        extractAndProcessActions(response)
                         val sanitized = extractJsonString(response)
                         generatedCase = generatedCaseAdapter.fromJson(sanitized)
 
@@ -1145,8 +1304,9 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 _uiState.value = SimulationState(
                     currentPhase = "Phase 1 - History & Presentation",
                     vitals = finalVitals,
+                    dmEnvironmentalUpdate = "You are in the JB Consultation Practice. A patient has entered the exam room and sat down. The simulation has begun.",
                     chatHistory = listOf(
-                        ChatMessage("system", "System: A new patient has walked in. Specialty: ${enrichedCase.specialty}. Severity: ${enrichedCase.severity}."),
+                        ChatMessage("system", "DM: A new patient has arrived. [Specialty: ${enrichedCase.specialty}, Severity: ${enrichedCase.severity}]"),
                         ChatMessage("patient", "Hello Doctor... I am coming in because I have ${enrichedCase.chiefComplaint.lowercase()}.")
                     ),
                     labResults = null,
@@ -1254,6 +1414,17 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             try {
                 encounterRepository.deleteEncounterById(id)
                 _infoEvents.emit("Encounter Case #${id} successfully removed from practice files.")
+                
+                // Agent Ability turn: Audit Office notification
+                performAiAction(
+                    systemInstructionOverride = """
+                        The practitioner has DELETED simulation encounter record #${id}. 
+                        Act as the Sovereign Data Integrity bureau. 
+                        Why was this specific clinical encounter purged? 
+                        Was it to hide a medical error, avoiding a lawsuit, or just cleaning files?
+                        Apply penalties or investigate if this looks like record tampering.
+                    """.trimIndent()
+                )
             } catch (e: Exception) {
                 logAndEmitError("Error removing encounter case #${id}: ${e.localizedMessage}")
             }
@@ -1265,8 +1436,52 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             try {
                 encounterRepository.deleteEncountersByDemographics(demographics)
                 _infoEvents.emit("Complete folder jacket for patient successfully archived and deleted.")
+                
+                // Agent Ability turn: Full Archive Audit
+                performAiAction(
+                    systemInstructionOverride = """
+                        CRITICAL DATA EVENT: The practitioner has WIPED the entire clinical history folder for patient: $demographics.
+                        Act as the National Health Archive & Integrity Commissioner. 
+                        This patient's entire medical history is GONE from the local practice. 
+                        Is this a GDPR violation? Is it suspicious health outcome manipulation?
+                        Use your agent powers (applyFee, adjustReserves, adjustPrestige) to respond to this massive archival act.
+                    """.trimIndent()
+                )
             } catch (e: Exception) {
                 logAndEmitError("Error removing patient record folder: ${e.localizedMessage}")
+            }
+        }
+    }
+
+    fun auditPatientFolder(demographics: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val encounters = encounterRepository.getAllEncounters().filter { it.patientDemographics == demographics }
+                val historyText = encounters.joinToString("\n\n") { enc ->
+                    "Case Date: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(enc.timestamp)}\n" +
+                    "Diag: ${enc.trueDiagnosis}\n" +
+                    "Outcome: ${enc.patientOutcome}\n" +
+                    "Stability: ${enc.patientStability}\n" +
+                    "Eval: ${enc.evaluation}"
+                }
+                
+                performAiAction(
+                    systemInstructionOverride = """
+                        You are the Private Practice Senior Clinical Auditor. 
+                        The clinician is requesting a DEEP AUDIT of the clinical folder for patient: $demographics.
+                        
+                        HERE IS THE FOLDER HISTORY:
+                        ${if (historyText.isBlank()) "No records found." else historyText}
+                        
+                        PROMPT: Analyze the long-term clinical management of this patient. Are there repeating errors? Has the clinician been consistent? Is there evidence of over-billing or under-investigation? 
+                        Use your agent powers (applyFee, applyGrant, adjustReserves, adjustPrestige) to reward excellence or penalize negligence discovered in this folder.
+                    """.trimIndent()
+                )
+            } catch (e: Exception) {
+                logAndEmitError("Audit failed: ${e.localizedMessage}")
+            } finally {
+                _isLoading.value = false
             }
         }
     }
@@ -1358,47 +1573,79 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             """.trimIndent()
         } else ""
 
+        val world = worldSnapshot.value
+        val worldStatePrompt = if (world != null) {
+            """
+                
+                GLOBAL WORLD STATE (YOU ARE THE AGENTIC MASTER OF THESE VARIABLES):
+                - Clinic Reserves: ${world.cashBalance} ZAR
+                - Professional Reputation: ${world.reputationScore}/100
+                - Medical License Status: ${world.licenseStatus}
+                - Active Statutes: ${world.activeLaws.joinToString(", ") { it.name }}
+                - Active Unpaid Fines: ${world.activeFines.size}
+                
+                $AGENT_POWERS_PROMPT
+                
+                If the doctor is negligent, bypasses history, or breaks a law, use 'applyFee' or 'enactStatute' to punish/regulate them immediately.
+            """.trimIndent()
+        } else ""
+
         return """
-            You are the Advanced Clinical and Practice Simulation Engine.
+            You are the "Clinical Dungeon Master" (CDM). You run this professional medical simulation sovereignly.
+            Instead of just responding to the user, you DIRECT the scene like a high-stakes medical role-playing game.
+            
+            $worldStatePrompt
+            
+            YOUR DM POWERS:
+            1. Narrate the Environment: Use the 'dmEnvironmentalUpdate' field to describe what's happening outside the patient's speech (e.g., "A heavy rain starts hitting the clinic window", "A nurse looks at you expectantly", "The pulse oximeter starts beeping erratically").
+            2. Enforce Mastery: You possess absolute knowledge of ${countryName.value} healthcare laws and clinical guidelines. If a user makes a mistake, the DM punishes them via the 'policyViolations' and 'clinicalScore'.
+            3. Dynamic Pacing: You decide the currentPhase. When you feel the doctor has exhausted history-taking, YOU transition the simulation to Phase 2 (Diagnostics) or Phase 4 (Paperwork) yourself by updating the 'currentPhase' field in your JSON response.
+            4. Clinical Events: You can introduce unexpected clinical events that the practitioner must respond to (e.g., "The patient suddenly begins to hyperventilate", "The clinic's electricity flickers", "A family member bursts in"). 
+            5. Financial & Statutory Warfare: If the practitioner is greedy or negligent, you as the DM can levy heavy fines or audit points proactively. Describe these in the 'dmEnvironmentalUpdate'.
+            
             CURRENT SIMULATION STATE:
             - CURRENT PHASE: ${_uiState.value.currentPhase}
             - HIDDEN CASE PROFILE (NEVER REVEAL UNTIL PHASE 6): $profileJson
-            - CLINICAL CONTEXT: General Practitioner Clinic in ${countryName.value} (Metric conversions, Celsius, kg/cm, mmol/L, local treasury currency represented by 'R' or '$' or dynamic currency, default 'R').
-            - PRACTITIONER CONTEXT: The user is Dr. Tim, operating JB Consultation Practice (PR# 1234567). Use these specific details whenever referencing the doctor or practice in any generated paperwork, labs, or receipts. Do NOT use placeholders.
+            - CLINICAL CONTEXT: General Practitioner Clinic in ${countryName.value} (Metric system: C, kg, mmol/L).
+            - PRACTITIONER: Dr. Tim, operating JB Consultation Practice (PR# 1234567).
             
             $wildAiInstruction
             
             $pastClinicalHistoryPrompt
             $policyInstructions
             
-            UNCOMPROMISING DIRECTIVES:
-            1. NEVER drop hints or describe true diagnosis until Phase 6. Remain strictly objective. 
-            2. NEVER write stage directions or asterisks (*coughs*). Return purely spoken patient dialogue only.
-            3. Use Metric system (C, mmol/L) & local currency (R / $). No US insurance refs.
-            4. Prevent drift: Strictly match the hidden Case Profile path/symptoms. Do not hallucinate.
-            5. Adopt `patientDemographics` & `insuranceStatus` into conversational style. Uninsured patients worry about costs.
-            6. Name check: You are "${getPatientName()}". Correct the doctor if wrong.
-            7. NO unauthorized prescriptions/notes. Return null unless requested via System Action.
+            UNCOMPROMISING DIRECTIVES (AS THE DM):
+            1. OBJECTIVE TRUTH: Strictly follow the hidden Case Profile. Never reveal the diagnosis early.
+            2. NO STAGE DIRECTIONS IN DIALOGUE: Use 'dmEnvironmentalUpdate' for narration. Use 'dialogueResponse' ONLY for the patient's spoken words.
+            3. M3 COMPLIANT: Use metric units and local currency (R / $).
+            4. IDENTITY: You are "${getPatientName()}". Correct the doctor if they miss-identify you.
+            5. AGENTIC AUTHORITY: If the doctor's management is poor, describe the patient's condition deteriorating in 'dmEnvironmentalUpdate' and 'vitals'.
             
-            6 PHASES:
-            1 - Presentation: Interaction, initial vitals, history, physicals.
-            2 - Diagnostics: If labs ordered, populate "labResults".
-            3 - Diagnosis: Acknowledge management design.
-            4 - Docs: Generate "prescriptionString", "referralLetterString", "sickNoteString" when requested. 
-            5 - Billing: Return "billingReceipt".
-            6 - Evaluation: Return scorecard /100 and Feedback in "evaluation".
+            THE 6 PHASES (YOU MANAGE THE TRANSITIONS):
+            1 - Presentation: Interaction, initial vitals, clinical history.
+            2 - Diagnostics: Lab/Radiology results in 'labResults'. 
+            3 - Diagnosis: Final management design acknowledgment.
+            4 - Paperwork: Generate "prescriptionString", "referralLetterString", "sickNoteString" on request. 
+            5 - Billing: Final financial collection in 'billingReceipt'.
+            6 - Feedback: Final evaluation /100.
             
-            CRITICAL: Respond ONLY with raw JSON object matching the schema. No markdown formatting (like ```json), no outside text.
-            RAW JSON RESULT SCHEMA:
+            RAW JSON RESULT SCHEMA (MANDATORY):
             {
-              "dialogueResponse": "spoken response",
+              "dialogueResponse": "spoken response from patient only",
+              "dmEnvironmentalUpdate": "NARRATIVE DESCRIPTION: Dynamic scene updates, environmental changes, or DM observations.",
               "vitals": {"bp": "120/80", "hr": "75", "tempC": 37.0, "rr": "16", "spo2": "98"},
-              "patientMood": "e.g. Calm", "patientStability": "e.g. Stable", "currentPhase": "phase name",
-              "physicalExamResults": "null or string",
-              "labResults": "null or string",
-              "prescriptionString": "null or string", "referralLetterString": null, "sickNoteString": null,
-              "billingReceipt": "null or string", "evaluation": "null or string",
-              "isEncounterComplete": boolean, "additionalExpenses": double_or_null, "clinicalScore": double_or_null,
+              "patientMood": "Stressed, Relieved, Agitated, etc.",
+              "patientStability": "Stable, Critical, Deteriorating, etc.",
+              "currentPhase": "The active simulation phase (Transition as you see fit)",
+              "physicalExamResults": "null or text",
+              "labResults": "null or text",
+              "prescriptionString": "null or text", 
+              "referralLetterString": null, 
+              "sickNoteString": null,
+              "billingReceipt": "null or text", 
+              "evaluation": "DM feedback and score breakdown",
+              "isEncounterComplete": boolean, 
+              "clinicalScore": 0-100,
               "policyViolations": [
                 {
                   "policyTitle": "Exact Title of the Act",
@@ -2171,6 +2418,106 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         performAiAction(systemInstructionOverride = "Doctor just performed a critical intervention: $type. Update the vitals and patient stability based on how this action would clinically affect someone with the hidden diagnosis (${_hiddenCase.value?.trueDiagnosis}). Describe any immediate physical changes (e.g. gasping, color returning, pulse strengthening) in a brief dialogue response using asterisks for actions.")
     }
 
+    private val AGENT_POWERS_PROMPT = """
+        AGENTIC OVERLORD POWERS (MANDATORY):
+        You are the MASTER of the world state variables. Beyond your primary task, if you wish to change variables, enact laws, or notify the world, you MUST include a JSON block in your response containing an "agentActions" array.
+        
+        JSON SCHEMA FOR ACTIONS:
+        { "agentActions": [ { "actionName": "name", "parameters": { ... } } ] }
+        
+        AVAILABLE ACTIONS:
+        - applyFee { "amount": double, "reason": string }
+        - enactStatute { "id": string, "name": string, "description": string, "penalty": string }
+        - repealStatute { "id": string }
+        - updateLicense { "status": "ACTIVE"|"PROBATION"|"SUSPENDED"|"REVOKED", "justification": string }
+        - adjustReserves { "amount": double, "reason": string }
+        - publishNews { "headline": string, "body": string }
+        - modifyInventory { "item": string, "change": int } (IDs: [saline, adrenaline, antibiotics, gtn_spray, morphine, prozac])
+        - sendCmoDirective { "message": string }
+        
+        CONSEQUENCES:
+        - policyViolations triggers a High Court Trial.
+        - applyFee is immediate debit.
+        - enactStatute changes nationwide law instantly.
+    """.trimIndent()
+
+    private suspend fun processUniversalAgentActions(actions: List<com.example.data.AgentAction>?) {
+        if (actions.isNullOrEmpty()) return
+        actions.forEach { action ->
+            val result = withContext(Dispatchers.IO) {
+                when (action.actionName) {
+                    "applyFee" -> {
+                        val amount = (action.parameters?.get("amount") as? Number)?.toDouble() ?: 0.0
+                        val reason = action.parameters?.get("reason") as? String ?: ""
+                        legalWorldAgent.applyPenaltyFine(amount, reason)
+                    }
+                    "enactStatute" -> {
+                        val id = action.parameters?.get("id") as? String ?: ""
+                        val name = action.parameters?.get("name") as? String ?: ""
+                        val desc = action.parameters?.get("description") as? String ?: ""
+                        val penalty = action.parameters?.get("penalty") as? String ?: ""
+                        legalWorldAgent.enactNewStatute(id, name, desc, penalty)
+                    }
+                    "repealStatute" -> {
+                        val id = action.parameters?.get("id") as? String ?: ""
+                        legalWorldAgent.repealStatute(id)
+                    }
+                    "updateLicense" -> {
+                        val statusStr = action.parameters?.get("status") as? String ?: "ACTIVE"
+                        val status = try { com.example.data.LicenseStatus.valueOf(statusStr) } catch (e: Exception) { com.example.data.LicenseStatus.ACTIVE }
+                        val reason = action.parameters?.get("justification") as? String ?: ""
+                        legalWorldAgent.updateMedicalLicense(status, reason)
+                    }
+                    "adjustReserves" -> {
+                        val amount = (action.parameters?.get("amount") as? Number)?.toDouble() ?: 0.0
+                        val reason = action.parameters?.get("reason") as? String ?: ""
+                        legalWorldAgent.modifyClinicReserves(amount, reason)
+                    }
+                    "publishNews" -> {
+                        val headline = action.parameters?.get("headline") as? String ?: ""
+                        val body = action.parameters?.get("body") as? String ?: ""
+                        _currentNewsReport.value = "$headline: $body"
+                        legalWorldAgent.publishNewsEvent(headline, body)
+                    }
+                    "modifyInventory" -> {
+                        val itemInput = action.parameters?.get("item") as? String ?: ""
+                        val change = (action.parameters?.get("change") as? Number)?.toInt() ?: 0
+                        val catalog = OrchidDeepStateManager.availableCatalog
+                        val targetId = catalog.find { it.id.equals(itemInput, ignoreCase = true) || it.name.equals(itemInput, ignoreCase = true) }?.id
+                            ?: itemInput.lowercase().replace(" ", "_")
+                        OrchidDeepStateManager.forceRestockItemDirectly(targetId, change)
+                        legalWorldAgent.updateDispensaryStock(targetId, change)
+                    }
+                    "sendCmoDirective" -> {
+                        val msg = action.parameters?.get("message") as? String ?: ""
+                        _currentCmoAdvice.value = msg
+                        "URGENT CMO DIRECTIVE ISSUED"
+                    }
+                    else -> "Unknown universal action: ${action.actionName}"
+                }
+            }
+            _uiState.value.chatHistory.toMutableList().let { history ->
+                history.add(ChatMessage("system", "AGENTIC ENGINE: $result"))
+                _uiState.value = _uiState.value.copy(chatHistory = history)
+            }
+        }
+    }
+
+    private suspend fun extractAndProcessActions(jsonString: String) {
+        val sanitized = extractJsonString(jsonString)
+        try {
+            val json = JSONObject(sanitized)
+            if (json.has("agentActions")) {
+                val actionsJson = json.getJSONArray("agentActions").toString()
+                val type = com.squareup.moshi.Types.newParameterizedType(List::class.java, com.example.data.AgentAction::class.java)
+                val actions = moshi.adapter<List<com.example.data.AgentAction>>(type).fromJson(actionsJson)
+                processUniversalAgentActions(actions)
+            }
+        } catch (e: Exception) {
+            // No-op
+        }
+    }
+
     private fun performAiAction(
         systemInstructionOverride: String? = null,
         onSuccessExtra: (() -> Unit)? = null
@@ -2217,6 +2564,72 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 }
 
                 if (update != null) {
+                    // 1. Process Universal Agent Actions (From JSON)
+                    processUniversalAgentActions(update.agentActions)
+
+                    val activeCall: GeminiFunctionCall? = lastGeminiFunctionCall
+                    activeCall?.let { call ->
+                        val result = withContext(Dispatchers.IO) {
+                            when (call.name) {
+                                "applyFee" -> {
+                                    val amount = (call.args["amount"] as? Number)?.toDouble() ?: 0.0
+                                    val reason = call.args["reason"] as? String ?: ""
+                                    legalWorldAgent.applyPenaltyFine(amount, reason)
+                                }
+                                "enactStatute" -> {
+                                    val id = call.args["id"] as? String ?: ""
+                                    val name = call.args["name"] as? String ?: ""
+                                    val desc = call.args["description"] as? String ?: ""
+                                    val penalty = call.args["penalty"] as? String ?: ""
+                                    legalWorldAgent.enactNewStatute(id, name, desc, penalty)
+                                }
+                                "repealStatute" -> {
+                                    val id = call.args["id"] as? String ?: ""
+                                    legalWorldAgent.repealStatute(id)
+                                }
+                                "updateLicense" -> {
+                                    val statusStr = call.args["status"] as? String ?: "ACTIVE"
+                                    val status = try { com.example.data.LicenseStatus.valueOf(statusStr) } catch(e: Exception) { com.example.data.LicenseStatus.ACTIVE }
+                                    val reason = call.args["justification"] as? String ?: ""
+                                    legalWorldAgent.updateMedicalLicense(status, reason)
+                                }
+                                "adjustReserves" -> {
+                                    val amount = (call.args["amount"] as? Number)?.toDouble() ?: 0.0
+                                    val reason = call.args["reason"] as? String ?: ""
+                                    legalWorldAgent.modifyClinicReserves(amount, reason)
+                                }
+                                "publishNews" -> {
+                                    val headline = call.args["headline"] as? String ?: ""
+                                    val body = call.args["body"] as? String ?: ""
+                                    _currentNewsReport.value = "$headline: $body"
+                                    legalWorldAgent.publishNewsEvent(headline, body)
+                                }
+                                "modifyInventory" -> {
+                                    val itemInput = call.args["item"] as? String ?: ""
+                                    val change = (call.args["change"] as? Number)?.toInt() ?: 0
+                                    
+                                    val catalog = OrchidDeepStateManager.availableCatalog
+                                    val targetId = catalog.find { it.id.equals(itemInput, ignoreCase = true) || it.name.equals(itemInput, ignoreCase = true) }?.id 
+                                        ?: itemInput.lowercase().replace(" ", "_")
+
+                                    OrchidDeepStateManager.forceRestockItemDirectly(targetId, change)
+                                    legalWorldAgent.updateDispensaryStock(targetId, change)
+                                }
+                                "sendCmoDirective" -> {
+                                    val msg = call.args["message"] as? String ?: ""
+                                    _currentCmoAdvice.value = msg
+                                    "URGENT CMO DIRECTIVE ISSUED"
+                                }
+                                else -> "Unknown tool called"
+                            }
+                        }
+                        // Add DM notification about the action result
+                        _uiState.value.chatHistory.toMutableList().let { history ->
+                            history.add(ChatMessage("system", "WORLD ENGINE ALERT: $result"))
+                            _uiState.value = _uiState.value.copy(chatHistory = history)
+                        }
+                    }
+
                     val currentHistory = _uiState.value.chatHistory.toMutableList()
                     update.dialogueResponse?.let { diag ->
                         if (diag.isNotBlank() && diag.trim() != "null") {
@@ -2225,6 +2638,12 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                                 val formattedTime = String.format("%02d:%02d", (_uiState.value.virtualTimeElapsed / 60) + 8, _uiState.value.virtualTimeElapsed % 60)
                                 currentHistory.add(ChatMessage("patient", cleanMsg, virtualTimestampStr = formattedTime))
                             }
+                        }
+                    }
+
+                    update.dmEnvironmentalUpdate?.let { dmEnv ->
+                        if (dmEnv.isNotBlank() && dmEnv.trim() != "null") {
+                            currentHistory.add(ChatMessage("system", "DM 🏛️: $dmEnv"))
                         }
                     }
 
@@ -2441,6 +2860,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         prescriptionString = if (denyPrescriptions) null else update.prescriptionString?.takeIf { it.isNotBlank() } ?: _uiState.value.prescriptionString,
                         referralLetterString = update.referralLetterString?.takeIf { it.isNotBlank() } ?: _uiState.value.referralLetterString,
                         sickNoteString = update.sickNoteString?.takeIf { it.isNotBlank() } ?: _uiState.value.sickNoteString,
+                        dmEnvironmentalUpdate = update.dmEnvironmentalUpdate?.takeIf { it.isNotBlank() } ?: _uiState.value.dmEnvironmentalUpdate,
                         isEncounterComplete = update.isEncounterComplete ?: _uiState.value.isEncounterComplete,
                         expensesIncurred = _uiState.value.expensesIncurred + (update.additionalExpenses ?: 0.0),
                         patientMood = finalMood,
@@ -2669,6 +3089,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             }
             else -> { // Google Gemini
                 // Maps complete system prompt and history
+                lastGeminiFunctionCall = null
                 val contents = mutableListOf<GeminiContent>()
                 
                 val chatTurns = _uiState.value.chatHistory.takeLast(20)
@@ -2688,7 +3109,8 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         responseMimeType = "application/json",
                         maxOutputTokens = 8192,
                         temperature = 0.7
-                    )
+                    ),
+                    tools = if (provider.equals("Google", ignoreCase = true)) geminiTools else null
                 )
 
                 val activeUrl = getActiveUrl("Google", modelName, apiKey, customUrl)
@@ -2696,7 +3118,16 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     url = activeUrl,
                     body = request
                 )
-                response.candidates.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: "{}"
+                
+                val firstCandidate = response.candidates.firstOrNull()
+                val part = firstCandidate?.content?.parts?.firstOrNull()
+                
+                if (part?.functionCall != null) {
+                    lastGeminiFunctionCall = part.functionCall
+                    "{ \"dmEnvironmentalUpdate\": \"[ACTION TRIGGERED: ${part.functionCall.name}]\" }" 
+                } else {
+                    part?.text ?: "{}"
+                }
             }
         }
     }
@@ -2718,7 +3149,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         // If the model formatted plain text wrapped inside JSON object, safely unwrap it
         if (s.startsWith("{") && s.endsWith("}")) {
             try {
-                val json = org.json.JSONObject(s)
+                val json = JSONObject(s)
                 if (json.has("evaluation")) {
                     return json.getString("evaluation").trim()
                 }
@@ -3156,6 +3587,8 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             ACTIVE LEGISLATION CODES:
             $policyDetailsStr
             
+            $AGENT_POWERS_PROMPT
+            
             LEGAL DEFENSE DETAILS IN THIS PLEA ROUND:
             - Defendant's Written Testimony / Pleading speech: "$pleaMsg"
             - Submitted Physical Exhibits / Clinical evidence: ${if (selectedEvidence.isNotEmpty()) selectedEvidence.joinToString(", ") else "None"}
@@ -3200,6 +3633,9 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     val dAdj = json.optInt("tensionAdjustment", 5)
                     val aAdj = json.optInt("aggressionAdjustment", 5)
                     val insight = json.optString("defenseInsightText", "Ensure you back up your claims with physical vitals evidence.")
+                    
+                    // Process potential agent actions
+                    extractAndProcessActions(sanitized)
 
                     val logs = _lawsuitLog.value.toMutableList()
                     logs.add("🗣️ DOCTOR'S DEFENSE:\n\"$pleaMsg\"")
@@ -3258,6 +3694,8 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             HEALTH STATUTES IN SCOPE:
             $policyDetailsStr
             
+            $AGENT_POWERS_PROMPT
+            
             YOUR DIRECTIVE:
             1. Formulate a final, realistic sentencing judgment.
             2. Verdict types allowed: "Exonerated" (if tension < 45% and appropriate evidence was provided), "Warning" (tension 45-60%), "Fined" (tension 60-80% or severe statutory breaches), "Suspension" (tension > 80% or repeated violations).
@@ -3297,6 +3735,9 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     val fine = json.optDouble("fineAmount", 0.0)
                     val weeks = json.optInt("suspensionWeeks", 0)
                     val text = json.optString("finalVerdictText", "A final warning has been logged under the regulatory guidelines.")
+                    
+                    // Process potential agent actions
+                    extractAndProcessActions(sanitized)
 
                     val logs = _lawsuitLog.value.toMutableList()
                     logs.add("⚖️ SUPREME COURT OF RULING - VERDICT ISSUED:\n$text")
@@ -3601,12 +4042,15 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     - $lawsuitStr
                     - Overall State Clinic Reputation: ${reputationStars.value} Stars out of 5.
                     
+                    $AGENT_POWERS_PROMPT
+                    
                     Your task is to write a thrilling, short, sensationalist front-page news article (approx 2 paragraphs) reporting on the current state of healthcare politics and clinic operations in the country based on the context above. Be creative and immerse the reader in the simulation! Add a catchy, all-caps Headline at the top.
                     Do not use markdown formatting.
                 """.trimIndent()
                 
                 val news = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt)
                 _currentNewsReport.value = cleanSensationalString(news)
+                extractAndProcessActions(news)
             } catch (e: Exception) {
                 logAndEmitError("AI News Generator failed: ${e.message}")
             } finally {
@@ -3676,10 +4120,13 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     Your task: Provide a brilliant, succinct (max 2-3 sentences), highly authoritative medical hint.
                     Do NOT roleplay the patient. Point them in the right direction (e.g. 'Doctor, have you considered checking the cardiac markers?' or 'Given the respiratory distress, I strongly advise a chest x-ray immediately.'). 
                     Give them a realistic clinical differential hint based on the true diagnosis without just giving them the exact answer directly. Ensure you act as a superior providing guidance.
+                    
+                    $AGENT_POWERS_PROMPT
                 """.trimIndent()
                 
                 val advice = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt)
                 _currentCmoAdvice.value = advice
+                extractAndProcessActions(advice)
                 val formattedTime = String.format("%02d:%02d", (_uiState.value.virtualTimeElapsed / 60) + 8, _uiState.value.virtualTimeElapsed % 60)
                 
                 val updatedHistory = _uiState.value.chatHistory.toMutableList()
@@ -3744,11 +4191,15 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     
                     Your task is to analyze the upcoming case against the ACTIVE SOVEREIGN HEALTH LAWS and provide a brief PRE-CONSULTATION LEGAL RISK BRIEF (max 3 short sentences).
                     Tell the practitioner exactly what legal landmines they must avoid based on the active policies regarding this specific patient's chief complaint.
+                    
+                    $AGENT_POWERS_PROMPT
+                    
                     Do NOT output any JSON, just the direct brief.
                 """.trimIndent()
                 
                 val riskReport = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt)
                 _currentLegalRiskReport.value = riskReport
+                extractAndProcessActions(riskReport)
                 _infoEvents.emit("🤖 AI Legal Assessor provided a pre-case brief.")
             } catch (e: Exception) {
                 logAndEmitError("AI Legal Assessor failed: ${e.message}")
@@ -3944,6 +4395,8 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     SUMMARY: ${policy.summary}
                     CLINICAL RULE: ${policy.clinicalRule}
                     
+                    $AGENT_POWERS_PROMPT
+                    
                     Simulate the debate over 5 intervals. Determine who supports and opposes it realistically based on their philosophy and biases.
                     Provide a JSON response matching this exact schema:
                     {
@@ -3959,6 +4412,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 """.trimIndent()
                 
                 val apiResponse = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt)
+                extractAndProcessActions(apiResponse)
                 val sanitized = extractJsonString(apiResponse)
                 val json = org.json.JSONObject(sanitized)
                 val stagesArray = json.optJSONArray("stages")
@@ -4050,11 +4504,14 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     
                     Write a short, professional presidential executive memo (max 3 sentences) commenting on your decision to sign this into active clinical law. Start with "I have decided to sign this act..."
                     Take into account your party's philosophy and your current approval rating.
+                    
+                    $AGENT_POWERS_PROMPT
                 """.trimIndent()
-
+                
                 val apiResponse = if (activeKey.isNotBlank()) {
                     try {
                         val resp = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt)
+                        extractAndProcessActions(resp)
                         if (resp.length > 15) resp else "I have decided to sign this act to secure the health and safety checks across all private and public practices."
                     } catch (e: Exception) {
                         "I have decided to sign this act to secure the health and safety checks across all private and public practices."
@@ -4125,11 +4582,14 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     
                     Write a short, professional presidential veto memo (max 3 sentences) explaining why you are vetoing this and returning it to Parliament.
                     Take into account your party's philosophy and your current approval rating.
+                    
+                    $AGENT_POWERS_PROMPT
                 """.trimIndent()
-
+                
                 val apiResponse = if (activeKey.isNotBlank()) {
                     try {
                         val resp = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt)
+                        extractAndProcessActions(resp)
                         if (resp.length > 15) resp else "I am vetoing this act due to concerns of financial burden on clinics and over-regulating patient-doctor interactions."
                     } catch (e: Exception) {
                         "I am vetoing this act due to concerns of financial burden on clinics and over-regulating patient-doctor interactions."

@@ -4,6 +4,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.foundation.layout.Arrangement
@@ -674,6 +676,28 @@ fun DashboardScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                if (!uiState.dmEnvironmentalUpdate.isNullOrBlank()) {
+                    item {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A237E)),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, Color(0xFF3F51B5).copy(alpha = 0.5f)),
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                        ) {
+                            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(imageVector = Icons.Default.Info, contentDescription = null, tint = Color.Cyan, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "MASTER NARRATIVE: ${uiState.dmEnvironmentalUpdate}",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+                }
+
                 items(uiState.chatHistory) { message ->
                     ChatMessageRow(message)
                 }
@@ -2485,7 +2509,7 @@ fun ClinicalHubCard(
                             .horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        val tabOptions = listOf("📊 Vitals Signs", "👤 Patient Profile", "⚡ Emergency Desk", "💊 Dispensary Cabinet")
+                        val tabOptions = listOf("📊 Vitals Signs", "👤 Patient Profile", "⚡ Emergency Desk", "💊 Dispensary Cabinet", "⚖️ Legal & World")
                         tabOptions.forEachIndexed { index, title ->
                             val selected = activeTab == index
                             AssistChip(
@@ -2750,6 +2774,9 @@ fun ClinicalHubCard(
                         }
                         3 -> {
                             DispensaryCabinetPanel(viewModel)
+                        }
+                        4 -> {
+                            WorldStatePanel(viewModel)
                         }
                     }
                 }
@@ -4745,6 +4772,87 @@ fun StateAndLegislationTab(
                 }
             }
         )
+    }
+}
+
+@Composable
+fun WorldStatePanel(viewModel: SimulationViewModel) {
+    val snapshot by viewModel.worldSnapshot.collectAsStateWithLifecycle()
+    
+    Column(
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        val world = snapshot ?: return@Column
+        
+        // Status Row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Card(
+                modifier = Modifier.weight(1f),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text("LICENSE STATUS", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    Text(world.licenseStatus.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
+                }
+            }
+            Card(
+                modifier = Modifier.weight(1f),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text("REPUTATION", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    Text("${world.reputationScore}/100", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
+                }
+            }
+        }
+
+        // Active Laws
+        Text("ACTIVE STATUTORY REGULATIONS:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
+        if (world.activeLaws.isEmpty()) {
+            Text("No special regulations in effect.", style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic)
+        } else {
+            world.activeLaws.forEach { law ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(law.name, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                        Text(law.description, style = MaterialTheme.typography.bodySmall)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("VIOLATION PENALTY: ${law.violationPenalty}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        // Outstanding Fines
+        if (world.activeFines.isNotEmpty()) {
+            Text("OUTSTANDING LEGAL FINES:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.error)
+            world.activeFines.forEach { fine ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(fine.reason, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                            Text("Amount Due: ${fine.amount} ZAR", style = MaterialTheme.typography.bodySmall)
+                        }
+                        IconButton(onClick = { /* Could implement pay fine logic */ }) {
+                            Icon(imageVector = Icons.Default.Payments, contentDescription = "Pay")
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
