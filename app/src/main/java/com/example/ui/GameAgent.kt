@@ -488,7 +488,6 @@ class GameAgent(
                 contents = contents,
                 systemInstruction = GeminiSystemInstruction(listOf(GeminiPart(text = systemPrompt))),
                 generationConfig = GeminiGenerationConfig(
-                    responseMimeType = "application/json",
                     maxOutputTokens = 8192,
                     temperature = 0.7
                 ),
