@@ -2458,6 +2458,12 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         - enactStatute changes nationwide law instantly.
     """.trimIndent()
 
+    fun triggerAgentActionManual(actionName: String, parameters: Map<String, Any> = emptyMap()) {
+        viewModelScope.launch {
+            processUniversalAgentActions(listOf(com.example.data.AgentAction(actionName, parameters)))
+        }
+    }
+
     private suspend fun processUniversalAgentActions(actions: List<com.example.data.AgentAction>?) {
         if (actions.isNullOrEmpty()) return
         actions.forEach { action ->
