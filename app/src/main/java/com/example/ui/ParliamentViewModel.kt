@@ -102,6 +102,9 @@ class ParliamentViewModel(
         - updatePrestige { "amount": integer }
         - broadcastNews { "headline": string, "breaking": boolean }
         
+        - 55 ADDITIONAL AGENTIC GAME-SHIFTING ACTIONS:
+          triggerEpidemicAlert, adjustPrestige { "amount": int }, adjustReputation { "amount": double }, adjustLobbyInfluence { "faction": string, "change": double } (faction: progressives|conservatives|independents), levyEmergencyTax { "rate": double }, issueClinicalSubsidy { "amount": double }, harnessAIEnergyGrid, overrideNationalFormulary { "name": string, "classification": string, "description": string, "cost": double, "bp": string, "hr": string, "impact": string }, nationalizeFreeHealth, triggerStrikeRisk, resolveStaffDispute, upgradeFacilityTier, leakPrivateCabinetIntel, grantPresidentialPardon, disenfranchiseParty { "party": string }, issueSovereignBonds, simulateMarketInflation, defibrillateNow, perfuseOxygenContinuous, perfuseSalineBolus, injectAdrenalineEmergency, injectAtropineStat, injectAmiodaroneCardiac, injectInsulinDka, injectGlucoseHypo, applyIntubation, applyTourniquet, administerAntibioticWide, administerAnalgesicMorphine, administerNaloxoneOpiate, performEcgSurgical, performCprInterval, triggerLoadSheddingPowerBlackout, forceWaterShortageCrisis, generateSuperbugEncountEvent, hireLocumDoctorAssistant, orderStatTroponin, orderChestXRay, orderCtBrainScan, orderToxicologyPanel, adjustMedicalAidCoverage { "id": string, "coverage": double }, openAuditInvestigation, concludeActiveEncounter, triggerVIPHeartAttackCrisis, injectCardiacGlycoside, administerBronchodilator, administerSedativeTranquilizer, reportWhistleblower, restockSyringesDirect, restockSalineDirect, restockAdrenalineDirect, restockReagentsDirect, restockTherapeuticsDirect, bribeLobbyistBroker, leakPatientRecordsAnonymous
+        
         If no systemic actions are necessary, simply OMIT the "agentActions" array.
     """
 
@@ -912,6 +915,14 @@ class ParliamentViewModel(
         }
     }
 
+    fun adjustLobbyBiasDirectly(faction: String, amount: Double) {
+        when (faction.lowercase()) {
+            "progressives" -> _progressiveLobbyBias.value = (_progressiveLobbyBias.value + amount).coerceIn(-0.3, 0.5)
+            "conservatives" -> _conservativeLobbyBias.value = (_conservativeLobbyBias.value + amount).coerceIn(-0.3, 0.5)
+            "independents" -> _independentLobbyBias.value = (_independentLobbyBias.value + amount).coerceIn(-0.3, 0.5)
+        }
+    }
+
     private fun processAgentAction(action: JSONObject) {
         val name = action.optString("actionName")
         val params = action.optJSONObject("parameters") ?: JSONObject()
@@ -946,6 +957,24 @@ class ParliamentViewModel(
                     val rej = params.optDouble("rejectionProb", 0.1)
                     OrchidDeepStateManager.updateOrAddMedicalScheme(id, schemeName, cov, auth, rej)
                     _votingLog.value = _votingLog.value + "🛡️ SCHEME REFORM: $schemeName restructured successfully."
+                }
+                "adjustPrestige" -> {
+                    val amount = params.optInt("amount", 0)
+                    val currentPrest = settingsDataStore.politicalPrestigeFlow.first()
+                    settingsDataStore.savePoliticalPrestige((currentPrest + amount).coerceIn(0, 100))
+                    val direction = if (amount >= 0) "increased" else "decreased"
+                    _votingLog.value = _votingLog.value + "📈 Political Prestige $direction by ${Math.abs(amount)}."
+                }
+                "adjustLobbyInfluence" -> {
+                    val faction = params.optString("faction", "progressives")
+                    val change = params.optDouble("change", 0.05)
+                    adjustLobbyBiasDirectly(faction, change)
+                    _votingLog.value = _votingLog.value + "🗳️ Adjusted lobby influence of faction $faction by $change."
+                }
+                "disenfranchiseParty" -> {
+                    val party = params.optString("party", "conservatives")
+                    adjustLobbyBiasDirectly(party, -0.25)
+                    _votingLog.value = _votingLog.value + "🗳️ Party $party disenfranchised."
                 }
             }
         }

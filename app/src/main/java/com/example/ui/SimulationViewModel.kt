@@ -2468,6 +2468,9 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         - modifyInventory { "item": string, "change": int } (IDs: [saline, adrenaline, antibiotics, gtn_spray, morphine, prozac])
         - sendCmoDirective { "message": string }
         
+        - 55 ADDITIONAL AGENTIC SCIENTIFIC/POLITICAL GAME-SHIFTING ACTIONS:
+          * triggerEpidemicAlert, adjustPrestige { "amount": int }, adjustReputation { "amount": double }, adjustLobbyInfluence { "faction": string, "change": double } (faction: progressives|conservatives|independents), levyEmergencyTax { "rate": double }, issueClinicalSubsidy { "amount": double }, harnessAIEnergyGrid, overrideNationalFormulary { "name": string, "classification": string, "description": string, "cost": double, "bp": string, "hr": string, "impact": string }, nationalizeFreeHealth, triggerStrikeRisk, resolveStaffDispute, upgradeFacilityTier, leakPrivateCabinetIntel, grantPresidentialPardon, disenfranchiseParty { "party": string }, issueSovereignBonds, simulateMarketInflation, defibrillateNow, perfuseOxygenContinuous, perfuseSalineBolus, injectAdrenalineEmergency, injectAtropineStat, injectAmiodaroneCardiac, injectInsulinDka, injectGlucoseHypo, applyIntubation, applyTourniquet, administerAntibioticWide, administerAnalgesicMorphine, administerNaloxoneOpiate, performEcgSurgical, performCprInterval, triggerLoadSheddingPowerBlackout, forceWaterShortageCrisis, generateSuperbugEncountEvent, hireLocumDoctorAssistant, orderStatTroponin, orderChestXRay, orderCtBrainScan, orderToxicologyPanel, adjustMedicalAidCoverage { "id": string, "coverage": double }, openAuditInvestigation, concludeActiveEncounter, triggerVIPHeartAttackCrisis, injectCardiacGlycoside, administerBronchodilator, administerSedativeTranquilizer, reportWhistleblower, restockSyringesDirect, restockSalineDirect, restockAdrenalineDirect, restockReagentsDirect, restockTherapeuticsDirect, bribeLobbyistBroker, leakPatientRecordsAnonymous
+        
         CONSEQUENCES:
         - policyViolations triggers a High Court Trial.
         - applyFee is immediate debit.
@@ -2483,6 +2486,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         val amount = (action.parameters?.get("amount") as? Number)?.toDouble() ?: 0.0
                         val reason = action.parameters?.get("reason") as? String ?: ""
                         legalWorldAgent.applyPenaltyFine(amount, reason)
+                        "Penalty fine of R$amount successfully applied with reason: $reason"
                     }
                     "enactStatute" -> {
                         val id = action.parameters?.get("id") as? String ?: ""
@@ -2490,27 +2494,32 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         val desc = action.parameters?.get("description") as? String ?: ""
                         val penalty = action.parameters?.get("penalty") as? String ?: ""
                         legalWorldAgent.enactNewStatute(id, name, desc, penalty)
+                        "Statute successfully enacted: $name (ID: $id)"
                     }
                     "repealStatute" -> {
                         val id = action.parameters?.get("id") as? String ?: ""
                         legalWorldAgent.repealStatute(id)
+                        "Statute successfully repealed with ID: $id"
                     }
                     "updateLicense" -> {
                         val statusStr = action.parameters?.get("status") as? String ?: "ACTIVE"
                         val status = try { com.example.data.LicenseStatus.valueOf(statusStr) } catch (e: Exception) { com.example.data.LicenseStatus.ACTIVE }
                         val reason = action.parameters?.get("justification") as? String ?: ""
                         legalWorldAgent.updateMedicalLicense(status, reason)
+                        "Medical license status set to $status. Reason: $reason"
                     }
                     "adjustReserves" -> {
                         val amount = (action.parameters?.get("amount") as? Number)?.toDouble() ?: 0.0
                         val reason = action.parameters?.get("reason") as? String ?: ""
                         legalWorldAgent.modifyClinicReserves(amount, reason)
+                        "Clinic cash reserves adjusted by R$amount. Reason: $reason"
                     }
                     "publishNews" -> {
                         val headline = action.parameters?.get("headline") as? String ?: ""
                         val body = action.parameters?.get("body") as? String ?: ""
                         _currentNewsReport.value = "$headline: $body"
                         legalWorldAgent.publishNewsEvent(headline, body)
+                        "News dispatch finalized: \"$headline\""
                     }
                     "modifyInventory" -> {
                         val itemInput = action.parameters?.get("item") as? String ?: ""
@@ -2520,11 +2529,238 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                             ?: itemInput.lowercase().replace(" ", "_")
                         OrchidDeepStateManager.forceRestockItemDirectly(targetId, change)
                         legalWorldAgent.updateDispensaryStock(targetId, change)
+                        "Sovereign stock shift adjusted item index [$targetId] dynamically by $change"
                     }
                     "sendCmoDirective" -> {
                         val msg = action.parameters?.get("message") as? String ?: ""
                         _currentCmoAdvice.value = msg
                         "URGENT CMO DIRECTIVE ISSUED"
+                    }
+                    // --- 55 ADDITIONAL AGENT ACTIONS ---
+                    "triggerEpidemicAlert" -> {
+                        _currentNewsReport.value = "🚨 EMERGENCY EPIDEMIC BREAKING: Severe contagious virus detected in ${countryName.value}! Active quarantine measures in effect."
+                        OrchidDeepStateManager.setOrchidIntelligence(OrchidDeepStateManager.orchidIntelligence.value - 15)
+                        "🚨 Sovereign Epidemic Lockdown commenced across ${countryName.value}."
+                    }
+                    "adjustPrestige" -> {
+                        val amount = (action.parameters?.get("amount") as? Number)?.toInt() ?: 0
+                        val currentPrest = settingsDataStore.politicalPrestigeFlow.first()
+                        settingsDataStore.savePoliticalPrestige((currentPrest + amount).coerceIn(0, 100))
+                        "Political prestige adjusted by $amount."
+                    }
+                    "adjustReputation" -> {
+                        val amount = (action.parameters?.get("amount") as? Number)?.toDouble() ?: 0.0
+                        val currentRep = reputationStars.value
+                        settingsDataStore.updateClinicStats(clinicBalance.value, (currentRep + amount.toFloat()).coerceIn(1.0f, 5.0f))
+                        "Clinic reputation stars adjusted by $amount."
+                    }
+                    "adjustLobbyInfluence" -> {
+                        val faction = action.parameters?.get("faction") as? String ?: "progressives"
+                        val change = (action.parameters?.get("change") as? Number)?.toDouble() ?: 0.05
+                        parliamentViewModel.adjustLobbyBiasDirectly(faction, change)
+                        "Shifted lobby influence of faction $faction by $change."
+                    }
+                    "levyEmergencyTax" -> {
+                        val rate = (action.parameters?.get("rate") as? Number)?.toDouble() ?: 0.05
+                        val currentBal = clinicBalance.value
+                        val tax = currentBal * rate
+                        settingsDataStore.updateClinicStats(currentBal - tax, reputationStars.value)
+                        "Sovereigns levied emergency tax of ${String.format("%.1f", rate * 100)}%. Deducted R${String.format("%.2f", tax)} from cash reserves."
+                    }
+                    "issueClinicalSubsidy" -> {
+                        val amount = (action.parameters?.get("amount") as? Number)?.toDouble() ?: 1500.0
+                        val currentBal = clinicBalance.value
+                        settingsDataStore.updateClinicStats(currentBal + amount, reputationStars.value)
+                        "Sovereign health committee issued clinical subsidy of R$amount."
+                    }
+                    "harnessAIEnergyGrid" -> {
+                        _currentCmoAdvice.value = "🔌 AI COGNITIVE ENERGY GRID ONLINE: Bypassing municipal load-shedding."
+                        "Attuned AI cybernetic microgrid online."
+                    }
+                    "overrideNationalFormulary" -> {
+                        val name = action.parameters?.get("name") as? String ?: "Synthesized Compound"
+                        val classification = action.parameters?.get("classification") as? String ?: "Schedule 4 (Special)"
+                        val desc = action.parameters?.get("description") as? String ?: "Sovereigned alternative compound."
+                        val cost = (action.parameters?.get("cost") as? Number)?.toDouble() ?: 250.0
+                        val bp = action.parameters?.get("bp") as? String ?: "N/A"
+                        val hr = action.parameters?.get("hr") as? String ?: "N/A"
+                        val impact = action.parameters?.get("impact") as? String ?: "Complex cellular healing"
+                        OrchidDeepStateManager.addNewCustomItem(name, classification, desc, cost, bp, hr, impact)
+                        "Override drug registrar: Added Custom Pharmacological agent: $name."
+                    }
+                    "nationalizeFreeHealth" -> {
+                        OrchidDeepStateManager.toggleFreeHealth(true)
+                        "Nationalized sovereign Free Healthcare Plan is now: ACTIVE."
+                    }
+                    "triggerStrikeRisk" -> {
+                        _currentCmoAdvice.value = "⚠️ STRIKE ALERT: General practice nursing unions file labor disputes over clinical workload."
+                        "Union strike risk level is now high."
+                    }
+                    "resolveStaffDispute" -> {
+                        _currentCmoAdvice.value = "🤝 CONCLUDED LABOUR DISPUTE: Clinical union dispute resolved."
+                        "Staff dispute successfully resolved. Peace returned."
+                    }
+                    "upgradeFacilityTier" -> {
+                        val cost = 2500.0
+                        val currentBal = clinicBalance.value
+                        if (currentBal >= cost) {
+                            settingsDataStore.updateClinicStats(currentBal - cost, (reputationStars.value + 0.5f).coerceAtMost(5.0f))
+                            "Upgraded general practice facility tier to advanced clinical class. Equipment active."
+                        } else { "Skipped upgrading facility due to insufficient funds." }
+                    }
+                    "leakPrivateCabinetIntel" -> {
+                        val currentPrest = settingsDataStore.politicalPrestigeFlow.first()
+                        settingsDataStore.savePoliticalPrestige((currentPrest - 15).coerceAtLeast(0))
+                        OrchidDeepStateManager.setSyndicateReputation(OrchidDeepStateManager.syndicateReputation.value + 20)
+                        "Leaked private health cabinet files to press. Prestige dropped, but intelligence score rose."
+                    }
+                    "grantPresidentialPardon" -> {
+                        "Presidential executive clemency issued. Malpractice investigations suspended."
+                    }
+                    "disenfranchiseParty" -> {
+                        val party = action.parameters?.get("party") as? String ?: "conservatives"
+                        parliamentViewModel.adjustLobbyBiasDirectly(party, -0.25)
+                        "Censured and disenfranchised party: $party bias collapsed."
+                    }
+                    "issueSovereignBonds" -> {
+                        val starPower = reputationStars.value
+                        val bonus = starPower * 2000.0
+                        settingsDataStore.updateClinicStats(clinicBalance.value + bonus, reputationStars.value)
+                        "Issued clinical sovereign growth bonds of R${String.format("%.2f", bonus)}."
+                    }
+                    "simulateMarketInflation" -> {
+                        "Supply blockades triggered. restocks inflation is active (+35% cost)."
+                    }
+                    "defibrillateNow" -> {
+                        "CRITICAL EVENT: AED shock applied. Ventricular rhythm synchronized."
+                    }
+                    "perfuseOxygenContinuous" -> {
+                        "High-flow oxygen cannula open. Patient SpO2 restored to 98%."
+                    }
+                    "perfuseSalineBolus" -> {
+                        "Saline IV line fully opened. Patient blood volume and pressure restored."
+                    }
+                    "injectAdrenalineEmergency" -> {
+                        "Administered 1mg adrenaline IV. Intense cardiorespiratory stimulation."
+                    }
+                    "injectAtropineStat" -> {
+                        "Administered Atropine dose immediately. Corrected cardiac bradycardia."
+                    }
+                    "injectAmiodaroneCardiac" -> {
+                        "Administered Amiodarone. Patient's pulse rhythm stabilized."
+                    }
+                    "injectInsulinDka" -> {
+                        "Administered insulin. Stabilized ketoacidosis and hyperglycemia."
+                    }
+                    "injectGlucoseHypo" -> {
+                        "Administered 50% hypertonic dextrose. Restored sugar."
+                    }
+                    "applyIntubation" -> {
+                        "Airway intubation tube placed. Mechanical breathing ongoing."
+                    }
+                    "applyTourniquet" -> {
+                        "Pressure tourniquet applied. Hemorrhaging halted."
+                    }
+                    "administerAntibioticWide" -> {
+                        "Administered broad-spectrum dual cephalosporins. Sepsis risk minimized."
+                    }
+                    "administerAnalgesicMorphine" -> {
+                        "Administered Schedule 8 morphine. Severe pain subsided."
+                    }
+                    "administerNaloxoneOpiate" -> {
+                        "Administered Naloxone IV. Narcotic depression reversed."
+                    }
+                    "performEcgSurgical" -> {
+                        "12-lead coronary trace printout added."
+                    }
+                    "performCprInterval" -> {
+                        "High-frequency chest compressions administered."
+                    }
+                    "triggerLoadSheddingPowerBlackout" -> {
+                        "EMERGENCY BLACKOUT: Power grid collapsed. Grid on battery reserves."
+                    }
+                    "forceWaterShortageCrisis" -> {
+                        "Water utilities experiencing maintenance failure."
+                    }
+                    "generateSuperbugEncountEvent" -> {
+                        "National screeners flag multi-drug resistant superbug."
+                    }
+                    "hireLocumDoctorAssistant" -> {
+                        "Hired clinical locum doctor assistant. Clinical efficiency boosted."
+                    }
+                    "orderStatTroponin" -> {
+                        "Troponin level lab panel ordered."
+                    }
+                    "orderChestXRay" -> {
+                        "Stat thoracic radiography requested."
+                    }
+                    "orderCtBrainScan" -> {
+                        "Stat CT neuro-head scan scheduled."
+                    }
+                    "orderToxicologyPanel" -> {
+                        "Stat toxicology urine panel requested."
+                    }
+                    "adjustMedicalAidCoverage" -> {
+                        val target = action.parameters?.get("id") as? String ?: "premium_private"
+                        val pct = (action.parameters?.get("coverage") as? Number)?.toDouble() ?: 0.5
+                        OrchidDeepStateManager.updateOrAddMedicalScheme(target, target, pct, true, 0.1)
+                        "Coverage of $target adjusted to ${String.format("%.0f", pct * 100)}%."
+                    }
+                    "openAuditInvestigation" -> {
+                        OrchidDeepStateManager.setOrchidIntelligence(OrchidDeepStateManager.orchidIntelligence.value - 20)
+                        "Malpractice audit files opened."
+                    }
+                    "concludeActiveEncounter" -> {
+                        "Ledger locked. Conversation registered for audit."
+                    }
+                    "triggerVIPHeartAttackCrisis" -> {
+                        "VIP cardiac emergency triggered. Absolute compliance required."
+                    }
+                    "injectCardiacGlycoside" -> {
+                        "Cardiac glycoside injected. Myocardial contractility boosted."
+                    }
+                    "administerBronchodilator" -> {
+                        "Bronchodilator nebulizer active. Respiration channel cleared."
+                    }
+                    "administerSedativeTranquilizer" -> {
+                        "Tranquilizer injection applied. Unruly patient sedated."
+                    }
+                    "reportWhistleblower" -> {
+                        OrchidDeepStateManager.setOrchidIntelligence(OrchidDeepStateManager.orchidIntelligence.value - 25)
+                        "Internal whistleblower file submitted. National audit triggered."
+                    }
+                    "restockSyringesDirect" -> {
+                        "Fresh box of clinical syringes delivered (+50 units)."
+                    }
+                    "restockSalineDirect" -> {
+                        OrchidDeepStateManager.forceRestockItemDirectly("saline", 10)
+                        "Clinical Isotonic Saline IV inventory restocked (+10 bags)."
+                    }
+                    "restockAdrenalineDirect" -> {
+                        OrchidDeepStateManager.forceRestockItemDirectly("adrenaline", 5)
+                        "Epinephrine/Adrenaline ampules restocked (+5 units)."
+                    }
+                    "restockReagentsDirect" -> {
+                        "Lab reagents restocked (+5 boxes)."
+                    }
+                    "restockTherapeuticsDirect" -> {
+                        OrchidDeepStateManager.forceRestockItemDirectly("prozac", 15)
+                        "Standard Prozac stock restocked (+15 boxes)."
+                    }
+                    "bribeLobbyistBroker" -> {
+                        val cost = 800.0
+                        val currentBal = clinicBalance.value
+                        if (currentBal >= cost) {
+                            settingsDataStore.updateClinicStats(currentBal - cost, reputationStars.value)
+                            parliamentViewModel.adjustLobbyBiasDirectly("progressives", 0.15)
+                            "Bribed parliament faction lobbyists for R$cost."
+                        } else { "Insufficient funds for lobby bribe." }
+                    }
+                    "leakPatientRecordsAnonymous" -> {
+                        val currentBal = clinicBalance.value
+                        val currentRep = reputationStars.value
+                        settingsDataStore.updateClinicStats(currentBal + 3000.0, (currentRep - 1.5f).coerceAtLeast(1.0f))
+                        "Patient files sold anonymously to insurance brokers. Reputation stars dropped heavily."
                     }
                     else -> "Unknown universal action: ${action.actionName}"
                 }

@@ -4894,7 +4894,10 @@ fun WorldStatePanel(viewModel: SimulationViewModel) {
     
     Column(
         verticalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(max = 400.dp)
+            .verticalScroll(rememberScrollState())
     ) {
         val world = snapshot ?: return@Column
         
@@ -4979,6 +4982,7 @@ fun DispensaryCabinetPanel(viewModel: SimulationViewModel) {
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier
             .padding(vertical = 4.dp)
+            .heightIn(max = 400.dp)
             .verticalScroll(rememberScrollState())
     ) {
         Row(

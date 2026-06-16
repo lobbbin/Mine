@@ -374,4 +374,16 @@ object OrchidDeepStateManager {
         )
         _activeDirectives.value = pool.shuffled().take(2)
     }
+
+    fun setOrchidIntelligence(value: Int) {
+        _orchidIntelligence.value = value.coerceIn(0, 100)
+    }
+
+    fun setSyndicateReputation(value: Int) {
+        _syndicateReputation.value = value.coerceIn(0, 100)
+    }
+
+    fun setActiveDirectives(directives: List<String>) {
+        _activeDirectives.value = directives
+    }
 }
