@@ -898,7 +898,12 @@ fun DashboardScreen(
                             moddedActions.forEach { action ->
                                 val parsedColor = try { Color(android.graphics.Color.parseColor(action.buttonColorHex)) } catch (e: Exception) { MaterialTheme.colorScheme.tertiary }
                                 Button(
-                                    onClick = { viewModel.sendMessage(action.aiSystemPrompt) },
+                                    onClick = {
+                                        viewModel.sendMessage(action.aiSystemPrompt)
+                                        if (action.kotlinLogic.isNotBlank()) {
+                                            viewModel.executeKotlinLogicMod(action.kotlinLogic)
+                                        }
+                                    },
                                     colors = ButtonDefaults.buttonColors(containerColor = parsedColor),
                                     modifier = Modifier.height(32.dp),
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
@@ -5490,6 +5495,7 @@ fun DeveloperAiModdingConsoleTab(viewModel: SimulationViewModel) {
     val isLoading by viewModel.isLoading.collectAsState()
     var labelInput by remember { mutableStateOf("") }
     var promptInput by remember { mutableStateOf("[(SYSTEM OVERRIDE)]: ") }
+    var kotlinLogicInput by remember { mutableStateOf("") }
     var hexInput by remember { mutableStateOf("#D84315") }
     var aiGeneratorInput by remember { mutableStateOf("") }
 
@@ -5511,7 +5517,7 @@ fun DeveloperAiModdingConsoleTab(viewModel: SimulationViewModel) {
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "Deploy custom UI widgets & AI Prompt injection logic directly into the simulation interface.",
+                    text = "Deploy custom UI widgets & Kotlin logic injection directly into the simulation interface.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -5529,7 +5535,7 @@ fun DeveloperAiModdingConsoleTab(viewModel: SimulationViewModel) {
                 Text("✨ AI ASSISTED GENERATOR", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onTertiaryContainer)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Describe what you want the custom button to do and we'll dynamically construct the AI prompt and UI element for you.",
+                    text = "Describe what you want the custom button to do and we'll dynamically construct the AI prompt, UI element, and Kotlin Game Logic for you.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onTertiaryContainer
                 )
@@ -5539,7 +5545,7 @@ fun DeveloperAiModdingConsoleTab(viewModel: SimulationViewModel) {
                         value = aiGeneratorInput,
                         onValueChange = { aiGeneratorInput = it },
                         label = { Text("What should the button do?") },
-                        placeholder = { Text("e.g. Call security to escort patient") },
+                        placeholder = { Text("e.g. Fine doctor 5000 and take 5 prestige") },
                         modifier = Modifier.weight(1f),
                         singleLine = true
                     )
@@ -5547,10 +5553,11 @@ fun DeveloperAiModdingConsoleTab(viewModel: SimulationViewModel) {
                     Button(
                         onClick = {
                             if (aiGeneratorInput.isNotBlank()) {
-                                viewModel.generateAiMod(aiGeneratorInput) { genLabel, genPrompt, genHex ->
+                                viewModel.generateAiMod(aiGeneratorInput) { genLabel, genPrompt, genHex, genKotlin ->
                                     labelInput = genLabel
                                     promptInput = genPrompt
                                     hexInput = genHex
+                                    kotlinLogicInput = genKotlin
                                     aiGeneratorInput = ""
                                 }
                             }
@@ -5595,6 +5602,18 @@ fun DeveloperAiModdingConsoleTab(viewModel: SimulationViewModel) {
                 Spacer(modifier = Modifier.height(8.dp))
 
                 OutlinedTextField(
+                    value = kotlinLogicInput,
+                    onValueChange = { kotlinLogicInput = it },
+                    label = { Text("Kotlin Logic Script (Emulated State Modifier)") },
+                    placeholder = { Text("clinicBalance -= 5000\npoliticalPrestige += 10") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                    maxLines = 5,
+                    textStyle = androidx.compose.ui.text.TextStyle(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
                     value = hexInput,
                     onValueChange = { hexInput = it },
                     label = { Text("Button Color Hex (e.g. #D84315)") },
@@ -5610,10 +5629,12 @@ fun DeveloperAiModdingConsoleTab(viewModel: SimulationViewModel) {
                             OrchidDeepStateManager.addCustomAction(
                                 label = labelInput,
                                 promptText = promptInput,
-                                hexColor = hexInput
+                                hexColor = hexInput,
+                                kotlinLogic = kotlinLogicInput
                             )
                             labelInput = ""
                             promptInput = "[(SYSTEM OVERRIDE)]: "
+                            kotlinLogicInput = ""
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -5673,6 +5694,15 @@ fun DeveloperAiModdingConsoleTab(viewModel: SimulationViewModel) {
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
                             )
+                            if (action.kotlinLogic.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Logic:\n${action.kotlinLogic}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                                )
+                            }
                         }
                     }
                 }

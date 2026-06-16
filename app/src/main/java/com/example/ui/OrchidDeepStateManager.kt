@@ -12,7 +12,8 @@ data class CustomUiAction(
     val id: String,
     val buttonLabel: String,
     val aiSystemPrompt: String,
-    val buttonColorHex: String
+    val buttonColorHex: String,
+    val kotlinLogic: String = ""
 )
 
 // --- HIGH FIDELITY DISPENSARY DATA MODEL ---
@@ -52,12 +53,13 @@ object OrchidDeepStateManager {
     private val _customUiActions = MutableStateFlow<List<CustomUiAction>>(emptyList())
     val customUiActions: StateFlow<List<CustomUiAction>> = _customUiActions.asStateFlow()
 
-    fun addCustomAction(label: String, promptText: String, hexColor: String = "#6200EE") {
+    fun addCustomAction(label: String, promptText: String, hexColor: String = "#6200EE", kotlinLogic: String = "") {
         val newAction = CustomUiAction(
             id = UUID.randomUUID().toString(),
             buttonLabel = label,
             aiSystemPrompt = promptText,
-            buttonColorHex = hexColor
+            buttonColorHex = hexColor,
+            kotlinLogic = kotlinLogic
         )
         _customUiActions.update { it + newAction }
     }

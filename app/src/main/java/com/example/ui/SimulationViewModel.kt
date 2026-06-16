@@ -4403,7 +4403,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         return lastValidAmount
     }
 
-    fun generateAiMod(intent: String, onComplete: (label: String, prompt: String, hex: String) -> Unit) {
+    fun generateAiMod(intent: String, onComplete: (label: String, prompt: String, hex: String, kotlin: String) -> Unit) {
         if (_isLoading.value) return
         viewModelScope.launch {
             _isLoading.value = true
@@ -4413,13 +4413,20 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val currentKey = apiKey.value
 
                 val systemPrompt = """
-                    You are a UI generation assistant. The user wants to create a custom AI Action Button in a clinic simulator.
+                    You are an expert Kotlin mod generator for a clinic simulator. The user wants to create a custom AI Action Button that does something in game logic.
+                    Available variables you can modify as string lines:
+                    - clinicBalance += 5000.0
+                    - consultationFee = 0.0
+                    - politicalPrestige -= 10
+                    - reputationStars += 1.0
+                    
                     User intent: "$intent"
                     Return ONLY valid JSON wrapping the button configuration:
                     {
-                      "label": "Short Action Verb (e.g., Threaten Patient, Bribe Doctor, Send Security)",
-                      "prompt": "[(SYSTEM OVERRIDE)]: <Direct narrative or action instructions for the doctor AI to follow based on intent>",
-                      "hex": "#D84315"
+                      "label": "Short Action Verb (e.g., Threaten Patient, Bribe Official)",
+                      "prompt": "[(SYSTEM OVERRIDE)]: <Direct narrative instructions for the AI to react to>",
+                      "hex": "#D84315",
+                      "kotlinLogic": "clinicBalance += 1000.0\npoliticalPrestige -= 5"
                     }
                 """.trimIndent()
                 
@@ -4437,15 +4444,58 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val promptStr = json.optString("prompt", "[(SYSTEM OVERRIDE)]:")
                 var hexColor = json.optString("hex", "#6200EE")
                 if (!hexColor.startsWith("#")) hexColor = "#$hexColor"
+                val kotlinLogic = json.optString("kotlinLogic", "")
                 
-                onComplete(label, promptStr, hexColor)
+                onComplete(label, promptStr, hexColor, kotlinLogic)
             } catch (e: Exception) {
                 android.util.Log.e("AiMod", "Failed mod gen", e)
-                onComplete("Failed AI Mod", "[(SYSTEM OVERRIDE)]: You tried to run a mod but it failed.", "#000000")
+                onComplete("Failed AI Mod", "[(SYSTEM OVERRIDE)]: You tried to run a mod but it failed.", "#000000", "")
             } finally {
                 _isLoading.value = false
             }
         }
+    }
+
+    fun executeKotlinLogicMod(logic: String) {
+        if (logic.isBlank()) return
+        val lines = logic.split("\n")
+        var currentBalance = clinicBalance.value
+        var currentPrestige = politicalPrestige.value
+        var currentReputation = reputationStars.value
+        var currentFee = consultationFee.value
+
+        for (line in lines) {
+            val l = line.trim()
+            try {
+                when {
+                    l.startsWith("clinicBalance +=") -> currentBalance += l.substringAfter("+=").trim().toDouble()
+                    l.startsWith("clinicBalance -=") -> currentBalance -= l.substringAfter("-=").trim().toDouble()
+                    l.startsWith("clinicBalance =")  -> currentBalance = l.substringAfter("=").trim().toDouble()
+
+                    l.startsWith("politicalPrestige +=") -> currentPrestige += l.substringAfter("+=").trim().toInt()
+                    l.startsWith("politicalPrestige -=") -> currentPrestige -= l.substringAfter("-=").trim().toInt()
+                    l.startsWith("politicalPrestige =")  -> currentPrestige = l.substringAfter("=").trim().toInt()
+
+                    l.startsWith("reputationStars +=") -> currentReputation += l.substringAfter("+=").trim().toFloat()
+                    l.startsWith("reputationStars -=") -> currentReputation -= l.substringAfter("-=").trim().toFloat()
+                    l.startsWith("reputationStars =")  -> currentReputation = l.substringAfter("=").trim().toFloat()
+
+                    l.startsWith("consultationFee +=") -> currentFee += l.substringAfter("+=").trim().toDouble()
+                    l.startsWith("consultationFee -=") -> currentFee -= l.substringAfter("-=").trim().toDouble()
+                    l.startsWith("consultationFee =")  -> currentFee = l.substringAfter("=").trim().toDouble()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("AiMod", "Error parsing logic line: ${line}", e)
+            }
+        }
+
+        viewModelScope.launch {
+            settingsDataStore.updateClinicStats(currentBalance, currentReputation.coerceIn(0.0f, 5.0f))
+            settingsDataStore.savePoliticalPrestige(currentPrestige.coerceIn(0, 100))
+            settingsDataStore.savePricing(currentFee, labCost.value, specialistCost.value)
+        }
+        
+        sendMessage("*(SYSTEM EXECUTION)*: Executed Logic Mod \n```kotlin\n$logic\n```")
     }
 
     // --- NEW GEOPOLITICAL GAMEPLAY FUNCTIONS ---
