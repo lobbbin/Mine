@@ -264,21 +264,9 @@ fun LabsTabContent(state: SimulationState) {
     }
 }
 
-private data class SchemeEstimate(
-    val consultCover: String,
-    val labCover: String,
-    val copay: Double,
-    val details: String
-)
-
 @Composable
 fun BillingTabContent(viewModel: SimulationViewModel, state: SimulationState) {
     val scrollState = rememberScrollState()
-    val consultFee by viewModel.consultationFee.collectAsState()
-    val labsExpensesIncurred = state.expensesIncurred
-    
-    var selectedSchemeIndex by remember { mutableStateOf(0) } // 0: Discovery, 1: GEMS, 2: Bonitas, 3: Cash Paying
-    val schemes = listOf("Discovery Classic", "GEMS Onyx", "Bonitas Standard", "Cash/Out-of-Pocket")
 
     Column(
         modifier = Modifier
@@ -286,118 +274,6 @@ fun BillingTabContent(viewModel: SimulationViewModel, state: SimulationState) {
             .verticalScroll(scrollState)
             .padding(bottom = 24.dp)
     ) {
-        // 🇿🇦 Medical Aid Cover & Co-Payment Estimator Card
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f)),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f)),
-            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
-        ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                Text(
-                    text = "🇿🇦 MEDICAL AID COVER & CO-PAY ESTIMATOR",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    letterSpacing = 1.sp
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Comparative out-of-pocket patient co-payments for prominent South African medical schemes:",
-                    fontSize = 10.sp,
-                    lineHeight = 13.sp,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                
-                // Interactive Schemes Selector Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    schemes.forEachIndexed { idx, name ->
-                        val selected = selectedSchemeIndex == idx
-                        AssistChip(
-                            onClick = { selectedSchemeIndex = idx },
-                            label = { Text(name, fontSize = 9.sp, fontWeight = FontWeight.Bold) },
-                            colors = AssistChipDefaults.assistChipColors(
-                                containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
-                                labelColor = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-                            ),
-                            border = BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outlineVariant)
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(10.dp))
-                
-                // Computation variables
-                val currentConsultPrice = consultFee
-                val currentLabPrice = labsExpensesIncurred
-                val totalGross = currentConsultPrice + currentLabPrice
-                
-                val (coverageRateConsult, coverageRateLabs, coPayVal, schemeDetails) = when (selectedSchemeIndex) {
-                    0 -> {
-                        // Discovery Health Classic Saver
-                        val coveredConsult = currentConsultPrice * 1.00 // 100% GP DHR
-                        val coveredLabs = currentLabPrice * 0.80 // 80% DHR labs pathology
-                        val copay = (currentConsultPrice - coveredConsult) + (currentLabPrice - coveredLabs)
-                        SchemeEstimate("100% Cover", "80% Cover", copay, "Discovery Classic Saver pays via Medical Savings Account (MSA) if funds are available. Requires a 20% out-of-pocket co-payment on pathology/lab orders.")
-                    }
-                    1 -> {
-                        // GEMS Onyx
-                        val coveredConsult = currentConsultPrice * 1.00
-                        val coveredLabs = currentLabPrice * 1.00
-                        val copay = 0.0
-                        SchemeEstimate("100% Cover", "100% Cover", copay, "Government Employees Medical Scheme (GEMS): Full DSP contractor network reimbursement is authorized. Patients face R0.00 co-payment at designated services.")
-                    }
-                    2 -> {
-                        // Bonitas Standard
-                        val coveredConsult = currentConsultPrice * 0.80
-                        val coveredLabs = currentLabPrice * 0.70
-                        val copay = (currentConsultPrice - coveredConsult) + (currentLabPrice - coveredLabs)
-                        SchemeEstimate("80% Cover", "70% Cover", copay, "Bonitas Standard Scheme applies 20% consulting co-payment and 30% pathology levy. Best for patients with healthy MSA balances.")
-                    }
-                    else -> {
-                        // Cash / Out Of Pocket
-                        val copay = totalGross
-                        SchemeEstimate("0% Cover", "0% Cover", copay, "Uninsured or self-funding patients bear 100% private financial responsibility immediately at consultation time. Ideal for checking and visual budgeting.")
-                    }
-                }
-                
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("GP Base Consultation Code 0101:", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("R ${String.format("%.2f", currentConsultPrice)} ($coverageRateConsult)", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        }
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Pathology Blood Investigations:", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("R ${String.format("%.2f", currentLabPrice)} ($coverageRateLabs)", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        }
-                        Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f), thickness = 0.5.dp)
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Total Outlay Base:", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                            Text("R ${String.format("%.2f", totalGross)}", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        }
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text("Simulated Out-of-Pocket Patient Co-Pay:", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary)
-                            Text("R ${String.format("%.2f", coPayVal)}", fontSize = 11.sp, fontWeight = FontWeight.Black, color = if (coPayVal > 0) Color(0xFFC62828) else Color(0xFF1B5E20))
-                        }
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = schemeDetails,
-                            fontSize = 8.sp,
-                            lineHeight = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-        }
-
         if (state.billingReceipt.isNullOrBlank()) {
             EmptyFolderView(
                 icon = Icons.Default.LocalAtm,

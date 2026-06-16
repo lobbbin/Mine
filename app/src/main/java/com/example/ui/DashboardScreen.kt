@@ -2877,6 +2877,32 @@ fun DailyPracticeClosureCard(
                 }
             }
 
+            if (patientsSeenToday >= 5) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Button(
+                    onClick = { viewModel.advanceDayPrac() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .testTag("advance_day_button_persistent"),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF2E7D32),
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, tint = Color.White)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "🌅 ADVANCE TO DAY ${currentDay + 1}",
+                        fontWeight = FontWeight.Black,
+                        fontSize = 16.sp,
+                        color = Color.White
+                    )
+                }
+            }
+
             if (isExpanded) {
                 Spacer(modifier = Modifier.height(12.dp))
 

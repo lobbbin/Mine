@@ -646,28 +646,9 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                                 document.add(createPdfShadedBox(curr.sickNoteString, "📝 Sick Note / Official Medical Certificate:", normalFont, boldFont))
                             }
 
-                            // 🇿🇦 1. Medical Aid Cover & Co-Payment Estimator
                             val currentConsultPrice = 450.0
                             val currentLabPrice = curr.expensesIncurred
                             val totalGross = currentConsultPrice + currentLabPrice
-                            val copayDiscovery = (currentLabPrice * 0.20)
-                            val copayBonitas = (currentConsultPrice * 0.20) + (currentLabPrice * 0.30)
-                            
-                            val medicalAidEstimatorText = """
-                                * Discovery Classic Saver (100% Consult, 80% Pathology list cover):
-                                  Consult Cover: R${String.format("%.2f", currentConsultPrice)} | Labs Pathology Cover: R${String.format("%.2f", currentLabPrice * 0.80)}
-                                  Estimated Out-of-pocket Patient Co-Payment: R${String.format("%.2f", copayDiscovery)}
-                                * GEMS Onyx Plan (100% Consult, 100% Pathology list cover):
-                                  Consult Cover: R${String.format("%.2f", currentConsultPrice)} | Labs Pathology Cover: R${String.format("%.2f", currentLabPrice)}
-                                  Estimated Out-of-pocket Patient Co-Payment: R0.00
-                                * Bonitas Standard Plan (80% Consult, 70% Pathology list cover):
-                                  Consult Cover: R${String.format("%.2f", currentConsultPrice * 0.80)} | Labs Pathology Cover: R${String.format("%.2f", currentLabPrice * 0.70)}
-                                  Estimated Out-of-pocket Patient Co-Payment: R${String.format("%.2f", copayBonitas)}
-                                * Cash / Private Self-Funding:
-                                  Estimated Out-of-pocket Patient Co-Payment: R${String.format("%.2f", totalGross)}
-                            """.trimIndent()
-                            
-                            document.add(createPdfShadedBox(medicalAidEstimatorText, "🇿🇦 Medical Aid Cover & Co-Payment Estimator (ZAR South African Tariffs):", normalFont, boldFont))
 
                             // 🇿🇦 2. ZAR Generic Drug Alternative Advisor
                             var matchesFoundText = ""
