@@ -1199,10 +1199,25 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                             """.trimIndent()
                         } else ""
 
+                        val activePolList = activePolicies.value
+                        val policyGeneratorContext = if (activePolList.isNotEmpty()) {
+                            val sb = StringBuilder()
+                            sb.append("\nACTUALLY ENACTED HEALTH LAWS & COMPLIANCE MANDATES IN THE CLINIC:")
+                            activePolList.forEach { p ->
+                                sb.append("\n- ${p.title}: ${p.clinicalRule}")
+                                if (p.runtimeConstraints.containsKey("disableInsurance") && p.runtimeConstraints["disableInsurance"] == true) {
+                                    sb.append(" (CRITICAL: ALL private medical aid billing is strictly banned/outlawed in this country! The generated patient MUST have 'State Funded', 'National Health Service (NHS)', or 'Out-of-Pocket Cash' insuranceStatus. Absolutely NO private medical aid provider names or schemes are allowed.)")
+                                }
+                            }
+                            sb.toString()
+                        } else ""
+
                         val prompt = """
                             You are the Advanced Clinical and Practice Case Generator.
                             Your task is to generate a completely unique, highly realistic medical patient profile for a General Practice training simulation.
                             The context is a Private General Practitioner clinic in ${countryName.value}.
+                            
+                            $policyGeneratorContext
                             
                             $vipParameters
                             
@@ -1222,7 +1237,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                               "pathophysiology": "highly detailed master-level explanation of the mechanical and biological pathophysiology matching the diagnosis.",
                               "expectedLabs": "detailed summary of realistic clinical lab investigations, pathology, or imaging findings. Blood chemistry, counts, CRP, Hb, electrolytes, urine, glucose, or imaging as relevant.",
                               "severity": "$targetSeverity",
-                              "insuranceStatus": "randomly assign either: ${OrchidDeepStateManager.medicalAidSchemes.value.joinToString { "'" + it.name + "'" }}, or 'Out-of-Pocket Cash'",
+                              "insuranceStatus": "The name of the patient's medical insurance, medical aid scheme, National Health Service (NHS), state-funded or 'Out-of-Pocket Cash'. You have complete freedom to select/choose any realistic provider or scheme name appropriate for the local South African / country context (for example: Discovery Health Saver, GEMS Jade, Bonitas Standard, Medshield, CarePlus Prime, NHS, or Out-of-Pocket Cash). Vary this dynamically so Elite does not always pop up.",
                               "initialVitals": {
                                 "bp": "blood pressure string (e.g. '120/80')",
                                 "hr": "heart rate string",
@@ -1936,7 +1951,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             onSuccessExtra = {
                 // Perform final accounting! Cash flow is received.
                 val activeSchemeStr = _hiddenCase.value?.insuranceStatus ?: "Out-of-Pocket Cash"
-                val matchedScheme = OrchidDeepStateManager.medicalAidSchemes.value.find { activeSchemeStr.contains(it.name, ignoreCase = true) }
+                val matchedScheme = OrchidDeepStateManager.resolveAndRegisterInsuranceScheme(activeSchemeStr)
                 
                 var medicalAidCover = 0.0
                 var trueCopay = lastExtractedBillingAmount
@@ -1949,10 +1964,10 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     } else {
                         logAndEmitError("Claim Denied by ${matchedScheme.name}! Patient must pay Out-of-Pocket.")
                     }
-                } else if (activeSchemeStr.contains("State Funded") || activeSchemeStr.contains("NHS")) {
+                } else if (activeSchemeStr.contains("State Funded", ignoreCase = true) || activeSchemeStr.contains("NHS", ignoreCase = true)) {
                     medicalAidCover = lastExtractedBillingAmount // Assuming 100% covered if old logic hits
                     trueCopay = 0.0
-                } else if (activeSchemeStr.contains("Private Medical Aid")) { // Fallback for hardcoded legacy patients
+                } else if (activeSchemeStr.contains("Private Medical Aid", ignoreCase = true)) { // Fallback for hardcoded legacy patients
                     medicalAidCover = lastExtractedBillingAmount * 0.8
                     trueCopay = lastExtractedBillingAmount * 0.2
                 }
@@ -3707,6 +3722,26 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
     private val _lawsuitActive = MutableStateFlow(false)
     val lawsuitActive: StateFlow<Boolean> = _lawsuitActive.asStateFlow()
 
+    private val _courtroomPatientLog = MutableStateFlow("")
+    val courtroomPatientLog: StateFlow<String> = _courtroomPatientLog.asStateFlow()
+
+    private val _selectedJustificationLaws = MutableStateFlow<List<String>>(emptyList())
+    val selectedJustificationLaws: StateFlow<List<String>> = _selectedJustificationLaws.asStateFlow()
+
+    fun toggleJustificationLaw(lawTitle: String) {
+        val current = _selectedJustificationLaws.value.toMutableList()
+        if (current.contains(lawTitle)) {
+            current.remove(lawTitle)
+        } else {
+            current.add(lawTitle)
+        }
+        _selectedJustificationLaws.value = current
+    }
+
+    fun clearJustificationLaws() {
+        _selectedJustificationLaws.value = emptyList()
+    }
+
     private val _lawsuitLog = MutableStateFlow<List<String>>(emptyList())
     val lawsuitLog: StateFlow<List<String>> = _lawsuitLog.asStateFlow()
 
@@ -3759,6 +3794,8 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         _lawsuitProsecutorAggression.value = 70
         _lawsuitCurrentStage.value = "charges"
 
+        _selectedJustificationLaws.value = emptyList()
+
         val targetName = patientName.takeIf { it.isNotBlank() } ?: "Sipho Mokoena"
         val targetDiag = caseDiagnosis.takeIf { it.isNotBlank() } ?: "Schizophrenia"
         val targetScore = score
@@ -3766,6 +3803,56 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         _lawsuitPatientName.value = targetName
         _lawsuitCaseDiag.value = targetDiag
         _lawsuitViolatedPolicies.value = violations
+
+        // Assemble compiling patient log
+        val currentState = _uiState.value
+        val hiddenCaseVal = _hiddenCase.value
+        
+        val fullLogBuilder = StringBuilder()
+        fullLogBuilder.append("=== COMPREHENSIVE PATIENT CLINICAL HISTORY LOG ===\n")
+        fullLogBuilder.append("Patient: $targetName\n")
+        fullLogBuilder.append("Demographics: ${currentState.patientDemographics}\n")
+        if (hiddenCaseVal != null) {
+            fullLogBuilder.append("True Diagnosis: ${hiddenCaseVal.trueDiagnosis}\n")
+            fullLogBuilder.append("Severity: ${hiddenCaseVal.severity}\n")
+            fullLogBuilder.append("Insurance Tier: ${hiddenCaseVal.insuranceStatus}\n")
+            fullLogBuilder.append("Chief Complaint: ${hiddenCaseVal.chiefComplaint}\n")
+            fullLogBuilder.append("Clinician Assessment (DDx Notes): ${currentState.ddxNotes}\n")
+        }
+        
+        fullLogBuilder.append("\n=== INITIAL ENCOUNTER VITALS ===\n")
+        currentState.vitals?.let {
+            fullLogBuilder.append("- Blood Pressure: ${it.bp}\n")
+            fullLogBuilder.append("- Heart Rate: ${it.hr}\n")
+            fullLogBuilder.append("- Temp: ${it.tempC}°C\n")
+            fullLogBuilder.append("- Resp Rate: ${it.rr}\n")
+            fullLogBuilder.append("- SpO2: ${it.spo2}\n")
+        }
+        
+        fullLogBuilder.append("\n=== DIAGNOSTICS & EXAMINATIONS ===\n")
+        fullLogBuilder.append("- Lab Results: ${currentState.labResults ?: "None Checked"}\n")
+        fullLogBuilder.append("- Physical Exam: ${currentState.physicalExamResults ?: "None Checked"}\n")
+        
+        fullLogBuilder.append("\n=== THERAPEUTIC SUMMARY ===\n")
+        fullLogBuilder.append("- Submitted Diagnosis: ${currentState.submittedDiagnosis}\n")
+        fullLogBuilder.append("- Submitted Treatment Plan: ${currentState.submittedTreatmentPlan}\n")
+        
+        fullLogBuilder.append("\n=== CHRONOLOGICAL BEDSIDE CHAT TRANSCRIPTS ===\n")
+        currentState.chatHistory.forEach { msg ->
+            val speaker = when (msg.role) {
+                "doctor", "user" -> "DR. TIM"
+                "patient" -> "PATIENT"
+                "system" -> "SYSTEM DIRECTIVE"
+                else -> msg.role.uppercase()
+            }
+            if (!msg.text.contains("Generating a completely randomized new case")) {
+                fullLogBuilder.append("[$speaker]: ${msg.text}\n")
+            }
+        }
+        
+        fullLogBuilder.append("\n=== NATIONAL CLINICAL PERFORMANCE REPORT ===\n")
+        fullLogBuilder.append(currentState.evaluation ?: "No formal audit recorded.")
+        _courtroomPatientLog.value = fullLogBuilder.toString()
 
         val chargesList = mutableListOf<String>()
         if (violations.isNotEmpty()) {
@@ -3967,6 +4054,11 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
 
         val currentHistoryLog = _lawsuitLog.value.joinToString("\n\n")
 
+        val selectedJustify = _selectedJustificationLaws.value
+        val justificationContext = if (selectedJustify.isNotEmpty()) {
+            "The defendant is specifically invoking these enacted laws to justify their actions or prove they complied:\n" + selectedJustify.joinToString("\n") { "- $it" }
+        } else "The defendant has not specified which enacted laws they are trying to justify/disprove."
+
         val prompt = """
             You are simulating an interactive clinical trial hearing in the Supreme Medical Court of the Republic of ${countryName.value}.
             
@@ -3980,6 +4072,12 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             $policyDetailsStr
             
             $AGENT_POWERS_PROMPT
+
+            COMPREHENSIVE PATIENT PERFORMANCE RECORD LOG (WHAT ACTUALLY HAPPENED AT THE BEDSIDE CLINICAL ENCOUNTER):
+            ${_courtroomPatientLog.value}
+
+            DEFENDANT'S JUSTIFIED REASONINGS:
+            $justificationContext
             
             LEGAL DEFENSE DETAILS IN THIS PLEA ROUND:
             - Defendant's Written Testimony / Pleading speech: "$pleaMsg"
@@ -3989,11 +4087,12 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             YOUR JOB IN THIS INTERIM ROUND:
             1. Roleplay the intense, sharp voice of the State Prosecutor and the impartial questioning of the Presiding Judge in Pretoria.
             2. The state prosecutor must cross-examine the doctor's specific typed statement "$pleaMsg" and check the validity of their submitted evidence: "${selectedEvidence.joinToString("; ")}".
-            3. If the defense makes clinical sense (e.g. they dispensed adrenaline because the patient was in anaphylaxis, or ordered saline due to shock, backed by appropriate evidence), reduce the tension and aggression metrics. If the excuse is weak or contradicts standard health protocols, increase tension and aggression metrics.
-            4. Provide the prosecutor's aggressive response and the Judge's subsequent inquiry in 'courtDialogue'.
-            5. Return raw JSON matching this EXACT schema:
+            3. CRITICAL AUDIT: Compare the defendant's justification claims ($justificationContext) with the actual performance record log of what happened at the bedside. Verify if they are telling the truth or if they are offering a bogus distraction! For example, if they claim they complied with the Single-Payer ENHS Act by billing R0, verify if they did; if they claim compliance with diagnostics, check if they checked vitals/labs etc. Aggressively call them out in court if their excuses columns mismatch the raw patient log!
+            4. If the defense makes true clinical and legal sense (it complies with the laws and standard medical protocols based on the logs), reduce the tension and aggression metrics. If they claim compliance but the logs show they clearly broke the law or acted carelessly, aggressively call them out on it, and increase the tension and aggression metrics.
+            5. Provide the prosecutor's aggressive response and the Judge's subsequent inquiry in 'courtDialogue'.
+            6. Return raw JSON matching this EXACT schema:
             {
-               "courtDialogue": "Prosecutor's sharp rebuttal questioning the evidence, followed by the Presiding Judge's formal query on the record.",
+               "courtDialogue": "Prosecutor's sharp rebuttal questioning the evidence and auditing justifications against logs, followed by the Presiding Judge's formal query on the record.",
                "tensionAdjustment": -10,
                "aggressionAdjustment": -15,
                "defenseInsightText": "A quick note of guidance or strategic legal advice from Dr. Tim's hired defense lawyer."
@@ -4024,6 +4123,9 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     logs.add("🗣️ DOCTOR'S DEFENSE:\n\"$pleaMsg\"")
                     if (selectedEvidence.isNotEmpty()) {
                         logs.add("📁 SUBMITTED EVIDENCE TO COURT:\n" + selectedEvidence.joinToString("\n"))
+                    }
+                    if (selectedJustify.isNotEmpty()) {
+                        logs.add("⚖️ CITED JUSTIFIED STATUTES:\n" + selectedJustify.joinToString(", "))
                     }
                     logs.add("👨‍⚖️ TRIBUNAL HEARINGS & INQUEST:\n$dialogue")
                     logs.add("💼 LAWYER'S INSIGHT: $insight")
@@ -4058,6 +4160,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         val currentHistoryLog = _lawsuitLog.value.joinToString("\n\n")
         val lawyer = OrchidDeepStateManager.hiredLawyer.value
         val activeSeledEvid = OrchidDeepStateManager.selectedEvidenceToPresent.value
+        val selectedJustify = _selectedJustificationLaws.value
 
         val prompt = """
             You are the Presiding Judge and Supreme Justice of the High Court Medical Tribunal of ${countryName.value}.
@@ -4065,7 +4168,14 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             
             CASE SPECIFICATION:
             - Case: Treated "${_lawsuitPatientName.value}" for "${_lawsuitCaseDiag.value}".
-            - Cumulative Case Court Transcript (Plea history and prosecutorial arguments):
+            
+            COMPREHENSIVE PATIENT PERFORMANCE RECORD LOG (WHAT ACTUALLY HAPPENED AT BEDSIDE):
+            ${_courtroomPatientLog.value}
+
+            DEFENDANT'S CITED JUSTIFIED STATUTES:
+            ${if (selectedJustify.isNotEmpty()) selectedJustify.joinToString(", ") else "None highlighted specifically."}
+
+            Cumulative Case Court Transcript (Plea history and prosecutorial arguments):
             $currentHistoryLog
             
             EVIDENTIARY EXHIBITS RULING ON:
@@ -4081,10 +4191,11 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             
             YOUR DIRECTIVE:
             1. Formulate a final, realistic sentencing judgment.
-            2. Verdict types allowed: "Exonerated" (if tension < 45% and appropriate evidence was provided), "Warning" (tension 45-60%), "Fined" (tension 60-80% or severe statutory breaches), "Suspension" (tension > 80% or repeated violations).
-            3. If Fined, define a numeric cash fine (e.g. R500.00 to R3000.00). Deduct this from the clinic's balance.
-            4. If Suspension, define the suspension weeks (e.g. 1 to 3 weeks).
-            5. Return raw JSON matching this schema:
+            2. Evaluate whether the doctor successfully justified that they didn't violate the active clinical laws in their defense pleadings, backed up by the actual performance records log.
+            3. Verdict types allowed: "Exonerated" (if temperature score/tension <= 45% and they proved they fully complied with all active health laws as validated by the factual bedside log), "Warning" (tension 46-60%), "Fined" (tension 61-80% or clear statutory violation in patient log), "Suspension" (tension > 80% or severe deliberate statutory breach).
+            4. If Fined, define a numeric cash fine (e.g. R500.00 to R3000.00). Deduct this from the clinic's balance.
+            5. If Suspension, define the suspension weeks (e.g. 1 to 3 weeks).
+            6. Return raw JSON matching this schema:
             {
                "verdictType": "Fined",
                "fineAmount": 1200.0,
@@ -4290,6 +4401,51 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         }
         
         return lastValidAmount
+    }
+
+    fun generateAiMod(intent: String, onComplete: (label: String, prompt: String, hex: String) -> Unit) {
+        if (_isLoading.value) return
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val currentProvider = provider.value
+                val currentModel = model.value
+                val currentKey = apiKey.value
+
+                val systemPrompt = """
+                    You are a UI generation assistant. The user wants to create a custom AI Action Button in a clinic simulator.
+                    User intent: "$intent"
+                    Return ONLY valid JSON wrapping the button configuration:
+                    {
+                      "label": "Short Action Verb (e.g., Threaten Patient, Bribe Doctor, Send Security)",
+                      "prompt": "[(SYSTEM OVERRIDE)]: <Direct narrative or action instructions for the doctor AI to follow based on intent>",
+                      "hex": "#D84315"
+                    }
+                """.trimIndent()
+                
+                val rawText = makeFreshDirectApiCall(
+                    provider = currentProvider,
+                    modelName = currentModel,
+                    apiKey = currentKey ?: "",
+                    systemPrompt = systemPrompt,
+                    customUrl = customEndpoint.value ?: ""
+                )
+
+                val cleaned = rawText.replace("```json", "").replace("```", "").trim()
+                val json = org.json.JSONObject(cleaned)
+                val label = json.optString("label", "Action")
+                val promptStr = json.optString("prompt", "[(SYSTEM OVERRIDE)]:")
+                var hexColor = json.optString("hex", "#6200EE")
+                if (!hexColor.startsWith("#")) hexColor = "#$hexColor"
+                
+                onComplete(label, promptStr, hexColor)
+            } catch (e: Exception) {
+                android.util.Log.e("AiMod", "Failed mod gen", e)
+                onComplete("Failed AI Mod", "[(SYSTEM OVERRIDE)]: You tried to run a mod but it failed.", "#000000")
+            } finally {
+                _isLoading.value = false
+            }
+        }
     }
 
     // --- NEW GEOPOLITICAL GAMEPLAY FUNCTIONS ---

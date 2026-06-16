@@ -73,6 +73,9 @@ fun ResultsBottomSheet(
     initialTab: Int = 0
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val activePolicies by viewModel.activePolicies.collectAsState()
+    val disableInsurance = activePolicies.any { it.runtimeConstraints["disableInsurance"] == true }
+    
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     
     var selectedTab by remember { mutableStateOf(initialTab) }
@@ -424,6 +427,9 @@ fun CaseLogsTabContent(viewModel: SimulationViewModel, onDismiss: () -> Unit) {
         allEncounters.filter { it.isEncounterComplete }
     }
 
+    val activePolicies by viewModel.activePolicies.collectAsState()
+    val disableInsurance = activePolicies.any { it.runtimeConstraints["disableInsurance"] == true }
+
     val groupedPatients = remember(completedEncounters) {
         completedEncounters.groupBy { it.patientDemographics }
     }
@@ -511,11 +517,13 @@ fun CaseLogsTabContent(viewModel: SimulationViewModel, onDismiss: () -> Unit) {
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
-                                Text(
-                                    text = "Insurance: ${latestEnc.insuranceStatus}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                if (!disableInsurance) {
+                                    Text(
+                                        text = "Insurance: ${latestEnc.insuranceStatus}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                             
                             Row(
@@ -735,6 +743,8 @@ fun LedgerTabContent(viewModel: SimulationViewModel) {
     val balance by viewModel.clinicBalance.collectAsState()
     val reputation by viewModel.reputationStars.collectAsState()
     val allEncounters by viewModel.allEncounters.collectAsState(initial = emptyList())
+    val activePolicies by viewModel.activePolicies.collectAsState()
+    val disableInsurance = activePolicies.any { it.runtimeConstraints["disableInsurance"] == true }
     
     val completedCases = allEncounters.filter { it.isEncounterComplete }
     val totalRevenue = completedCases.sumOf { it.revenueEarned }
@@ -876,7 +886,7 @@ fun LedgerTabContent(viewModel: SimulationViewModel) {
                                         )
                                     }
                                     Text(
-                                        text = "${encounter.specialty} • ${encounter.insuranceStatus}",
+                                        text = if (disableInsurance) encounter.specialty else "${encounter.specialty} • ${encounter.insuranceStatus}",
                                         fontSize = 10.sp,
                                         color = MaterialTheme.colorScheme.secondary,
                                         fontWeight = FontWeight.Medium

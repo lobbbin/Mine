@@ -498,6 +498,12 @@ class ParliamentViewModel(
                     Write a short, professional presidential executive memo (max 3 sentences) commenting on your decision to sign this into active clinical law. Start with "I have decided to sign this act..."
                     Take into account your party's philosophy and your current approval rating.
                     
+                    You MUST respond strictly with a raw JSON object matching the following structure. Do not output any markdown formatting, codeblocks (```json ... ```), or introductory/concluding text.
+                    {
+                      "memo": "Your short presidential executive memo comments",
+                      "agentActions": [ ... list any actions/commands you want to enact as executive orders ... ]
+                    }
+                    
                     $AGENT_POWERS_PROMPT
                 """.trimIndent()
                 
@@ -516,7 +522,13 @@ class ParliamentViewModel(
                     val sanitized = extractJsonString(apiResponseRaw)
                     if (sanitized.startsWith("{")) {
                         val json = JSONObject(sanitized)
-                        memoText = if (json.has("memo")) json.optString("memo") else apiResponseRaw
+                        memoText = when {
+                            json.has("memo") -> json.optString("memo")
+                            json.has("presidentialMemo") -> json.optString("presidentialMemo")
+                            json.has("comment") -> json.optString("comment")
+                            json.has("presidential_memo") -> json.optString("presidential_memo")
+                            else -> apiResponseRaw
+                        }
                         
                         if (json.has("agentActions")) {
                             val actions = json.getJSONArray("agentActions")
@@ -528,6 +540,15 @@ class ParliamentViewModel(
                     }
                 } catch (e: Exception) {
                     // Fallback to raw string if JSON parsing fails
+                }
+
+                if (memoText.trim().startsWith("{") && memoText.trim().endsWith("}")) {
+                    try {
+                        val j = JSONObject(memoText.trim())
+                        memoText = j.optString("memo", j.optString("presidentialMemo", j.optString("comment", j.optString("presidential_memo", "I have decided to sign this act."))))
+                    } catch (e: Exception) {
+                        memoText = "I have decided to sign this act to secure healthcare benefits and standards."
+                    }
                 }
 
                 val finalPolicy = draft.copy(
@@ -591,6 +612,12 @@ class ParliamentViewModel(
                     Write a short, professional presidential veto memo (max 3 sentences) explaining why you are vetoing this and returning it to Parliament.
                     Take into account your party's philosophy and your current approval rating.
                     
+                    You MUST respond strictly with a raw JSON object matching the following structure. Do not output any markdown formatting, codeblocks (```json ... ```), or introductory/concluding text.
+                    {
+                      "memo": "Your short presidential veto memo comments",
+                      "agentActions": [ ... list any actions/commands you want to enact as executive orders ... ]
+                    }
+                    
                     $AGENT_POWERS_PROMPT
                 """.trimIndent()
                 
@@ -609,7 +636,13 @@ class ParliamentViewModel(
                     val sanitized = extractJsonString(apiResponseRaw)
                     if (sanitized.startsWith("{")) {
                         val json = JSONObject(sanitized)
-                        memoText = if (json.has("memo")) json.optString("memo") else apiResponseRaw
+                        memoText = when {
+                            json.has("memo") -> json.optString("memo")
+                            json.has("presidentialMemo") -> json.optString("presidentialMemo")
+                            json.has("comment") -> json.optString("comment")
+                            json.has("presidential_memo") -> json.optString("presidential_memo")
+                            else -> apiResponseRaw
+                        }
                         
                         if (json.has("agentActions")) {
                             val actions = json.getJSONArray("agentActions")
@@ -621,6 +654,15 @@ class ParliamentViewModel(
                     }
                 } catch (e: Exception) {
                     // Fallback to raw string if JSON parsing fails
+                }
+
+                if (memoText.trim().startsWith("{") && memoText.trim().endsWith("}")) {
+                    try {
+                        val j = JSONObject(memoText.trim())
+                        memoText = j.optString("memo", j.optString("presidentialMemo", j.optString("comment", j.optString("presidential_memo", "I am vetoing this act."))))
+                    } catch (e: Exception) {
+                        memoText = "I am vetoing this act due to financial constraints and operational efficiency concerns."
+                    }
                 }
 
                 val finalPolicy = draft.copy(

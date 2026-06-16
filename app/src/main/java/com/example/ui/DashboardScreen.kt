@@ -232,6 +232,7 @@ fun DashboardScreen(
 
     // Instant Chat field inputs
     var doctorMessageText by remember { mutableStateOf("") }
+    var showModConsole by remember { mutableStateOf(false) }
     val lazyListState = rememberLazyListState()
     val focusManager = LocalFocusManager.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -374,6 +375,17 @@ fun DashboardScreen(
                         viewModel.generateDailyNews()
                     },
                     icon = { Icon(Icons.Default.Article, null) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
+
+                NavigationDrawerItem(
+                    label = { Text("⚙️ AI MODDING CONSOLE", fontWeight = FontWeight.Bold) },
+                    selected = activeMainTab == 2,
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        activeMainTab = 2
+                    },
+                    icon = { Icon(Icons.Default.Settings, null) },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
 
@@ -860,6 +872,43 @@ fun DashboardScreen(
                         )
                     }
                 }
+                
+                val moddedActions by OrchidDeepStateManager.customUiActions.collectAsStateWithLifecycle()
+                if (moddedActions.isNotEmpty()) {
+                    TextButton(
+                        onClick = { showModConsole = !showModConsole },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp)
+                            .height(24.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text(
+                            text = if (showModConsole) "🔽 Hide Sandbox AI Mod Tools" else "⚙️ Custom Sandbox AI Logic Agent",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (showModConsole) {
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            moddedActions.forEach { action ->
+                                val parsedColor = try { Color(android.graphics.Color.parseColor(action.buttonColorHex)) } catch (e: Exception) { MaterialTheme.colorScheme.tertiary }
+                                Button(
+                                    onClick = { viewModel.sendMessage(action.aiSystemPrompt) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = parsedColor),
+                                    modifier = Modifier.height(32.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                                ) {
+                                    Text("⚡ ${action.buttonLabel}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             // --- Conclusion Action Panel ---
@@ -1245,11 +1294,24 @@ fun DashboardScreen(
                                         currentCase.insuranceStatus.contains("Uninsured", ignoreCase = true) ||
                                         currentCase.insuranceStatus.contains("State Funded", ignoreCase = true) ||
                                         currentCase.insuranceStatus.contains("Cash", ignoreCase = true) ||
-                                        currentCase.insuranceStatus.contains("Out-of-Pocket", ignoreCase = true)
+                                        currentCase.insuranceStatus.contains("Out-of-Pocket", ignoreCase = true) ||
+                                        currentCase.insuranceStatus.contains("NHS", ignoreCase = true)
                                     )
 
                                     if (isUninsuredCase) {
+                                        Button(
+                                            onClick = {
+                                                val amountStr = String.format("%.2f", viewModel.consultationFee.value + 250.0)
+                                                viewModel.sendMessage("[(SYSTEM PING)]: *The doctor formally presents the medical bill.* \"The total out-of-pocket amount due today is R$amountStr. Kindly remit full payment before discharge.\"")
+                                                activeMainTab = 0 // Switch to Chat
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD84315)),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Text("🔔 PING PATIENT FOR FULL PAYMENT", fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color.White)
+                                        }
                                         Spacer(modifier = Modifier.height(8.dp))
+
                                         Card(
                                             colors = CardDefaults.cardColors(
                                                 containerColor = if (wildAiUninsuredMode) Color(0xFF2E1C18) else Color(0xFFFF8F00).copy(alpha = 0.08f)
@@ -1304,18 +1366,30 @@ fun DashboardScreen(
                                         
                                         Button(
                                             onClick = {
-                                                val copay = when (hiddenCase?.insuranceStatus) {
-                                                    "Private Medical Aid" -> viewModel.consultationFee.value * 0.20
-                                                    "State Funded" -> 0.0
-                                                    else -> viewModel.consultationFee.value + 250.0
+
+                                                val activeIns = hiddenCase?.insuranceStatus ?: "Out-of-Pocket Cash"
+                                                val scheme = OrchidDeepStateManager.resolveAndRegisterInsuranceScheme(activeIns)
+                                                val finalCopay = if (scheme != null) {
+                                                    viewModel.consultationFee.value * (1.0 - scheme.coveragePercent)
+                                                } else {
+                                                    if (activeIns.contains("State", ignoreCase = true) || activeIns.contains("NHS", ignoreCase = true)) {
+                                                        0.0
+                                                    } else {
+                                                        viewModel.consultationFee.value + 250.0
+                                                     }
                                                 }
-                                                viewModel.collectPaymentAndFinish("Standard Cash/Card Drawer Swipe", copay)
+                                                viewModel.collectPaymentAndFinish("Standard Cash/Card Drawer Swipe", finalCopay)
                                             },
                                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
                                             modifier = Modifier.weight(1.5f),
                                             enabled = !isLoading
                                         ) {
-                                            val copayText = when (hiddenCase?.insuranceStatus) {
+                                            val activeInsText = hiddenCase?.insuranceStatus ?: "Out-of-Pocket Cash"
+                                            val schemeText = OrchidDeepStateManager.resolveAndRegisterInsuranceScheme(activeInsText)
+                                            val copayText = if (schemeText != null) {
+                                                val pResp = 1.0 - schemeText.coveragePercent
+                                                "R ${String.format("%.2f", viewModel.consultationFee.value * pResp)} (${(pResp * 100).toInt()}%)"
+                                            } else when (hiddenCase?.insuranceStatus) {
                                                 "Private Medical Aid" -> "R ${String.format("%.2f", viewModel.consultationFee.value * 0.20)} (20%)"
                                                 "State Funded" -> "R 0.00 (Medical Aid)"
                                                 else -> "R ${String.format("%.2f", viewModel.consultationFee.value + 250.0)}"
@@ -1347,11 +1421,13 @@ fun DashboardScreen(
                     }
                 }
             }
-            } else {
+            } else if (activeMainTab == 1) {
                 StateAndLegislationTab(
                     viewModel = viewModel,
                     onAdmittedClicked = { activeMainTab = 0 }
                 )
+            } else if (activeMainTab == 2) {
+                DeveloperAiModdingConsoleTab(viewModel = viewModel)
             }
         }
     }
@@ -1488,19 +1564,19 @@ fun DashboardScreen(
             val totalEst = consultFeeVal + labCostVal + 50.0
             
             val insuranceStatus = hiddenCase?.insuranceStatus ?: "Out-of-Pocket Cash"
-            val matchedScheme = OrchidDeepStateManager.medicalAidSchemes.value.find { insuranceStatus.contains(it.name, ignoreCase = true) }
+            val matchedScheme = OrchidDeepStateManager.resolveAndRegisterInsuranceScheme(insuranceStatus)
             
             val (copayText, schemeDetails) = if (matchedScheme != null) {
                 val patientResponsibility = 1.0 - matchedScheme.coveragePercent
                 val copayAmount = totalEst * patientResponsibility
                 val preAuthHint = if (matchedScheme.requiresPreAuth) "PRE-AUTH REQUIRED" else "No Pre-Auth Needed"
-                Pair("R ${String.format("%.2f", copayAmount)} (Co-Pay ${patientResponsibility * 100}%)", "${matchedScheme.name} limit applies. $preAuthHint")
+                Pair("R ${String.format("%.2f", copayAmount)} (Co-Pay ${(patientResponsibility * 100).toInt()}%)", "${matchedScheme.name} limit applies. $preAuthHint")
             } else {
                 when {
-                    insuranceStatus.contains("State") || insuranceStatus.contains("NHS") -> {
+                    insuranceStatus.contains("State", ignoreCase = true) || insuranceStatus.contains("NHS", ignoreCase = true) -> {
                         Pair("R 0.00 (State Authorized DSP)", "No co-pays required on network contracted diagnostics.")
                     }
-                    insuranceStatus.contains("Private Medical Aid") -> {
+                    insuranceStatus.contains("Private Medical Aid", ignoreCase = true) -> {
                         val copayAmount = totalEst * 0.20
                         Pair("R ${String.format("%.2f", copayAmount)} (Standard Aid)", "20% Pathology levy rules apply.")
                     }
@@ -1984,6 +2060,33 @@ fun DashboardScreen(
                             val selectedEvidence by OrchidDeepStateManager.selectedEvidenceToPresent.collectAsStateWithLifecycle()
                             val availableEvidence by OrchidDeepStateManager.potentialEvidencePool.collectAsStateWithLifecycle()
                             var userPleaMsg by remember { mutableStateOf("") }
+                            var viewPatientLog by remember { mutableStateOf(false) }
+                            val activePolicies by viewModel.activePolicies.collectAsStateWithLifecycle()
+                            val justificationLaws by viewModel.selectedJustificationLaws.collectAsStateWithLifecycle()
+                            val patientLog by viewModel.courtroomPatientLog.collectAsStateWithLifecycle()
+
+                            if (viewPatientLog) {
+                                AlertDialog(
+                                    onDismissRequest = { viewPatientLog = false },
+                                    title = { Text("Comprehensive Factual Patient Log", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) },
+                                    text = {
+                                        Column(
+                                            modifier = Modifier.verticalScroll(rememberScrollState()).padding(2.dp)
+                                        ) {
+                                            Text(
+                                                text = patientLog,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    },
+                                    confirmButton = {
+                                        Button(onClick = { viewPatientLog = false }) {
+                                            Text("Close Log")
+                                        }
+                                    }
+                                )
+                            }
 
                             // 1. Legal Representation section
                             Text(
@@ -2044,14 +2147,27 @@ fun DashboardScreen(
 
                             Spacer(Modifier.height(8.dp))
 
-                            // 2. Interactive evidence selection
-                            Text(
-                                "📁 PRESENT CLINICAL EXHIBITS & EVIDENCE TO BENCH (${selectedEvidence.size} selected):",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Black,
-                                color = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.padding(bottom = 6.dp)
-                            )
+                            // 2A. Interactive evidence selection
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "📁 CLINICAL EXHIBITS & EVIDENCE (${selectedEvidence.size}):",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Black,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                                OutlinedButton(
+                                    onClick = { viewPatientLog = true },
+                                    modifier = Modifier.height(32.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                                ) {
+                                    Text("📖 View Factual Log", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            Spacer(Modifier.height(4.dp))
                             if (availableEvidence.isEmpty()) {
                                 Text(
                                     text = "Historical clinical registry is empty. No objective evidence available for dispatch.",
@@ -2071,6 +2187,40 @@ fun DashboardScreen(
                                             selected = isSelected,
                                             onClick = { OrchidDeepStateManager.toggleEvidenceSelection(evidence) },
                                             label = { Text(evidence, fontSize = 10.sp, maxLines = 1) }
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(Modifier.height(8.dp))
+
+                            // 2B. Citing Specific Laws for Justification
+                            Text(
+                                "⚖️ CITE LAWS IN YOUR DEFENSE (${justificationLaws.size} cited):",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Black,
+                                color = Color(0xFF673AB7),
+                                modifier = Modifier.padding(bottom = 6.dp)
+                            )
+                            if (activePolicies.isEmpty()) {
+                                Text(
+                                    text = "No active sovereign clinic laws to cite for justification or compliance.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontStyle = FontStyle.Italic,
+                                    color = Color.LightGray
+                                )
+                            } else {
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                                ) {
+                                    activePolicies.forEach { policy ->
+                                        val isSelected = justificationLaws.contains(policy.title)
+                                        FilterChip(
+                                            selected = isSelected,
+                                            onClick = { viewModel.toggleJustificationLaw(policy.title) },
+                                            label = { Text(policy.title, fontSize = 10.sp, maxLines = 1) }
                                         )
                                     }
                                 }
@@ -2444,6 +2594,7 @@ fun ClinicalHubCard(
     isLoading: Boolean,
     viewModel: SimulationViewModel
 ) {
+    val activePolicies by viewModel.activePolicies.collectAsStateWithLifecycle()
     var isExpanded by remember { mutableStateOf(false) } // Default collapsed to keep the UI clean & spacious!
     var activeTab by remember { mutableStateOf(0) } // 0: Vitals, 1: Patient Profile, 2: Interventions
 
@@ -2603,17 +2754,21 @@ fun ClinicalHubCard(
                                             )
                                         }
 
-                                        Box(
-                                            modifier = Modifier
-                                                .background(Color(0xFFE3F2FD), shape = RoundedCornerShape(4.dp))
-                                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                                        ) {
-                                            Text(
-                                                text = "💳 ${hiddenCase.insuranceStatus}",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color(0xFF1565C0)
-                                            )
+                                        val disableInsurance = activePolicies.any { it.runtimeConstraints["disableInsurance"] == true }
+                                        
+                                        if (!disableInsurance) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .background(Color(0xFFE3F2FD), shape = RoundedCornerShape(4.dp))
+                                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                                            ) {
+                                                Text(
+                                                    text = "💳 ${hiddenCase.insuranceStatus}",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color(0xFF1565C0)
+                                                )
+                                            }
                                         }
 
                                         Box(
@@ -5321,6 +5476,203 @@ fun DispensaryCabinetPanel(viewModel: SimulationViewModel) {
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = labelColor)
                         ) {
                             Text("BUY +1 STOCK", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DeveloperAiModdingConsoleTab(viewModel: SimulationViewModel) {
+    val moddedActions by OrchidDeepStateManager.customUiActions.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsState()
+    var labelInput by remember { mutableStateOf("") }
+    var promptInput by remember { mutableStateOf("[(SYSTEM OVERRIDE)]: ") }
+    var hexInput by remember { mutableStateOf("#D84315") }
+    var aiGeneratorInput by remember { mutableStateOf("") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary)
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(
+                    text = "AI ENGINE MODDING CONSOLE",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "Deploy custom UI widgets & AI Prompt injection logic directly into the simulation interface.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Card(
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("✨ AI ASSISTED GENERATOR", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Describe what you want the custom button to do and we'll dynamically construct the AI prompt and UI element for you.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = aiGeneratorInput,
+                        onValueChange = { aiGeneratorInput = it },
+                        label = { Text("What should the button do?") },
+                        placeholder = { Text("e.g. Call security to escort patient") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            if (aiGeneratorInput.isNotBlank()) {
+                                viewModel.generateAiMod(aiGeneratorInput) { genLabel, genPrompt, genHex ->
+                                    labelInput = genLabel
+                                    promptInput = genPrompt
+                                    hexInput = genHex
+                                    aiGeneratorInput = ""
+                                }
+                            }
+                        },
+                        enabled = aiGeneratorInput.isNotBlank() && !isLoading,
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
+                    ) {
+                        Text(if (isLoading) "⏳" else "GENERATE")
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Card(
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("🛠️ BUILD CUSTOM AI ACTION BUTTON", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                OutlinedTextField(
+                    value = labelInput,
+                    onValueChange = { labelInput = it },
+                    label = { Text("Button Label (e.g. 'Threaten Patient')") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                OutlinedTextField(
+                    value = promptInput,
+                    onValueChange = { promptInput = it },
+                    label = { Text("AI System Injection Prompt String") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                    maxLines = 5
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = hexInput,
+                    onValueChange = { hexInput = it },
+                    label = { Text("Button Color Hex (e.g. #D84315)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Button(
+                    onClick = {
+                        if (labelInput.isNotBlank() && promptInput.isNotBlank()) {
+                            OrchidDeepStateManager.addCustomAction(
+                                label = labelInput,
+                                promptText = promptInput,
+                                hexColor = hexInput
+                            )
+                            labelInput = ""
+                            promptInput = "[(SYSTEM OVERRIDE)]: "
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Text("COMPILE & DEPLOY TO CLINIC DASHBOARD", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = "ACTIVELY DEPLOYED MODS (${moddedActions.size})",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.ExtraBold,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        if (moddedActions.isEmpty()) {
+            Text(
+                text = "No custom logic mods actively deployed. Build one above to augment the UI.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                moddedActions.forEach { action ->
+                    val parsedColor = try { Color(android.graphics.Color.parseColor(action.buttonColorHex)) } catch (e: Exception) { MaterialTheme.colorScheme.tertiary }
+
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier.size(12.dp).background(parsedColor, shape = androidx.compose.foundation.shape.CircleShape)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = action.buttonLabel,
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                                IconButton(onClick = { OrchidDeepStateManager.removeCustomAction(action.id) }, modifier = Modifier.size(24.dp)) {
+                                    Icon(Icons.Default.Close, contentDescription = "Delete Mod", tint = MaterialTheme.colorScheme.error)
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Prompt: ${action.aiSystemPrompt}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                            )
                         }
                     }
                 }

@@ -6,6 +6,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import com.example.data.HealthPolicy
 
+import java.util.UUID
+
+data class CustomUiAction(
+    val id: String,
+    val buttonLabel: String,
+    val aiSystemPrompt: String,
+    val buttonColorHex: String
+)
+
 // --- HIGH FIDELITY DISPENSARY DATA MODEL ---
 data class DispensaryItem(
     val id: String,
@@ -39,6 +48,24 @@ data class MedicalAidScheme(
 )
 
 object OrchidDeepStateManager {
+    // --- UI MODDING ENGINE ---
+    private val _customUiActions = MutableStateFlow<List<CustomUiAction>>(emptyList())
+    val customUiActions: StateFlow<List<CustomUiAction>> = _customUiActions.asStateFlow()
+
+    fun addCustomAction(label: String, promptText: String, hexColor: String = "#6200EE") {
+        val newAction = CustomUiAction(
+            id = UUID.randomUUID().toString(),
+            buttonLabel = label,
+            aiSystemPrompt = promptText,
+            buttonColorHex = hexColor
+        )
+        _customUiActions.update { it + newAction }
+    }
+    
+    fun removeCustomAction(id: String) {
+        _customUiActions.update { current -> current.filter { it.id != id } }
+    }
+
     // --- 0. MEDICAL AID SCHEME REGISTRY ---
     private val _medicalAidSchemes = MutableStateFlow<List<MedicalAidScheme>>(
         listOf(
@@ -56,6 +83,47 @@ object OrchidDeepStateManager {
             mutable.add(MedicalAidScheme(id, name, coverage, preAuth, rejectionProb))
             mutable
         }
+    }
+
+    fun resolveAndRegisterInsuranceScheme(name: String): MedicalAidScheme? {
+        val lower = name.lowercase().trim()
+        if (lower.isBlank() || lower.contains("cash") || lower.contains("pocket") || lower.contains("self-fund") || lower.contains("uninsured") || lower.contains("none") || lower.contains("private cash") || lower.contains("self pay") || lower.contains("out of pocket")) {
+            return null // Out-of-pocket cash
+        }
+        if (lower.contains("state") || lower.contains("nhs") || lower.contains("government") || lower.contains("public") || lower.contains("enhs") || lower.contains("national health")) {
+            val existingState = _medicalAidSchemes.value.find { it.id == "state_fund" || it.name.contains("NHS", ignoreCase = true) }
+            if (existingState == null) {
+                updateOrAddMedicalScheme("state_fund", "National Health Service (NHS)", 1.00, false, 0.35)
+            }
+            return _medicalAidSchemes.value.find { it.id == "state_fund" }
+        }
+        
+        // Find by name similarity or matched segments (excluding generic noise)
+        val genericWords = setOf("private", "medical", "aid", "scheme", "plan", "standard", "basic", "fund", "care", "health")
+        val matched = _medicalAidSchemes.value.find { scheme ->
+            val sName = scheme.name.lowercase()
+            lower.contains(sName) || sName.contains(lower) ||
+            sName.split(" ")
+                .filter { it.length > 3 && !genericWords.contains(it) }
+                .any { lower.contains(it) }
+        }
+        if (matched != null) {
+            return matched
+        }
+        
+        // Capitalize names nicely
+        val cleanName = name.split(" ").joinToString(" ") { word ->
+            word.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+        }.trim()
+        
+        val randomCover = (60 + (Math.random() * 35).toInt()) / 100.0 // 0.60 to 0.95 cover
+        val requiresPreAuth = Math.random() < 0.5
+        val rejectionProb = 0.05 + (Math.random() * 0.15) // 5% to 20% claim denial rate
+        
+        val cleanId = "dynamic_" + lower.replace(Regex("[^a-z0-9]"), "_")
+        updateOrAddMedicalScheme(cleanId, cleanName, randomCover, requiresPreAuth, rejectionProb)
+        
+        return _medicalAidSchemes.value.find { it.id == cleanId }
     }
 
     // --- 1. ITEM DISPENSARY STATE ---
