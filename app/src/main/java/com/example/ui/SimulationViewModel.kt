@@ -649,7 +649,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                             // 🇿🇦 1. Medical Aid Cover & Co-Payment Estimator
                             val currentConsultPrice = 450.0
                             val currentLabPrice = curr.expensesIncurred
-                            val totalGross = curr.revenueEarned
+                            val totalGross = currentConsultPrice + currentLabPrice
                             val copayDiscovery = (currentLabPrice * 0.20)
                             val copayBonitas = (currentConsultPrice * 0.20) + (currentLabPrice * 0.30)
                             

@@ -727,23 +727,43 @@ fun DashboardScreen(
                 Column(modifier = Modifier.fillMaxWidth()) {
                     VisualPatientOutcomeBanner(outcome = uiState.patientOutcome)
                     if (patientsSeenToday >= 5) {
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer
-                            ),
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp),
-                            shape = RoundedCornerShape(12.dp)
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text(
-                                text = "🌅 Day Completed! You have seen 5 patients today. Please review the Daily Practice Report above, close the books, and click 'ADVANCE TO DAY ${currentDay + 1}' to begin the next shift.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                modifier = Modifier.padding(16.dp),
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                            )
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer
+                                ),
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    text = "🌅 Day Completed! You have seen 5 patients today. Please review the Daily Practice Report above, and click below to begin the next shift.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.padding(14.dp),
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                            }
+                            Button(
+                                onClick = { viewModel.advanceDayPrac() },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(64.dp)
+                                    .testTag("advance_day_bottom_button"),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                                shape = RoundedCornerShape(16.dp),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(24.dp))
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text("🌅 ADVANCE TO DAY ${currentDay + 1}", fontSize = 18.sp, fontWeight = FontWeight.Black)
+                            }
                         }
                     } else {
                         Button(
@@ -2863,7 +2883,7 @@ fun DailyPracticeClosureCard(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 580.dp)
+                        .heightIn(max = 280.dp)
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
