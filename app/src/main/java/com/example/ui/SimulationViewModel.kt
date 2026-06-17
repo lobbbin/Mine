@@ -299,6 +299,13 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun acceptPatientIntake(formData: IntakeFormData) {
+        val demographics = "Patient: ${formData.firstName} ${formData.surname} (MRN: ${formData.idNumber}) • Age: ${formData.dob}, Gender: ${formData.gender}, Medical Aid: ${formData.medicalAid}, Chronic: ${formData.chronicConditions}"
+        
+        _uiState.value = _uiState.value.copy(
+            patientDemographics = demographics,
+            intakeFormData = formData
+        )
+        
         viewModelScope.launch {
             _isLoading.value = true
             val json = com.squareup.moshi.Moshi.Builder().add(KotlinJsonAdapterFactory()).build().adapter(IntakeFormData::class.java).toJson(formData)
@@ -3471,7 +3478,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                                 patientDemographics = demographics,
                                 intakeFormData = intakeData
                             )
-                            "SUCCESS: Patient data updated successfully."
+                            "SUCCESS: Patient data updated successfully. New context: $demographics"
                         } catch (e: Exception) {
                             "Error: Failed to update intake data. ${e.localizedMessage}"
                         }
