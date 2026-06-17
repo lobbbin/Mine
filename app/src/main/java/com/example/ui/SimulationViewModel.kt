@@ -3670,6 +3670,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         settingsDataStore.updateClinicStats(curBal + bill, reputationStars.value)
                         viewModelScope.launch(Dispatchers.Main) {
                             _uiState.value = _uiState.value.copy(patientOutcome = disp)
+                            saveCurrentStateToDatabase()
                         }
                         "Clinical encounter outcome finalized: $disp, total billing: R$bill, malpractice risk assessment: $risk%"
                     }

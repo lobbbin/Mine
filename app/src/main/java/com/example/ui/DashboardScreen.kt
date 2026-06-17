@@ -2810,7 +2810,9 @@ fun ClinicalHubCard(
                                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                                         ) {
                                             Text(
-                                                text = if (hiddenCase.patientDemographics.startsWith("Patient: ")) {
+                                                text = if (uiState.intakeFormData != null) {
+                                                    "👤 ${uiState.intakeFormData!!.firstName} ${uiState.intakeFormData!!.surname} | 📋 MRN: ${uiState.intakeFormData!!.idNumber}"
+                                                } else if (hiddenCase.patientDemographics.startsWith("Patient: ")) {
                                                     val raw = hiddenCase.patientDemographics
                                                     val nameAndMrn = raw.substring(9).substringBefore(" • ")
                                                     val actualDemos = raw.substringAfter(" • ", "")
