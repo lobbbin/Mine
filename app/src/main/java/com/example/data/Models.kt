@@ -4,6 +4,22 @@ import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 
 @JsonClass(generateAdapter = true)
+data class IntakeFormData(
+    val surname: String = "",
+    val firstName: String = "",
+    val idNumber: String = "",
+    val dob: String = "",
+    val gender: String = "",
+    val address: String = "",
+    val phone: String = "",
+    val email: String = "",
+    val medicalAid: String = "",
+    val emergencyContact: String = "",
+    val allergies: String = "",
+    val chronicConditions: String = ""
+)
+
+@JsonClass(generateAdapter = true)
 data class Vitals(
     @Json(name = "bp") val _bp: String? = "120/80",
     @Json(name = "hr") val _hr: String? = "75",
@@ -52,7 +68,8 @@ data class SimulationState(
     val billingApprovedByHuman: Boolean = false,
     val patientOutcome: String = "Recovered",
     val submittedDiagnosis: String = "",
-    val submittedTreatmentPlan: String = ""
+    val submittedTreatmentPlan: String = "",
+    val intakeFormData: IntakeFormData? = null
 )
 
 @JsonClass(generateAdapter = true)

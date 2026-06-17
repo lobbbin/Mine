@@ -44,4 +44,21 @@ class Converters {
             emptyList()
         }
     }
+
+    private val intakeFormAdapter = moshi.adapter(IntakeFormData::class.java)
+
+    @TypeConverter
+    fun fromIntakeFormData(data: IntakeFormData?): String {
+        return data?.let { intakeFormAdapter.toJson(it) } ?: ""
+    }
+
+    @TypeConverter
+    fun toIntakeFormData(json: String): IntakeFormData? {
+        if (json.isBlank()) return null
+        return try {
+            intakeFormAdapter.fromJson(json)
+        } catch (e: Exception) {
+            null
+        }
+    }
 }

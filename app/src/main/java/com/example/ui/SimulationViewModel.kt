@@ -11,6 +11,7 @@ import com.example.data.EncounterRepository
 import com.example.data.GeneratedCaseWrapper
 import com.example.data.HealthPolicy
 import com.example.data.HiddenCaseProfile
+import com.example.data.IntakeFormData
 import com.example.data.SettingsDataStore
 import com.example.data.SimulationState
 import com.example.data.Vitals
@@ -297,6 +298,52 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         _lastLobbyReport.value = null
     }
 
+    fun acceptPatientIntake(formData: IntakeFormData) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            val json = com.squareup.moshi.Moshi.Builder().add(KotlinJsonAdapterFactory()).build().adapter(IntakeFormData::class.java).toJson(formData)
+            sendMessage("SYSTEM ACTION: Process Patient Intake Form. Data: $json")
+            _isLoading.value = false
+        }
+    }
+
+    fun generateIntakeFormData(completion: (IntakeFormData) -> Unit) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val apiKey = settingsDataStore.apiKeyFlow.first()
+                val provider = settingsDataStore.providerFlow.first()
+                val model = settingsDataStore.modelFlow.first()
+                val customEndpoint = settingsDataStore.customEndpointFlow.first()
+                
+                val prompt = """
+                    Generate a JSON object representing a 'IntakeFormData' object for a new patient.
+                    Use the following schema:
+                    {
+                        "surname": "String", "firstName": "String", "idNumber": "String", "dob": "String", "gender": "String", 
+                        "address": "String", "phone": "String", "email": "String", 
+                        "medicalAid": "String", "emergencyContact": "String", 
+                        "allergies": "String", "chronicConditions": "String"
+                    }
+                    The data should be realistic and consistent with the simulation context.
+                    Return ONLY the JSON.
+                """.trimIndent()
+                
+                val responseJson = gameAgent.makeDirectApiCall(provider, model, apiKey ?: "", "", listOf(ChatMessage("doctor", prompt)), customEndpoint)
+                
+                val cleanedJson = responseJson.replace("```json", "").replace("```", "").trim()
+                val adapter = com.squareup.moshi.Moshi.Builder().add(KotlinJsonAdapterFactory()).build().adapter(IntakeFormData::class.java)
+                val intakeData = adapter.fromJson(cleanedJson)
+                
+                completion(intakeData ?: IntakeFormData())
+            } catch (e: Exception) {
+                completion(IntakeFormData())
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
 
     private val _uiState = MutableStateFlow(SimulationState())
     val uiState: StateFlow<SimulationState> = _uiState.asStateFlow()
@@ -531,7 +578,13 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                             totalExp += curr.expensesIncurred
 
                             table.addCell(com.itextpdf.text.Phrase(curr.id.toString(), normalFont))
-                            table.addCell(com.itextpdf.text.Phrase(curr.patientDemographics, normalFont))
+                            
+                            val demoText = if (curr.intakeFormData != null) {
+                                "${curr.patientDemographics}\nIntake: ${curr.intakeFormData?.firstName ?: ""} ${curr.intakeFormData?.surname ?: ""}, ID: ${curr.intakeFormData?.idNumber ?: ""}, Allergies: ${curr.intakeFormData?.allergies ?: ""}"
+                            } else {
+                                curr.patientDemographics
+                            }
+                            table.addCell(com.itextpdf.text.Phrase(demoText, normalFont))
                             
                             val dxText = "${curr.trueDiagnosis}\n(${curr.specialty})"
                             table.addCell(com.itextpdf.text.Phrase(dxText, normalFont))
@@ -1386,7 +1439,8 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 billingApprovedByHuman = _uiState.value.billingApprovedByHuman,
                 patientOutcome = _uiState.value.patientOutcome,
                 submittedDiagnosis = _uiState.value.submittedDiagnosis,
-                submittedTreatmentPlan = _uiState.value.submittedTreatmentPlan
+                submittedTreatmentPlan = _uiState.value.submittedTreatmentPlan,
+                intakeFormData = _uiState.value.intakeFormData
             )
             val id = encounterRepository.insertOrUpdate(entity)
             if (activeEncounterId == 0L) {
@@ -3391,6 +3445,36 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     "recommend_medication" -> {
                         val diagnosis = args["diagnosis"] as? String ?: "Unknown Diagnosis"
                         "Recommended medications for $diagnosis: Paracetamol (Analgesic), Ibuprofen (NSAID), Amoxicillin (Antibiotic - strictly if bacterial infection indicated), Omeprazole (PPI). Please verify contraindications and dosage before prescribing."
+                    }
+                    "process_intake_form" -> {
+                        val dataJson = args["data_json"] as? String ?: ""
+                        try {
+                            val adapter = com.squareup.moshi.Moshi.Builder().add(KotlinJsonAdapterFactory()).build().adapter(IntakeFormData::class.java)
+                            val intakeData = adapter.fromJson(dataJson)
+                            val demographics = "Patient: ${intakeData?.firstName} ${intakeData?.surname} (MRN: ${intakeData?.idNumber}) • Age: ${intakeData?.dob}, Gender: ${intakeData?.gender}, Medical Aid: ${intakeData?.medicalAid}, Chronic: ${intakeData?.chronicConditions}"
+                            _uiState.value = _uiState.value.copy(
+                                patientDemographics = demographics,
+                                intakeFormData = intakeData
+                            )
+                            "SUCCESS: Patient ${intakeData?.firstName} ${intakeData?.surname} has been registered with the system. Full context: $demographics"
+                        } catch (e: Exception) {
+                            "Error: Failed to process intake data. ${e.localizedMessage}"
+                        }
+                    }
+                    "update_patient_intake" -> {
+                        val dataJson = args["data_json"] as? String ?: ""
+                        try {
+                            val adapter = com.squareup.moshi.Moshi.Builder().add(KotlinJsonAdapterFactory()).build().adapter(IntakeFormData::class.java)
+                            val intakeData = adapter.fromJson(dataJson)
+                            val demographics = "Patient: ${intakeData?.firstName} ${intakeData?.surname} (MRN: ${intakeData?.idNumber}) • Age: ${intakeData?.dob}, Gender: ${intakeData?.gender}, Medical Aid: ${intakeData?.medicalAid}, Chronic: ${intakeData?.chronicConditions}"
+                            _uiState.value = _uiState.value.copy(
+                                patientDemographics = demographics,
+                                intakeFormData = intakeData
+                            )
+                            "SUCCESS: Patient data updated successfully."
+                        } catch (e: Exception) {
+                            "Error: Failed to update intake data. ${e.localizedMessage}"
+                        }
                     }
                     "applyFee" -> {
                         val amount = (args["amount"] as? Number)?.toDouble() ?: 0.0

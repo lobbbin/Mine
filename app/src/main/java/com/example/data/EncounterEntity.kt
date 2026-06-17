@@ -38,5 +38,6 @@ data class EncounterEntity(
     val billingApprovedByHuman: Boolean = false,
     val patientOutcome: String = "Recovered",
     val submittedDiagnosis: String = "",
-    val submittedTreatmentPlan: String = ""
+    val submittedTreatmentPlan: String = "",
+    val intakeFormData: IntakeFormData? = null
 )

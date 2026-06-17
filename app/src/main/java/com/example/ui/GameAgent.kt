@@ -28,6 +28,28 @@ class GameAgent(
                     )
                 ),
                 GeminiFunctionDeclaration(
+                    name = "update_patient_intake",
+                    description = "Update the patient's registration intake data.",
+                    parameters = mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "data_json" to mapOf("type" to "string", "description" to "The JSON encoded intake form data")
+                        ),
+                        "required" to listOf("data_json")
+                    )
+                ),
+                GeminiFunctionDeclaration(
+                    name = "process_intake_form",
+                    description = "Process the patient registration intake form and update the simulation state with the patient data.",
+                    parameters = mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "data_json" to mapOf("type" to "string", "description" to "The JSON encoded intake form data")
+                        ),
+                        "required" to listOf("data_json")
+                    )
+                ),
+                GeminiFunctionDeclaration(
                     name = "applyFee",
                     description = "Apply a financial penalty fine to the clinic.",
                     parameters = mapOf(

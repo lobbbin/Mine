@@ -128,6 +128,7 @@ import com.example.data.Vitals
 import com.example.data.SimulationState
 import com.example.data.HiddenCaseProfile
 import com.example.data.HealthPolicy
+import com.example.data.IntakeFormData
 import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
@@ -191,6 +192,10 @@ fun DashboardScreen(
     
     var showNotesDialog by remember { mutableStateOf(false) }
     var ddxNotesInput by remember { mutableStateOf(uiState.ddxNotes) }
+    
+    var showIntakeFormDialog by remember { mutableStateOf(false) }
+    var aiIntakeData: IntakeFormData? by remember { mutableStateOf(null) }
+    var isGeneratingIntake by remember { mutableStateOf(false) }
     
     var showConsultDialog by remember { mutableStateOf(false) }
     var consultSpecialtyInput by remember { mutableStateOf("") }
@@ -585,14 +590,37 @@ fun DashboardScreen(
                 }
 
                 // --- Collapsible Bedside Clinical Hub Card (Vitals, Demographics, and Emergency Interventions under one clean tabbed subsection drawer) ---
+                Button(
+                    onClick = {
+                        isGeneratingIntake = true
+                        viewModel.generateIntakeFormData { populatedFormData ->
+                            aiIntakeData = populatedFormData
+                            isGeneratingIntake = false
+                            showIntakeFormDialog = true
+                        }
+                    },
+                    enabled = !isGeneratingIntake,
+                    modifier = Modifier.padding(16.dp).fillMaxWidth()
+                ) {
+                    Text(if (isGeneratingIntake) "📋 Generating AI Registration..." else "📋 Patient Registration Intake Form")
+                }
+                
                 ClinicalHubCard(
-                uiState = uiState,
-                hiddenCase = hiddenCase,
-                isLoading = isLoading,
-                viewModel = viewModel
-            )
+                    uiState = uiState,
+                    hiddenCase = hiddenCase,
+                    isLoading = isLoading,
+                    viewModel = viewModel
+                )
 
-            DailyPracticeClosureCard(
+                if (showIntakeFormDialog) {
+                    IntakeFormDialog(
+                        initialData = aiIntakeData,
+                        onDismiss = { showIntakeFormDialog = false; aiIntakeData = null },
+                        onFinalize = { formData -> viewModel.acceptPatientIntake(formData) }
+                    )
+                }
+
+                DailyPracticeClosureCard(
                 currentDay = currentDay,
                 patientsSeenToday = patientsSeenToday,
                 dailyRevenue = dailyRevenue,
