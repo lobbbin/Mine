@@ -82,6 +82,12 @@ fun SettingsScreen(
     val doctorXp by viewModel.doctorXp.collectAsState()
     val doctorRank by viewModel.doctorRank.collectAsState()
 
+    val savedCurrencySymbol by viewModel.currencySymbol.collectAsState()
+    val savedCurrencyCode by viewModel.currencyCode.collectAsState()
+    val savedUiFontScale by viewModel.uiFontScale.collectAsState()
+    val clinicBalance by viewModel.clinicBalance.collectAsState()
+    val isBasicMode by viewModel.isBasicMode.collectAsState()
+
     var apiKeyInput by remember(savedApiKey) { mutableStateOf(savedApiKey ?: "") }
     var providerInput by remember(savedProvider) { mutableStateOf(savedProvider) }
     var customEndpointInput by remember(savedCustomEndpoint) { mutableStateOf(savedCustomEndpoint) }
@@ -90,6 +96,10 @@ fun SettingsScreen(
     var consultFeeInput by remember(savedConsultFee) { mutableStateOf(savedConsultFee.toInt().toString()) }
     var labCostInput by remember(savedLabCost) { mutableStateOf(savedLabCost.toInt().toString()) }
     var specCostInput by remember(savedSpecCost) { mutableStateOf(savedSpecCost.toInt().toString()) }
+    var currencySymbolInput by remember(savedCurrencySymbol) { mutableStateOf(savedCurrencySymbol) }
+    var currencyCodeInput by remember(savedCurrencyCode) { mutableStateOf(savedCurrencyCode) }
+    var uiFontScaleInput by remember(savedUiFontScale) { mutableStateOf(savedUiFontScale) }
+    var clinicBalanceInput by remember(clinicBalance) { mutableStateOf(clinicBalance.toInt().toString()) }
 
     val providers = listOf("Google", "OpenAI", "Anthropic", "Cerebras", "Nvidia", "Ollama", "vLLM", "G4F (OpenAI-compatible)", "Custom (OpenAI-compatible)")
     val providerModels = mapOf(
@@ -757,6 +767,35 @@ fun SettingsScreen(
                     .padding(vertical = 12.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
+                    val isBasicMode by viewModel.isBasicMode.collectAsState()
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "🏡 Basic GP Practice Mode",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = "Restricts the simulator to General Practice outpatients and disables complex specialist statuses.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        androidx.compose.material3.Switch(
+                            checked = isBasicMode,
+                            onCheckedChange = { viewModel.saveModeSelection(isBasic = it) },
+                            modifier = Modifier.testTag("basic_mode_settings_switch")
+                        )
+                    }
+                    Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), modifier = Modifier.padding(bottom = 16.dp))
+
                     var specExpanded by remember { mutableStateOf(false) }
                     val specialties = listOf(
                         "All", 
@@ -923,7 +962,95 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "Customize your clinic's service prices (ZAR)",
+                        text = "Global Practice Settings & Currency",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = currencySymbolInput,
+                            onValueChange = { currencySymbolInput = it },
+                            label = { Text("Currency Symbol") },
+                            placeholder = { Text("$") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+
+                        OutlinedTextField(
+                            value = currencyCodeInput,
+                            onValueChange = { currencyCodeInput = it },
+                            label = { Text("Currency Code") },
+                            placeholder = { Text("USD") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = clinicBalanceInput,
+                        onValueChange = { clinicBalanceInput = it },
+                        label = { Text("Change Money Amount") },
+                        placeholder = { Text("50000") },
+                        modifier = Modifier.fillMaxWidth().testTag("change_money_input"),
+                        singleLine = true,
+                        leadingIcon = { Text(currencySymbolInput, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 12.dp)) },
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Text(
+                        text = "UI Character Width Scale (Compact size): ${"%.2f".format(uiFontScaleInput)}x",
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                    androidx.compose.material3.Slider(
+                        value = uiFontScaleInput,
+                        onValueChange = { uiFontScaleInput = it },
+                        valueRange = 0.5f..1.5f,
+                        steps = 20
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Button(
+                        onClick = {
+                            val sym = currencySymbolInput.trim().ifBlank { "$" }
+                            val cod = currencyCodeInput.trim().ifBlank { "USD" }.uppercase()
+                            val parsedBal = clinicBalanceInput.toDoubleOrNull() ?: clinicBalance
+                            viewModel.saveCurrency(sym, cod)
+                            viewModel.setClinicBalance(parsedBal)
+                            viewModel.saveUiFontScale(uiFontScaleInput)
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Practice parameters and currency updated successfully.")
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Save Practice & Wallet Configuration", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Customize your clinic's service prices (${savedCurrencySymbol})",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -967,7 +1094,7 @@ fun SettingsScreen(
                                 snackbarHostState.showSnackbar("Pricing configuration updated successfully.")
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("Save Fee Structure", fontWeight = FontWeight.SemiBold)

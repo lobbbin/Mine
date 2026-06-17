@@ -281,7 +281,7 @@ fun BillingTabContent(viewModel: SimulationViewModel, state: SimulationState) {
             EmptyFolderView(
                 icon = Icons.Default.LocalAtm,
                 title = "No Billing Code Generated",
-                description = "Correctly diagnose and treat the patient to trigger ZAR general practice invoicing."
+                description = "Correctly diagnose and treat the patient to trigger general practice invoicing."
             )
         } else {
             Card(
@@ -292,7 +292,7 @@ fun BillingTabContent(viewModel: SimulationViewModel, state: SimulationState) {
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text(
-                        text = "🇿🇦 MEDICAL BILLING RECEIPT (ZAR)",
+                        text = "💳 MEDICAL BILLING RECEIPT",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFF2E7D32),
@@ -741,6 +741,8 @@ fun CaseLogsTabContent(viewModel: SimulationViewModel, onDismiss: () -> Unit) {
 fun LedgerTabContent(viewModel: SimulationViewModel) {
     val scrollState = rememberScrollState()
     val balance by viewModel.clinicBalance.collectAsState()
+    val currencySymbol by viewModel.currencySymbol.collectAsState()
+    val currencyCode by viewModel.currencyCode.collectAsState()
     val reputation by viewModel.reputationStars.collectAsState()
     val allEncounters by viewModel.allEncounters.collectAsState(initial = emptyList())
     val activePolicies by viewModel.activePolicies.collectAsState()
@@ -778,7 +780,7 @@ fun LedgerTabContent(viewModel: SimulationViewModel) {
                 ) {
                     Text("Bank Balance:", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
                     Text(
-                        text = String.format("ZAR R %.2f", balance),
+                        text = String.format("$currencySymbol %.2f $currencyCode", balance),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.ExtraBold,
                         color = if (balance >= 0) Color(0xFF2E7D32) else Color(0xFFC62828)
@@ -837,7 +839,7 @@ fun LedgerTabContent(viewModel: SimulationViewModel) {
             }
         }
 
-        // 🇿🇦 Revenue & Practice Outflow Ledger
+        // 💳 Revenue & Practice Outflow Ledger
         Card(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),

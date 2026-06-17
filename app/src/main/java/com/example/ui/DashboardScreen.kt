@@ -51,6 +51,8 @@ import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Surface
@@ -158,6 +160,8 @@ fun DashboardScreen(
     val dailyRevenue by viewModel.dailyRevenueLive.collectAsStateWithLifecycle()
     val dailyExpenses by viewModel.dailyExpensesLive.collectAsStateWithLifecycle()
     val clinicBalance by viewModel.clinicBalance.collectAsStateWithLifecycle()
+    val currencySymbol by viewModel.currencySymbol.collectAsStateWithLifecycle()
+    val currencyCode by viewModel.currencyCode.collectAsStateWithLifecycle()
     val syringeStock by viewModel.syringeStock.collectAsStateWithLifecycle()
     val salineStock by viewModel.salineStock.collectAsStateWithLifecycle()
     val adrenalineStock by viewModel.adrenalineStock.collectAsStateWithLifecycle()
@@ -168,6 +172,9 @@ fun DashboardScreen(
     val doctorXp by viewModel.doctorXp.collectAsStateWithLifecycle()
     val reputationStars by viewModel.reputationStars.collectAsStateWithLifecycle()
     val model by viewModel.model.collectAsStateWithLifecycle()
+    val isBasicMode by viewModel.isBasicMode.collectAsStateWithLifecycle()
+    val hasChosenMode by viewModel.hasChosenMode.collectAsStateWithLifecycle()
+    val uiFontScale by viewModel.uiFontScale.collectAsStateWithLifecycle()
 
     val lawsuitActive by viewModel.lawsuitActive.collectAsStateWithLifecycle()
     val lawsuitLog by viewModel.lawsuitLog.collectAsStateWithLifecycle()
@@ -300,10 +307,153 @@ fun DashboardScreen(
         treatmentPlanInput = uiState.submittedTreatmentPlan
     }
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        gesturesEnabled = !uiState.isEncounterComplete,
-        drawerContent = {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    androidx.compose.runtime.CompositionLocalProvider(
+        androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(
+            density = density.density * uiFontScale, // Optional: also scale layout density for compact spacing
+            fontScale = uiFontScale * density.fontScale
+        )
+    ) {
+        if (!hasChosenMode) {
+            Scaffold { innerPadding ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background)
+                        .padding(innerPadding)
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(24.dp),
+                    modifier = Modifier
+                        .verticalScroll(rememberScrollState())
+                        .fillMaxWidth()
+                        .widthIn(max = 500.dp)
+                ) {
+                    Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.LocalHospital,
+                        contentDescription = null,
+                        modifier = Modifier.size(64.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "🏥 CLINIC PRACTICE ENGINE",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Select your medical practice simulation mode",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Text(
+                        text = "Both Normal and Basic modes fully support the Elysium Legal malpractice defense and Parliamentary bill systems, working in complete harmony side-by-side.",
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    // Card 1: Normal Mode
+                    Card(
+                        onClick = { viewModel.saveModeSelection(isBasic = false) },
+                        modifier = Modifier.fillMaxWidth().testTag("select_mode_normal"),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    "🩺 Normal Mode",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(Modifier.weight(1f))
+                                Box(
+                                    modifier = Modifier
+                                        .background(MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(12.dp))
+                                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                                ) {
+                                    Text("Standard", color = MaterialTheme.colorScheme.onPrimary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            Text(
+                                "Complete clinical specialization. Encounter complex patient diagnoses across diverse specialist departments (Neurology, Cardiology, Pediatrics, Gynecology, Musculoskeletal, etc.). Displays advanced diagnostics and specialty tags.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    // Card 2: Basic GP Mode
+                    Card(
+                        onClick = { viewModel.saveModeSelection(isBasic = true) },
+                        modifier = Modifier.fillMaxWidth().testTag("select_mode_basic"),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    "🏡 Basic GP Mode",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Black,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Spacer(Modifier.weight(1f))
+                                Box(
+                                    modifier = Modifier
+                                        .background(MaterialTheme.colorScheme.tertiary, shape = RoundedCornerShape(12.dp))
+                                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                                ) {
+                                    Text("GP Focus", color = MaterialTheme.colorScheme.onTertiary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            Text(
+                                "General Practice focus. You will only admit primary care outpatient cases with common ailments (flu, diabetes mellitus, UTIs, sprains, acid reflux, gout etc.). Simplifies diagnostic interfaces, hides neurology specialty banners, and unlocks 100+ sandbox mods side-by-side with statutory legislation.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = "You can switch modes or customize clinical parameters anytime via Sandbox options / Settings.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+    } else {
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            gesturesEnabled = !uiState.isEncounterComplete,
+            drawerContent = {
             ModalDrawerSheet(
                 modifier = Modifier.width(300.dp)
             ) {
@@ -523,6 +673,38 @@ fun DashboardScreen(
                 .padding(innerPadding)
                 .background(MaterialTheme.colorScheme.background)
         ) {
+            if (isBasicMode) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.85f))
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("🌿", modifier = Modifier.padding(end = 6.dp))
+                            Text(
+                                text = "BASIC GP MODE",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                letterSpacing = 1.sp
+                            )
+                        }
+                        Text(
+                            text = "Simplified Outpatient • Sandbox Mode Enabled",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f)
+                        )
+                    }
+                }
+            }
+
             // --- CUSTOM GEOPOLITICAL TAB SELECTOR ROW ---
             Row(
                 modifier = Modifier
@@ -546,7 +728,11 @@ fun DashboardScreen(
                     ) {
                         Icon(Icons.Default.LocalHospital, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Clinical Hub", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text(
+                            text = if (isBasicMode) "Patient Consult" else "Clinical Hub",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
                     }
                 }
                 
@@ -565,7 +751,11 @@ fun DashboardScreen(
                     ) {
                         Icon(Icons.Default.Flag, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Health Politics & Laws", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text(
+                            text = if (isBasicMode) "Sandbox & Laws" else "Health Politics & Laws",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
                     }
                 }
             }
@@ -1546,7 +1736,7 @@ fun DashboardScreen(
                                     }
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Text(
-                                        text = "Invoicing generated under South African HPCSA private billing codes. Factors: consultation fee, active scripts, and clinical stock deductions.",
+                                        text = "Invoicing generated under general private billing codes. Factors: consultation fee, active scripts, and clinical stock deductions.",
                                         fontSize = 11.sp,
                                         lineHeight = 15.sp,
                                         color = Color(0xFF33691E)
@@ -1694,6 +1884,7 @@ fun DashboardScreen(
             }
         }
     }
+}
 }
 
         // --- CONSULT SPECIALIST DIALOGUE BOX ---
@@ -1883,7 +2074,7 @@ fun DashboardScreen(
                         
                         Spacer(modifier = Modifier.height(4.dp))
                         
-                        // 🇿🇦 Informed Financial Consent Cost Quote Card
+                        // 💳 Informed Financial Consent Cost Quote Card
                         Card(
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -1891,7 +2082,7 @@ fun DashboardScreen(
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
                                 Text(
-                                    text = "🇿🇦 INFORMED FINANCIAL CONSENT QUOTE",
+                                    text = "💳 INFORMED FINANCIAL CONSENT QUOTE",
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = MaterialTheme.colorScheme.primary,
@@ -1956,7 +2147,7 @@ fun DashboardScreen(
                                     color = if (financialConsentSigned) Color(0xFF1B5E20) else MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "HPCSA guideline requirement to secure signed private tariff consent.",
+                                    text = "Medical Board guideline requirement to secure signed private tariff consent.",
                                     fontSize = 10.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -2572,6 +2763,7 @@ fun DashboardScreen(
             }
         }
     }
+}
 
 private fun formatCleanLabel(raw: String, suffix: String): String {
     val trimmed = raw.trim()
@@ -2858,6 +3050,7 @@ fun ClinicalHubCard(
     viewModel: SimulationViewModel
 ) {
     val activePolicies by viewModel.activePolicies.collectAsStateWithLifecycle()
+    val isBasicMode by viewModel.isBasicMode.collectAsStateWithLifecycle()
     var isExpanded by remember { mutableStateOf(false) } // Default collapsed to keep the UI clean & spacious!
     var activeTab by remember { mutableStateOf(0) } // 0: Vitals, 1: Patient Profile, 2: Interventions
 
@@ -2989,17 +3182,19 @@ fun ClinicalHubCard(
                                         verticalArrangement = Arrangement.spacedBy(8.dp),
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .background(MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(4.dp))
-                                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                                        ) {
-                                            Text(
-                                                text = "🩺 ${hiddenCase.specialty.uppercase()}",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                fontWeight = FontWeight.Black,
-                                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                                            )
+                                        if (!isBasicMode) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .background(MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(4.dp))
+                                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                                            ) {
+                                                Text(
+                                                    text = "🩺 ${hiddenCase.specialty.uppercase()}",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Black,
+                                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                                )
+                                            }
                                         }
 
                                         val isSevere = hiddenCase.severity.equals("Severe", ignoreCase = true)
@@ -3346,6 +3541,8 @@ fun DailyPracticeClosureCard(
     medsStock: Int,
     viewModel: SimulationViewModel
 ) {
+    val currencySymbol by viewModel.currencySymbol.collectAsStateWithLifecycle()
+    val currencyCode by viewModel.currencyCode.collectAsStateWithLifecycle()
     var isExpanded by remember { mutableStateOf(patientsSeenToday >= 5) }
 
     LaunchedEffect(patientsSeenToday) {
@@ -3456,18 +3653,18 @@ fun DailyPracticeClosureCard(
                         }
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("Revenue Earned today:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("R ${String.format("%.2f", dailyRevenue)} ZAR", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
+                            Text("$currencySymbol ${String.format("%.2f", dailyRevenue)} $currencyCode", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
                         }
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("Expenses Incurred today:", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("R ${String.format("%.2f", dailyExpenses)} ZAR", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = Color(0xFFC62828))
+                            Text("$currencySymbol ${String.format("%.2f", dailyExpenses)} $currencyCode", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = Color(0xFFC62828))
                         }
                         HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant)
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             val surplus = dailyRevenue - dailyExpenses
                             Text("Net Daily Profit Flow:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                             Text(
-                                text = "R ${String.format("%.2f", surplus)} ZAR",
+                                text = "$currencySymbol ${String.format("%.2f", surplus)} $currencyCode",
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.ExtraBold,
                                 color = if (surplus >= 0) Color(0xFF2E7D32) else Color(0xFFC62828)
@@ -3652,11 +3849,11 @@ fun DailyPracticeClosureCard(
                                     Spacer(modifier = Modifier.height(4.dp))
 
                                     val itemLines = mutableListOf<String>()
-                                    if (ProposalView.syringeQty > 0) itemLines.add("📦 Syringes: +${ProposalView.syringeQty} units (R ${ProposalView.syringeQty * 10})")
-                                    if (ProposalView.salineQty > 0) itemLines.add("💧 Saline Bags: +${ProposalView.salineQty} units (R ${ProposalView.salineQty * 80})")
-                                    if (ProposalView.adrenalineQty > 0) itemLines.add("⚡ Adrenaline Vials: +${ProposalView.adrenalineQty} units (R ${ProposalView.adrenalineQty * 150})")
-                                    if (ProposalView.reagentsQty > 0) itemLines.add("🧪 Lab Reagents: +${ProposalView.reagentsQty} units (R ${ProposalView.reagentsQty * 25})")
-                                    if (ProposalView.medsQty > 0) itemLines.add("💊 Emergency Meds: +${ProposalView.medsQty} units (R ${ProposalView.medsQty * 200})")
+                                    if (ProposalView.syringeQty > 0) itemLines.add("📦 Syringes: +${ProposalView.syringeQty} units ($currencySymbol${ProposalView.syringeQty * 10})")
+                                    if (ProposalView.salineQty > 0) itemLines.add("💧 Saline Bags: +${ProposalView.salineQty} units ($currencySymbol${ProposalView.salineQty * 80})")
+                                    if (ProposalView.adrenalineQty > 0) itemLines.add("⚡ Adrenaline Vials: +${ProposalView.adrenalineQty} units ($currencySymbol${ProposalView.adrenalineQty * 150})")
+                                    if (ProposalView.reagentsQty > 0) itemLines.add("🧪 Lab Reagents: +${ProposalView.reagentsQty} units ($currencySymbol${ProposalView.reagentsQty * 25})")
+                                    if (ProposalView.medsQty > 0) itemLines.add("💊 Emergency Meds: +${ProposalView.medsQty} units ($currencySymbol${ProposalView.medsQty * 200})")
 
                                     if (itemLines.isEmpty()) {
                                         Text("- No items recommended for purchase.", fontSize = 11.sp, fontStyle = FontStyle.Italic, color = Color.Gray)
@@ -3677,7 +3874,7 @@ fun DailyPracticeClosureCard(
                                     ) {
                                         Text("Estimated Bill:", fontSize = 11.sp, color = Color.LightGray)
                                         Text(
-                                            text = "R ${String.format("%.2f", ProposalView.estimatedTotalCost)} ZAR",
+                                            text = "$currencySymbol ${String.format("%.2f", ProposalView.estimatedTotalCost)} $currencyCode",
                                             fontSize = 13.sp,
                                             fontWeight = FontWeight.Black,
                                             color = if (ProposalView.isValidPurchase) Color(0xFF1DE9B6) else Color(0xFFFF8A80)
@@ -3883,6 +4080,7 @@ fun StateAndLegislationTab(
     modifier: Modifier = Modifier
 ) {
     val countryName by viewModel.countryName.collectAsStateWithLifecycle()
+    val currencySymbol by viewModel.currencySymbol.collectAsStateWithLifecycle()
     val presidentName by viewModel.presidentName.collectAsStateWithLifecycle()
     val presidentParty by viewModel.presidentParty.collectAsStateWithLifecycle()
     val presidentApproval by viewModel.presidentApproval.collectAsStateWithLifecycle()
@@ -4082,7 +4280,7 @@ fun StateAndLegislationTab(
                                 color = MaterialTheme.colorScheme.primary
                             )
                             Text(
-                                text = "HPCSA Regulatory & Custom Drug Architect",
+                                text = "Medical Board Regulatory & Custom Drug Architect",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -4141,7 +4339,7 @@ fun StateAndLegislationTab(
                         OutlinedTextField(
                             value = newDrugCostInput,
                             onValueChange = { newDrugCostInput = it },
-                            label = { Text("Cost (ZAR per pack)", fontSize = 11.sp) },
+                            label = { Text("Cost ($currencySymbol per pack)", fontSize = 11.sp) },
                             modifier = Modifier.weight(1f),
                             singleLine = true
                         )
@@ -5611,6 +5809,7 @@ fun StateAndLegislationTab(
 @Composable
 fun WorldStatePanel(viewModel: SimulationViewModel) {
     val snapshot by viewModel.worldSnapshot.collectAsStateWithLifecycle()
+    val currencyCode by viewModel.currencyCode.collectAsStateWithLifecycle()
     
     Column(
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -5680,7 +5879,7 @@ fun WorldStatePanel(viewModel: SimulationViewModel) {
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(fine.reason, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                            Text("Amount Due: ${fine.amount} ZAR", style = MaterialTheme.typography.bodySmall)
+                            Text("Amount Due: ${fine.amount} $currencyCode", style = MaterialTheme.typography.bodySmall)
                         }
                         IconButton(onClick = { /* Could implement pay fine logic */ }) {
                             Icon(imageVector = Icons.Default.Payments, contentDescription = "Pay")
@@ -5851,6 +6050,7 @@ fun DispensaryCabinetPanel(viewModel: SimulationViewModel) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DeveloperAiModdingConsoleTab(viewModel: SimulationViewModel) {
     val moddedActions by OrchidDeepStateManager.customUiActions.collectAsStateWithLifecycle()
@@ -6070,7 +6270,165 @@ fun DeveloperAiModdingConsoleTab(viewModel: SimulationViewModel) {
                 }
             }
         }
-    }
-}
+
+        Spacer(modifier = Modifier.height(24.dp))
+        HorizontalDivider()
+        Spacer(modifier = Modifier.height(16.dp))
+
+        var activeCategoryFilter by remember { mutableStateOf("All") }
+        var searchPresetQuery by remember { mutableStateOf("") }
+
+        Text(
+            text = "⚡ 100+ PRESET SANDBOX AGENT ACTIONS",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Black,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+        Text(
+            text = "Instantly trigger any of these 100 high-fidelity sandbox scenarios, patient arrivals, legal events, or state policy directives.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        // Search text field
+        OutlinedTextField(
+            value = searchPresetQuery,
+            onValueChange = { searchPresetQuery = it },
+            label = { Text("Search 100+ Sandbox Actions...") },
+            placeholder = { Text("e.g. Sepsis, Bribe, Flu...") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) }
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Category tags
+        val presetCategories = listOf("All", "GP Clinical Cases", "Malpractice & Courts", "Clinic & Supplies", "Parliament Laws", "Chaotic AI Events")
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            presetCategories.forEach { cat ->
+                val isSelected = activeCategoryFilter == cat
+                Surface(
+                    onClick = { activeCategoryFilter = cat },
+                    shape = RoundedCornerShape(16.dp),
+                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 2.dp)
+                ) {
+                    Text(
+                        text = when(cat) {
+                            "All" -> "🌍 All"
+                            "GP Clinical Cases" -> "🩺 Cases"
+                            "Malpractice & Courts" -> "⚖️ Legal"
+                            "Clinic & Supplies" -> "📦 Supply"
+                            "Parliament Laws" -> "🏛️ Laws"
+                            "Chaotic AI Events" -> "🌪️ Chaos"
+                            else -> cat
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Filter items
+        val filteredPresets = SandboxPresetActions.items.filter { preset ->
+            (activeCategoryFilter == "All" || preset.category == activeCategoryFilter) &&
+            (searchPresetQuery.isBlank() || preset.label.contains(searchPresetQuery, ignoreCase = true) || preset.description.contains(searchPresetQuery, ignoreCase = true))
+        }
+
+        Text(
+            text = "SHOWING ${filteredPresets.size} MATCHED ACTIONS",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.ExtraBold,
+            color = Color.Gray,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 400.dp)
+                .verticalScroll(rememberScrollState())
+        ) {
+            if (filteredPresets.isEmpty()) {
+                Text(
+                    "No sandbox actions matched your query. Try another keyword!",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            } else {
+                filteredPresets.forEach { preset ->
+                    val colorHex = try { Color(android.graphics.Color.parseColor(preset.hexColor)) } catch (e: Exception) { MaterialTheme.colorScheme.tertiary }
+                    Card(
+                        onClick = {
+                            viewModel.sendMessage(preset.promptText)
+                            if (preset.kotlinLogic.isNotBlank()) {
+                                viewModel.executeKotlinLogicMod(preset.kotlinLogic)
+                            }
+                        },
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .background(colorHex, shape = androidx.compose.foundation.shape.CircleShape)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = preset.label,
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = preset.description,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (preset.kotlinLogic.isNotBlank()) {
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "🔧 Trigger logic: ${preset.kotlinLogic.replace("\n", " ; ")}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = "Run action",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                         }
+                     }
+                 }
+             }
+         }
+     }
+ }
 
 

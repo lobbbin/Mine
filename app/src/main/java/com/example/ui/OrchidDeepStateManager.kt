@@ -192,7 +192,7 @@ object OrchidDeepStateManager {
             id = "morphine",
             name = "Prescribed Morphine Sulphate",
             classification = "Schedule 8 (Heavy Narcotic)",
-            description = "Intense, highly controlled opioid analgesic. Heavily logged under standard HPCSA narcotics regulations.",
+            description = "Intense, highly controlled opioid analgesic. Heavily logged under standard Medical Board narcotics regulations.",
             purchaseCost = 450.0,
             patientBPDelta = "Slightly Lowers (-5 mmHg)",
             patientHRDelta = "Dampens (-15 bpm)",
@@ -290,7 +290,7 @@ object OrchidDeepStateManager {
         }
     }
 
-    // --- 2. SOVEREIGN REGULATORY INTEGRITY & HPCSA STATS (REPLACED UNDERWORLD PATH) ---
+    // --- 2. SOVEREIGN REGULATORY INTEGRITY & BOARD STATS (REPLACED UNDERWORLD PATH) ---
     private val _isDeepStateEnabled = MutableStateFlow(true)
     val isDeepStateEnabled: StateFlow<Boolean> = _isDeepStateEnabled.asStateFlow()
 
@@ -313,7 +313,7 @@ object OrchidDeepStateManager {
         listOf(
             "Regulatory Advisory: Ensure standard diagnostic vitals screenings exist for all out-of-pocket cash consults.",
             "Policy Guideline: Keep daily clinical expenditure balanced and avoid unnecessary high-schedule prescriptions.",
-            "HPCSA Compliance Directive: Observe strict generic therapeutic drug substitution under Parliamentary billing codes."
+            "Medical Board Compliance Directive: Observe strict generic therapeutic drug substitution under Parliamentary billing codes."
         )
     )
     val activeDirectives: StateFlow<List<String>> = _activeDirectives.asStateFlow()
@@ -445,7 +445,7 @@ object OrchidDeepStateManager {
         val pool = listOf(
             "Regulatory Advisory: Ensure standard diagnostic vitals screenings exist for all out-of-pocket cash consults.",
             "Policy Guideline: Keep daily clinical expenditure balanced and avoid unnecessary high-schedule prescriptions.",
-            "HPCSA Compliance Directive: Observe strict generic therapeutic drug substitution under Parliamentary billing codes.",
+            "Medical Board Compliance Directive: Observe strict generic therapeutic drug substitution under Parliamentary billing codes.",
             "Public Safety Agenda: Limit non-referred psychiatric medication administrations to severe clinical index cases."
         )
         _activeDirectives.value = pool.shuffled().take(2)

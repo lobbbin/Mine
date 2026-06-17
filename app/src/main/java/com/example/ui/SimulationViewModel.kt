@@ -96,6 +96,15 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
     val clinicBalance: StateFlow<Double> = settingsDataStore.clinicBalanceFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, 50000.0)
 
+    val uiFontScale: StateFlow<Float> = settingsDataStore.uiFontScaleFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, 1.0f)
+
+    val currencySymbol: StateFlow<String> = settingsDataStore.currencySymbolFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "$")
+
+    val currencyCode: StateFlow<String> = settingsDataStore.currencyCodeFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "USD")
+
     val reputationStars: StateFlow<Float> = settingsDataStore.reputationStarsFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, 3.5f)
 
@@ -154,6 +163,32 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Intern 🩺")
 
+    val isBasicMode: StateFlow<Boolean> = settingsDataStore.isBasicModeFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    val hasChosenMode: StateFlow<Boolean> = settingsDataStore.hasChosenModeFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    val agentMemories: StateFlow<List<com.example.data.AgentMemory>> = appDatabase.agentMemoryDao().getAllMemories()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    fun saveModeSelection(isBasic: Boolean) {
+        viewModelScope.launch {
+            settingsDataStore.saveModeSelection(isBasic)
+            // Trigger a clean case generation or restart if requested
+            if (isBasic) {
+                // In basic mode we prefer General Practice
+                settingsDataStore.saveCurriculumPresets("General Practice", "All")
+            }
+        }
+    }
+
+    fun saveUiFontScale(scale: Float) {
+        viewModelScope.launch {
+            settingsDataStore.saveUiFontScale(scale)
+        }
+    }
+
     fun saveCurriculumPresets(specialty: String, severity: String) {
         viewModelScope.launch {
             settingsDataStore.saveCurriculumPresets(specialty, severity)
@@ -163,6 +198,29 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
     fun savePricing(consultFee: Double, labCost: Double, specCost: Double) {
         viewModelScope.launch {
             settingsDataStore.savePricing(consultFee, labCost, specCost)
+        }
+    }
+
+    fun setClinicBalance(balance: Double) {
+        viewModelScope.launch {
+            settingsDataStore.updateClinicStats(balance, reputationStars.value)
+            val current = legalWorldAgent.currentSnapshot.value
+            if (current != null) {
+                appDatabase.worldStateDao().updateWorldState(
+                    com.example.data.WorldStateEntity(
+                        clinicName = current.clinicName,
+                        cashBalance = balance,
+                        reputationScore = (reputationStars.value * 20).toInt().coerceIn(0, 100),
+                        medicalLicenseStatus = current.licenseStatus
+                    )
+                )
+            }
+        }
+    }
+
+    fun saveCurrency(symbol: String, code: String) {
+        viewModelScope.launch {
+            settingsDataStore.saveCurrency(symbol, code)
         }
     }
 
@@ -318,7 +376,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             _isLoading.value = true
             
-            // Generate a robust, high-fidelity South African clinical/demographics fallback first
+            // Generate a robust, high-fidelity universal clinical/demographics fallback first
             val activeCase = _hiddenCase.value
             val fallbackData = if (activeCase != null) {
                 val demo = activeCase.patientDemographics
@@ -347,9 +405,9 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 }
 
                 // 2. ID / MRN Number
-                val mrnRegex = Regex("MRN-ZA-\\d+")
+                val mrnRegex = Regex("MRN-GL-\\d+")
                 val match = mrnRegex.find(demo)
-                idNum = if (match != null) match.value else "MRN-ZA-${(100000..999999).random()}"
+                idNum = if (match != null) match.value else "MRN-GL-${(100000..999999).random()}"
 
                 // 3. Gender
                 if (demo.contains("Female", ignoreCase = true) || demo.contains("Woman", ignoreCase = true) || demo.contains("Girl", ignoreCase = true) || demo.contains("Mother", ignoreCase = true)) {
@@ -478,10 +536,10 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     Therefore, the "medicalAid" field in your JSON output MUST be EXACTLY: "$matchedSchemeName" (or chosen from the active registry: $schemesListStr).
                     DO NOT under any circumstances hallucinate, invent, or use any other medical aid name, subsidiary plan, or generic name (like Discovery GEMS, KeyCare, Classic Comprehensive, etc.). It must be exactly "$matchedSchemeName".
                     
-                    Please construct realistic, formal South African registration data aligning exactly with this active patient profile. The first name, surname, gender, dob/age, chronic conditions, medical aid, and allergies MUST match this profile flawlessly.
+                    Please construct realistic, formal clinical registration data aligning exactly with this active patient profile. The first name, surname, gender, dob/age, chronic conditions, health insurance, and allergies MUST match this profile flawlessly.
                     """.trimIndent()
                 } else {
-                    "Generate general realistic patient registration details matching South African GP operations."
+                    "Generate general realistic patient registration details matching standard GP operations."
                 }
 
                 val aiActionPrompt = if (customNote != null && customNote.isNotBlank()) {
@@ -694,7 +752,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 sb.append("**Total Patients Seen:** $totalSeen\n\n")
                 
                 sb.append("## Transaction Ledger\n\n")
-                sb.append("| Encounter ID | Speciality | Actual Diagnosis | Revenue (ZAR) | Expenses (ZAR) | Profit/Loss |\n")
+                sb.append("| Encounter ID | Speciality | Actual Diagnosis | Revenue (${currencyCode.value}) | Expenses (${currencyCode.value}) | Profit/Loss |\n")
                 sb.append("|---|---|---|---|---|---|\n")
                 
                 var totalRev = 0.0
@@ -925,7 +983,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         invTable.widthPercentage = 100f
                         invTable.setWidths(floatArrayOf(1.5f, 1.2f, 1.0f, 1.2f, 3.1f))
                         
-                        val invHeaders = listOf("Compound Name", "Classification", "Stock", "Cost(ZAR)", "Clinical Effect")
+                        val invHeaders = listOf("Compound Name", "Classification", "Stock", "Cost(${currencyCode.value})", "Clinical Effect")
                         for (h in invHeaders) {
                             val cell = com.itextpdf.text.pdf.PdfPCell(com.itextpdf.text.Phrase(h, com.itextpdf.text.FontFactory.getFont(com.itextpdf.text.FontFactory.HELVETICA_BOLD, 9f)))
                             cell.backgroundColor = com.itextpdf.text.BaseColor(230, 235, 245)
@@ -985,7 +1043,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                             document.add(com.itextpdf.text.Paragraph("Biological Pathophysiology: ${curr.pathophysiology}", normalFont))
                             
                             if (!curr.labResults.isNullOrBlank()) {
-                                document.add(createPdfShadedBox(curr.labResults, "🩺 South African Metric Laboratory Results / Reports:", normalFont, boldFont))
+                                document.add(createPdfShadedBox(curr.labResults, "🩺 Standard Metric Laboratory Results / Reports:", normalFont, boldFont))
                             }
                             
                             if (!curr.physicalExamResults.isNullOrBlank()) {
@@ -993,7 +1051,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                             }
 
                             if (!curr.prescriptionString.isNullOrBlank()) {
-                                document.add(createPdfShadedBox(curr.prescriptionString, "💊 Prescribed Medication & Treatment Plan (HPCSA compliant):", normalFont, boldFont))
+                                document.add(createPdfShadedBox(curr.prescriptionString, "💊 Prescribed Medication & Treatment Plan (Medical Board compliant):", normalFont, boldFont))
                             }
 
                             if (!curr.referralLetterString.isNullOrBlank()) {
@@ -1008,7 +1066,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                             val currentLabPrice = curr.expensesIncurred
                             val totalGross = currentConsultPrice + currentLabPrice
 
-                            // 🇿🇦 2. ZAR Generic Drug Alternative Advisor
+                            // 💳 2. Generic Drug Alternative Advisor
                             var matchesFoundText = ""
                             val rxStr = curr.prescriptionString ?: ""
                             val matches = mutableListOf<String>()
@@ -1032,14 +1090,14 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                              }
                              
                              if (matches.isEmpty()) {
-                                 matchesFoundText = "No direct brand matches found in active prescription. Default advice: Always request HPCSA-compliant generic substitution at local dispensary for 35-65% chronic cost savings."
+                                 matchesFoundText = "No direct brand matches found in active prescription. Default advice: Always request compliant generic substitution at local dispensary for 35-65% chronic cost savings."
                              } else {
                                  matchesFoundText = matches.joinToString("\n")
                              }
                              
-                             document.add(createPdfShadedBox(matchesFoundText, "🇿🇦 ZAR Generic Drug Alternative Advisor Recommended Substitutions:", normalFont, boldFont))
+                             document.add(createPdfShadedBox(matchesFoundText, "💊 Generic Drug Alternative Advisor Recommended Substitutions:", normalFont, boldFont))
 
-                             // 🇿🇦 3. Informed Financial Consent Statement
+                             // 💳 3. Informed Financial Consent Statement
                              val hasConsentSigned = curr.chatHistory.any { it.text.contains("INFORMED FINANCIAL CONSENT SIGNED", ignoreCase = true) }
                              val consentStatus = if (hasConsentSigned) "SIGNED / RATIFIED ONLINE BY PATIENT" else "NOT REQUISITIONED (EMERGENCY STATUS / OUT-PATIENT SKIP)"
                              val consentSignatureText = """
@@ -1052,10 +1110,10 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                                  Detail Statement: ${if (hasConsentSigned) "Prior to diagnostic investigations, medical tariff boundaries and out-of-pocket fees were disclosed to the patient, who ratified this written quote with active visual signature consent." else "Medical tariff boundaries and out-of-pocket fees were NOT explicitly disclosed or electronically ratified by the patient prior to diagnostic investigations."}
                              """.trimIndent()
                              
-                             document.add(createPdfShadedBox(consentSignatureText, "🇿🇦 Informed Financial Consent Cost Quote Statement & Signature:", normalFont, boldFont))
+                             document.add(createPdfShadedBox(consentSignatureText, "💳 Informed Financial Consent Cost Quote Statement & Signature:", normalFont, boldFont))
 
                             if (!curr.billingReceipt.isNullOrBlank()) {
-                                val billingTitle = "🧾 Itemized Invoice Bill (ZAR Rands R) | Human Approved: ${if (curr.billingApprovedByHuman) "Approved" else "Skipped/Admin"} | Status: ${if (curr.paymentCollected) "Paid / Collected" else "Unpaid"}"
+                                val billingTitle = "🧾 Itemized Invoice Bill (${currencyCode.value} ${currencySymbol.value}) | Human Approved: ${if (curr.billingApprovedByHuman) "Approved" else "Skipped/Admin"} | Status: ${if (curr.paymentCollected) "Paid / Collected" else "Unpaid"}"
                                 document.add(createPdfShadedBox(curr.billingReceipt, billingTitle, normalFont, boldFont))
                             }
 
@@ -1141,7 +1199,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
     private val generatedCaseAdapter = moshi.adapter(GeneratedCaseWrapper::class.java).lenient()
     private val lawsuitStateAdapter = moshi.adapter(com.example.data.LawsuitResponse::class.java).lenient()
 
-    // Private bank of clinical case profiles (South African context)
+    // Private bank of clinical case profiles (Universal context)
     private val routineCases = listOf(
         HiddenCaseProfile(
             specialty = "Pulmonology / Infectious Diseases",
@@ -1289,7 +1347,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
     )
 
     fun ensurePatientIdentityWithMRN(rawDemographics: String): String {
-        if (rawDemographics.contains("MRN-ZA-")) {
+        if (rawDemographics.contains("MRN-GL-")) {
             return rawDemographics
         }
         val isFemale = rawDemographics.contains("Female", ignoreCase = true) || 
@@ -1319,7 +1377,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         val firstName = if (isChild) firstNamesChild.random() else if (isFemale) firstNamesFemale.random() else firstNamesMale.random()
         val lastName = lastNames.random()
         val randomId = (100000..999999).random()
-        val mrn = "MRN-ZA-$randomId"
+        val mrn = "MRN-GL-$randomId"
         
         return "Patient: $firstName $lastName ($mrn) • $rawDemographics"
     }
@@ -1404,7 +1462,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     activeEncounterId = latest.id
                     lastExtractedBillingAmount = if (!latest.billingReceipt.isNullOrBlank()) extractRandAmount(latest.billingReceipt!!) else 0.0
                     
-                    val enrichedDemoOnRestore = if (!latest.patientDemographics.contains("MRN-ZA-")) {
+                    val enrichedDemoOnRestore = if (!latest.patientDemographics.contains("MRN-GL-")) {
                         ensurePatientIdentityWithMRN(latest.patientDemographics)
                     } else {
                         latest.patientDemographics
@@ -1515,7 +1573,9 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val targetSpecialty = if (preferredSpecialty.value == "Sandbox (AI Choice)") {
+                val targetSpecialty = if (isBasicMode.value) {
+                    "General Practice"
+                } else if (preferredSpecialty.value == "Sandbox (AI Choice)") {
                     "Absolute complete sandbox completely random medical field. Do what you want."
                 } else if (preferredSpecialty.value == "All") {
                     val specialtiesList = listOf(
@@ -1931,7 +1991,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             sb.append("\n2. Declare the violation and levy a regulatory penalty fine specified by the law (e.g., R500 or any appropriate custom amount) directly in the 'policyViolations' list.")
             sb.append("\n3. If a violation occurred, populate the 'policyViolations' JSON array. The system will register a formal Statutory Law Violation, deduct the CPD points, fine the clinic, and launch an interactive High Court Trial with a unique indictment sheet based exactly on your reasons and those signed clauses! If no violations occurred, return an empty array or null.")
             sb.append("\n\n🚨 STRICT ANTI-HALLUCINATION POLICY CONSTRAINT 🚨:")
-            sb.append("\nYOU ARE FORBIDDEN FROM HALLUCINATING, INVENTING, OR REFERENCING ANY HEALTH ACTS, LAWS, STATUTES, CO-PAYMENT ACTS, REGULATORY DIRECTIVES, OR CLINICAL CODES (such as general medical guidelines, HIPAA, POPIA, HPCSA protocols, generic insurance laws, etc.) unless the specific law is explicitly listed by name above under 'NATIONWIDE HEALTH LEGISLATION LAWS ACTIVE IN THE LAND'. If no policies are active, or if a law is not listed above, it does not exist in the simulation, and any action is legally compliant. ONLY audit and flag violations block-for-block for active policies listed above.")
+            sb.append("\nYOU ARE FORBIDDEN FROM HALLUCINATING, INVENTING, OR REFERENCING ANY HEALTH ACTS, LAWS, STATUTES, CO-PAYMENT ACTS, REGULATORY DIRECTIVES, OR CLINICAL CODES (such as general medical guidelines, HIPAA, POPIA, Medical Board protocols, generic insurance laws, etc.) unless the specific law is explicitly listed by name above under 'NATIONWIDE HEALTH LEGISLATION LAWS ACTIVE IN THE LAND'. If no policies are active, or if a law is not listed above, it does not exist in the simulation, and any action is legally compliant. ONLY audit and flag violations block-for-block for active policies listed above.")
             sb.toString()
         } else ""
 
@@ -1954,7 +2014,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             """
                 
                 GLOBAL WORLD STATE (YOU ARE THE AGENTIC MASTER OF THESE VARIABLES):
-                - Clinic Reserves: ${world.cashBalance} ZAR
+                - Clinic Reserves: ${world.cashBalance} ${currencyCode.value}
                 - Professional Reputation: ${world.reputationScore}/100
                 - Medical License Status: ${world.licenseStatus}
                 - Active Statutes: ${world.activeLaws.joinToString(", ") { it.name }}
@@ -1966,11 +2026,24 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             """.trimIndent()
         } else ""
 
+        val memoriesStr = if (agentMemories.value.isNotEmpty()) {
+            val memoryLines = agentMemories.value.take(10).joinToString("\n") { m ->
+                " - [${m.memoryTag}]: ${m.lessonLearned}"
+            }
+            """
+            
+            AGENTIC LEARNING MEMORY (REINFORCEMENT KNOWLEDGE FROM PAST ENCOUNTERS):
+            You must apply these learned lessons strictly to the practitioner's behavior to improve simulation outcomes:
+$memoryLines
+            """.trimIndent()
+        } else ""
+
         return """
             You are the "Clinical Dungeon Master" (CDM). You run this professional medical simulation sovereignly.
             Instead of just responding to the user, you DIRECT the scene like a high-stakes medical role-playing game.
             
             $worldStatePrompt
+            $memoriesStr
             
             YOUR DM POWERS:
             1. Narrate the Environment: Use the 'dmEnvironmentalUpdate' field to describe what's happening outside the patient's speech (e.g., "A heavy rain starts hitting the clinic window", "A nurse looks at you expectantly", "The pulse oximeter starts beeping erratically").
@@ -2104,7 +2177,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         val specificInfo = if (labsDescription.isNotBlank()) "Doctor specifically requested: $labsDescription." else "Doctor requested general investigations."
         val patientNameStr = getPatientName()
         performAiAction(
-            systemInstructionOverride = "Doctor has ordered laboratory investigations. $specificInfo Generate comprehensive, realistic South African metric lab results (e.g., blood counts, CRP, biochemistry, ABGs, or whichever specific assessments are relevant) matching the hidden profile and the doctor's request. Include Dr. Tim (JB Consultation Practice) and the patient name ($patientNameStr) in the lab report header. Do NOT use placeholders. Populate the labResults field in your JSON result. Set the currentPhase to 'Phase 2 - Diagnostic Investigations' and keep dialogueResponse polite regarding getting bloods taken.",
+            systemInstructionOverride = "Doctor has ordered laboratory investigations. $specificInfo Generate comprehensive, realistic standard metric lab results (e.g., blood counts, CRP, biochemistry, ABGs, or whichever specific assessments are relevant) matching the hidden profile and the doctor's request. Include Dr. Tim (JB Consultation Practice) and the patient name ($patientNameStr) in the lab report header. Do NOT use placeholders. Populate the labResults field in your JSON result. Set the currentPhase to 'Phase 2 - Diagnostic Investigations' and keep dialogueResponse polite regarding getting bloods taken.",
             onSuccessExtra = {
                 _uiState.value = _uiState.value.copy(currentPhase = "Phase 2 - Diagnostic Investigations")
                 saveCurrentStateToDatabase()
@@ -2222,7 +2295,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             - Patient Demographics: ${_uiState.value.patientDemographics}
             - Verified Patient Name: $patientNameStr
             
-            [MANDATORY HPCSA CLINICAL IDENTITY & NAME CHECK]
+            [MANDATORY CLINICAL IDENTITY & NAME CHECK]
             You MUST perform a strict Safety Patient Name Check. All generated documents (Prescription, Specialist Referral, Sick Leave Certificates) must be legally associated and formatted with the correct Patient Name: "$patientNameStr". 
             Do NOT use placeholders or generic names. Include a clear medical header badge at the top of EACH document text field to declare: "PATIENT SAFETY NAME CHECK: VERIFIED [PASS]".
             
@@ -2232,9 +2305,9 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
 
             Generate highly professional, clean, formatted text files/receipts for ONLY those items which are requested or prescribed above matching private general practice requirements.
             Format them separately and fill in the corresponding JSON fields exactly:
-            1. "prescriptionString": ${if (medPrescribed) "Complete itemized prescription under HPCSA regulations, showing Doctor name (Dr. Tim), practice name (JB Consultation Practice), practice number (PR# 1234567), patient name ($patientNameStr), meds line, dispensing directions, repeat instructions, and signature block. Do NOT use blank lines, underlines, or placeholders like '_______________' or '[Date]'. Generate a mock date (e.g. '12 Oct 2026'), and use an electronic signature like 'Dr. Tim (E-Signed)'." else "null (without quotes)"}
+            1. "prescriptionString": ${if (medPrescribed) "Complete itemized prescription under Medical Board regulations, showing Doctor name (Dr. Tim), practice name (JB Consultation Practice), practice number (PR# 1234567), patient name ($patientNameStr), meds line, dispensing directions, repeat instructions, and signature block. Do NOT use blank lines, underlines, or placeholders like '_______________' or '[Date]'. Generate a mock date (e.g. '12 Oct 2026'), and use an electronic signature like 'Dr. Tim (E-Signed)'." else "null (without quotes)"}
             2. "referralLetterString": ${if (referralProvided) "Format a complete specialist clinical referral advisory letter from Dr. Tim (JB Consultation Practice) addressing $patientNameStr. Do NOT use blank underlines or placeholders. Use a mock date, mock contact info, and 'Dr. Tim (E-Signed)' instead of blanks." else "null (without quotes)"}
-            3. "sickNoteString": ${if (sickNoteProvided) "Format an official South African Medical Certificate under Ethical Rule 16 from Dr. Tim (JB Consultation Practice), declaring the patient ($patientNameStr) unfitted for physical duties, with sick leave dates. Do NOT use blank lines or placeholders. Fill with mock values." else "null (without quotes)"}
+            3. "sickNoteString": ${if (sickNoteProvided) "Format an official Medical Certificate from Dr. Tim (JB Consultation Practice), declaring the patient ($patientNameStr) unfitted for physical duties, with sick leave dates. Do NOT use blank lines or placeholders. Fill with mock values." else "null (without quotes)"}
             
             Set currentPhase to "Phase 4 - Prescription, Referral & Sick Note". Keep dialogueResponse encouraging and detailed.
         """.trimIndent()
@@ -2266,7 +2339,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
 
         val freeHealthPolicyActive = activePolicies.value.any { it.requiresFreeHealth || it.runtimeConstraints["disableBilling"] == true }
         val finalPrompt = """
-            Create the itemized South African private general practitioner medical bill invoice for this patient under JB Consultation Practice (Dr. Tim). Do NOT use placeholders.
+            Create the itemized private general practitioner medical bill invoice for this patient under JB Consultation Practice (Dr. Tim). Do NOT use placeholders.
             
             ${if (freeHealthPolicyActive) "[CRITICAL: A LAW REQUIRING FREE HEALTH SERVICES IS ACTIVE. YOU MUST SET THE TOTAL BILLING TO ZERO AND BILLINGRECEIPT TO NULL.]" else ""}
 
@@ -2282,12 +2355,12 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             - Itemized diagnostic markups or custom procedurals ONLY if listed as YES above! 
             - Dispensing markups for meds ONLY if prescribed (R250.0 flat charge)
             - Administrative fees for sick notes (R60) or specialist letters (R45) ONLY if compiled (listed as YES above)
-            - Standard ZAR 15% VAT and realistic South African ICD-10 medical aid codes.
+            - Standard 15% VAT and realistic local medical aid codes.
             
             Calculate and list the:
             1. Total GP Invoice amount
             2. Medical Aid covered portion (depending on insurance Status: Private Medical Aid covers 80% of total, State Funded covers 100%, Cash/Uninsured covers 0%)
-            3. Out-of-pocket patient co-payment (ZAR)
+            3. Out-of-pocket patient co-payment (${currencyCode.value})
             
             Do NOT use any placeholders like '_______________' or '[Date]', instead use mock dates and electronic signatures (e.g. 'Dr. Tim (E-Signed)', 'Generated REF: 12345').
             Return this invoice itemized inside the "billingReceipt" JSON field. Set currentPhase to "Phase 5 - Medical Billing & Collection" and keep dialogueResponse polite regarding payment collection.
@@ -2321,7 +2394,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
 
         // Submit for final score and evaluation (CPD)
         performAiAction(
-            systemInstructionOverride = "Generate the final CPD-aligned medical scorecard, rating, and feedback for this simulation. Award an objective clinical competency score out of 100 based on history, exams, correct interventions, prescription appropriateness, letters completeness, financial billing, and resource management. Under a distinct heading 'PATIENT SAFETY NAME AUDIT', evaluate if the practitioner referenced the patient by their correct name (${getPatientName()}) and if the compiled prescription, referral, and sick notes correctly printed and matched this specific patient identity. Deduct 10 points if there was any identity mismatch. Populate the 'evaluation' field and populate the 'clinicalScore' numeric field (0-100). Set isEncounterComplete to true, and currentPhase to 'Phase 6 - Case Evaluation & Feedback'.",
+            systemInstructionOverride = "Generate the final CPD-aligned medical scorecard, rating, and feedback for this simulation. Award an objective clinical competency score out of 100 based on history, exams, correct interventions, prescription appropriateness, letters completeness, financial billing, and resource management. Under a distinct heading 'PATIENT SAFETY NAME AUDIT', evaluate if the practitioner referenced the patient by their correct name (${getPatientName()}) and if the compiled prescription, referral, and sick notes correctly printed and matched this specific patient identity. Deduct 10 points if there was any identity mismatch. Populate the 'evaluation' field and populate the 'clinicalScore' numeric field (0-100). FINALLY, write a 1-sentence 'lessonLearned' summarizing the practitioner's primary error or a reinforcement tip for the future. Set isEncounterComplete to true, and currentPhase to 'Phase 6 - Case Evaluation & Feedback'.",
             onSuccessExtra = {
                 // Perform final accounting! Cash flow is received.
                 val activeSchemeStr = _hiddenCase.value?.insuranceStatus ?: "Out-of-Pocket Cash"
@@ -2384,7 +2457,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         saveCurrentStateToDatabase()
 
         performAiAction(
-            systemInstructionOverride = "The doctor is finalizing this encounter. Based on the clinical history, infer the diagnosis, generate the final billing receipt in ZAR, and provide the Phase 4 evaluation score out of 100.",
+            systemInstructionOverride = "The doctor is finalizing this encounter. Based on the clinical history, infer the diagnosis, generate the final billing receipt in ${currencyCode.value}, and provide the Phase 4 evaluation score out of 100. Write a 1-sentence 'lessonLearned' summarizing the practitioner's primary error or a reinforcement tip for the future.",
             onSuccessExtra = {
                 _uiState.value = _uiState.value.copy(currentPhase = "Phase 4 - Case Reveal & Evaluation")
                 saveCurrentStateToDatabase()
@@ -2425,7 +2498,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         saveCurrentStateToDatabase()
 
         performAiAction(
-            systemInstructionOverride = "Generate the final CPD-aligned medical score and feedback for this practitioner who immediately referred the patient. Evaluate if referral was appropriate given the true diagnosis of ${_hiddenCase.value?.trueDiagnosis} and severity of ${_hiddenCase.value?.severity}. Award an objective score out of 100 (e.g., 60/100). Populate the evaluation field and also populate the clinicalScore numeric field (0-100). Generate a final bill/receipt with a flat consultation fee for the referral. Set isEncounterComplete to true.",
+            systemInstructionOverride = "Generate the final CPD-aligned medical score and feedback for this practitioner who immediately referred the patient. Evaluate if referral was appropriate given the true diagnosis of ${_hiddenCase.value?.trueDiagnosis} and severity of ${_hiddenCase.value?.severity}. Award an objective score out of 100 (e.g., 60/100). Populate the evaluation field and also populate the clinicalScore numeric field (0-100). Generate a final bill/receipt with a flat consultation fee for the referral. Set isEncounterComplete to true. Write a 1-sentence 'lessonLearned' summarizing the practitioner's performance.",
             onSuccessExtra = {
                 val charge = consultationFee.value * 0.5 // Half fee for referral
                 _uiState.value = _uiState.value.copy(
@@ -2460,9 +2533,9 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         saveCurrentStateToDatabase()
 
         performAiAction(
-            systemInstructionOverride = "Generate the final CPD-aligned medical score and feedback for this practitioner. Evaluate their diagnosis of '$diagnosis' and treatment plan: '$treatmentPlan' compared against the True Diagnosis of of ${_hiddenCase.value?.trueDiagnosis} and pathophysiology. Ensure you include a 'PATIENT SAFETY NAME AUDIT' verifying if the practitioner addressed the patient by their correct name (${getPatientName()}). Award an objective score out of 100 (e.g., 85/100). Identify diagnostic hits, misses, appropriate investigations, and guideline compliance. Populate the evaluation field and also populate the clinicalScore numeric field (0-100). Set isEncounterComplete to true, and set currentPhase to 'Phase 4 - Case Reveal & Evaluation'.",
+            systemInstructionOverride = "Generate the final CPD-aligned medical score and feedback for this practitioner. Evaluate their diagnosis of '$diagnosis' and treatment plan: '$treatmentPlan' compared against the True Diagnosis of of ${_hiddenCase.value?.trueDiagnosis} and pathophysiology. Ensure you include a 'PATIENT SAFETY NAME AUDIT' verifying if the practitioner addressed the patient by their correct name (${getPatientName()}). Award an objective score out of 100 (e.g., 85/100). Identify diagnostic hits, misses, appropriate investigations, and guideline compliance. Populate the evaluation field and also populate the clinicalScore numeric field (0-100). FINALLY, write a 1-sentence 'lessonLearned' summarizing the practitioner's primary error or a reinforcement tip for the future. Set isEncounterComplete to true, and set currentPhase to 'Phase 4 - Case Reveal & Evaluation'.",
             onSuccessExtra = {
-                // Perform South African clinical consultation billing charge
+                // Perform general clinical consultation billing charge
                 val charge = consultationFee.value
                 _uiState.value = _uiState.value.copy(
                     dailyRevenue = _uiState.value.dailyRevenue + charge,
@@ -2572,21 +2645,21 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         val curMeds = medsStock.value
 
         val catalogStr = OrchidDeepStateManager.availableCatalog.joinToString("\n") { item ->
-            "- ${item.name} (ID: '${item.id}'): Classification: ${item.classification}. Unit Price: R ${item.purchaseCost} ZAR. Current stock: ${OrchidDeepStateManager.dispensaryInventory.value[item.id] ?: 0} units."
+            "- ${item.name} (ID: '${item.id}'): Classification: ${item.classification}. Unit Price: ${currencySymbol.value}${item.purchaseCost}. Current stock: ${OrchidDeepStateManager.dispensaryInventory.value[item.id] ?: 0} units."
         }
 
         val prompt = """
             You are the Medical Clinic Stocking Planner Assistant.
-            The user (a clinic doctor/manager in South Africa) has provided the following stocking/purchasing instruction:
+            The user (a clinic doctor/manager) has provided the following stocking/purchasing instruction:
             "$instruction"
 
-            Current Clinic Resource Wallet Balance: R $bal ZAR
+            Current Clinic Resource Wallet Balance: ${currencySymbol.value}$bal
             Current Inventory Stock Levels:
-            - Syringes: $curSyrings units (Unit price: R 10.00 ZAR each)
-            - Isotonic Saline Bags: $curSaline units (Unit price: R 80.00 ZAR each)
-            - Adrenaline Vials: $curAdren units (Unit price: R 150.00 ZAR each)
-            - Clinical Lab Reagents: $curReag units (Unit price: R 25.00 ZAR each)
-            - Emergency Scheduled Meds: $curMeds units (Unit price: R 200.00 ZAR each)
+            - Syringes: $curSyrings units (Unit price: ${currencySymbol.value}10.00 each)
+            - Isotonic Saline Bags: $curSaline units (Unit price: ${currencySymbol.value}80.00 each)
+            - Adrenaline Vials: $curAdren units (Unit price: ${currencySymbol.value}150.00 each)
+            - Clinical Lab Reagents: $curReag units (Unit price: ${currencySymbol.value}25.00 each)
+            - Emergency Scheduled Meds: $curMeds units (Unit price: ${currencySymbol.value}200.00 each)
 
             Sovereign Pharmaceutical Catalog (Dynamic Custom Items available):
             $catalogStr
@@ -3224,6 +3297,18 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     update.dmEnvironmentalUpdate?.let { dmEnv ->
                         if (dmEnv.isNotBlank() && dmEnv.trim() != "null") {
                             currentHistory.add(ChatMessage("system", "DM 🏛️: $dmEnv"))
+                        }
+                    }
+
+                    update.lessonLearned?.let { ll ->
+                        if (ll.isNotBlank() && ll.trim() != "null") {
+                            val memory = com.example.data.AgentMemory(
+                                encounterId = activeEncounterId,
+                                timestamp = System.currentTimeMillis(),
+                                memoryTag = _hiddenCase.value?.trueDiagnosis ?: "General",
+                                lessonLearned = ll
+                            )
+                            appDatabase.agentMemoryDao().insertMemory(memory)
                         }
                     }
 
@@ -4782,13 +4867,11 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         val totalKeywords = listOf("total amount payable", "total amount due", "amount due", "grand total", "total", "subtotal")
         
         for (keyword in totalKeywords) {
-            val pattern = "(?i)$keyword.*?(?:R|ZAR)\\s*([\\d\\s,\\.]+)"
-            val regex = Regex(pattern)
-            val match = regex.find(billingText)
+            val pattern = "(?i)$keyword.*?([^\\d\\s]*)(?:\\s*\\d|\\s*\\d[\\d\\s,\\.]*)".toRegex()
+            val match = pattern.find(billingText)
             if (match != null) {
-                val groupVal = match.groups[1]?.value ?: continue
-                val normalizedVal = groupVal.replace(" ", "").replace(",", "")
-                val doubleVal = normalizedVal.toDoubleOrNull()
+                val groupVal = match.value.replace(Regex("[^\\d\\.]"), "")
+                val doubleVal = groupVal.toDoubleOrNull()
                 // Ensure we don't accidentally pick up a tiny number if the regex catches something weird
                 if (doubleVal != null && doubleVal > 50.0) {
                     return doubleVal
@@ -4796,8 +4879,8 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             }
         }
         
-        // Fallback to highest R value parsed
-        val rPattern = "(?i)R\\s*([\\d\\s,\\.]+)"
+        // Fallback to highest currency value parsed
+        val rPattern = "(?i)(?:\\$|£|€|R|${Regex.escape(currencySymbol.value)})\\s*([\\d\\s,\\.]+)"
         val rRegex = Regex(rPattern)
         val matches = rRegex.findAll(billingText)
         var lastValidAmount = 0.0

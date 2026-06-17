@@ -55,7 +55,7 @@ class GameAgent(
                     parameters = mapOf(
                         "type" to "object",
                         "properties" to mapOf(
-                            "amount" to mapOf("type" to "number", "description" to "The ZAR amount of the fine"),
+                            "amount" to mapOf("type" to "number", "description" to "The monetary amount of the fine"),
                             "reason" to mapOf("type" to "string", "description" to "The legal justification for the fine")
                         ),
                         "required" to listOf("amount", "reason")
@@ -264,7 +264,7 @@ class GameAgent(
                 ),
                 GeminiFunctionDeclaration(
                     name = "initiate_regulatory_investigation",
-                    description = "Open an HPCSA or state malpractice investigation audit on the doctor.",
+                    description = "Open an Medical Board or state malpractice investigation audit on the doctor.",
                     parameters = mapOf(
                         "type" to "object",
                         "properties" to mapOf(

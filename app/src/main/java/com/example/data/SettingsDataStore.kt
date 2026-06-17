@@ -54,6 +54,39 @@ class SettingsDataStore(private val context: Context) {
         private val POLITICAL_PRESTIGE_KEY = androidx.datastore.preferences.core.intPreferencesKey("political_prestige")
         private val COUNTRY_NAME_KEY = stringPreferencesKey("political_country_name")
         private val STICKY_POLITICIAN_SICK_KEY = androidx.datastore.preferences.core.booleanPreferencesKey("sticky_politician_sick")
+        private val IS_BASIC_MODE_KEY = androidx.datastore.preferences.core.booleanPreferencesKey("is_basic_mode")
+        private val HAS_CHOSEN_MODE_KEY = androidx.datastore.preferences.core.booleanPreferencesKey("has_chosen_mode")
+        private val CURRENCY_SYMBOL_KEY = stringPreferencesKey("custom_currency_symbol")
+        private val CURRENCY_CODE_KEY = stringPreferencesKey("custom_currency_code")
+        private val UI_FONT_SCALE_KEY = androidx.datastore.preferences.core.floatPreferencesKey("ui_font_scale")
+    }
+
+    val uiFontScaleFlow: Flow<Float> = context.dataStore.data.map { it[UI_FONT_SCALE_KEY] ?: 1.0f }
+
+    suspend fun saveUiFontScale(scale: Float) {
+        context.dataStore.edit { preferences ->
+            preferences[UI_FONT_SCALE_KEY] = scale
+        }
+    }
+
+    val currencySymbolFlow: Flow<String> = context.dataStore.data.map { it[CURRENCY_SYMBOL_KEY] ?: "$" }
+    val currencyCodeFlow: Flow<String> = context.dataStore.data.map { it[CURRENCY_CODE_KEY] ?: "USD" }
+
+    suspend fun saveCurrency(symbol: String, code: String) {
+        context.dataStore.edit { preferences ->
+            preferences[CURRENCY_SYMBOL_KEY] = symbol
+            preferences[CURRENCY_CODE_KEY] = code
+        }
+    }
+
+    val isBasicModeFlow: Flow<Boolean> = context.dataStore.data.map { it[IS_BASIC_MODE_KEY] ?: false }
+    val hasChosenModeFlow: Flow<Boolean> = context.dataStore.data.map { it[HAS_CHOSEN_MODE_KEY] ?: false }
+
+    suspend fun saveModeSelection(isBasic: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[IS_BASIC_MODE_KEY] = isBasic
+            preferences[HAS_CHOSEN_MODE_KEY] = true
+        }
     }
 
     val doctorXpFlow: Flow<Long> = context.dataStore.data

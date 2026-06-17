@@ -123,7 +123,8 @@ data class AIResponseStateUpdate(
     val sickNoteString: String? = null,
     val dmEnvironmentalUpdate: String? = null,
     val agentActions: List<AgentAction>? = null,
-    val policyViolations: List<AIPolicyViolation>? = null
+    val policyViolations: List<AIPolicyViolation>? = null,
+    val lessonLearned: String? = null
 )
 
 @JsonClass(generateAdapter = true)
