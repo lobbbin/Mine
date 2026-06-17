@@ -105,6 +105,41 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
     val currencyCode: StateFlow<String> = settingsDataStore.currencyCodeFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, "USD")
 
+    private val _g4fModels = MutableStateFlow<List<String>>(emptyList())
+    val g4fModels: StateFlow<List<String>> = _g4fModels.asStateFlow()
+
+    init {
+        refreshG4FModels()
+    }
+
+    fun refreshG4FModels() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val client = okhttp3.OkHttpClient()
+                val request = okhttp3.Request.Builder()
+                    .url("https://raw.githubusercontent.com/Free-AI-Things/g4f-working/main/working/working_results.txt")
+                    .build()
+                val response = client.newCall(request).execute()
+                if (response.isSuccessful) {
+                    val bodyText = response.body?.string() ?: ""
+                    val models = bodyText.lines()
+                        .map { it.trim() }
+                        .filter { it.isNotEmpty() && it.contains("|") }
+                        .map {
+                            val parts = it.split("|")
+                            if (parts.size >= 2) "${parts[0]}.${parts[1]}" else it
+                        }
+                        .distinct()
+                    if (models.isNotEmpty()) {
+                        _g4fModels.value = models
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     val reputationStars: StateFlow<Float> = settingsDataStore.reputationStarsFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, 3.5f)
 
