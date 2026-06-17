@@ -135,6 +135,13 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.foundation.border
 import androidx.compose.ui.text.font.FontFamily
 
+data class PrescriptionItem(
+    val name: String,
+    val dose: String,
+    val freq: String,
+    val duration: String
+)
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun DashboardScreen(
@@ -205,6 +212,7 @@ fun DashboardScreen(
     var medsDoseInput by remember { mutableStateOf("") }
     var medsFreqInput by remember { mutableStateOf("") }
     var medsDurationInput by remember { mutableStateOf("") }
+    var draftedMedsList by remember { mutableStateOf(listOf<PrescriptionItem>()) }
 
     var referralSpecialityInput by remember { mutableStateOf("") }
     var referralReasonInput by remember { mutableStateOf("") }
@@ -616,7 +624,13 @@ fun DashboardScreen(
                     IntakeFormDialog(
                         initialData = aiIntakeData,
                         onDismiss = { showIntakeFormDialog = false; aiIntakeData = null },
-                        onFinalize = { formData -> viewModel.acceptPatientIntake(formData) }
+                        onFinalize = { formData -> viewModel.acceptPatientIntake(formData) },
+                        onSuggestAiAutofill = { noteStr, callback ->
+                            viewModel.generateIntakeFormData(customNote = noteStr, completion = callback)
+                        },
+                        onSyncBedside = { callback ->
+                            viewModel.generateIntakeFormData(customNote = null, completion = callback)
+                        }
                     )
                 }
 
@@ -1135,51 +1149,196 @@ fun DashboardScreen(
                                                 }
                                                 1 -> {
                                                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                                        Text("1. Prescription Details (PDR)", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                                            OutlinedTextField(
-                                                                value = medsNameInput,
-                                                                onValueChange = { medsNameInput = it },
-                                                                label = { Text("Meds Name") },
-                                                                modifier = Modifier.weight(1.2f).testTag("rx_meds_name"),
-                                                                textStyle = MaterialTheme.typography.bodySmall,
-                                                                singleLine = true
-                                                            )
-                                                            OutlinedTextField(
-                                                                value = medsDoseInput,
-                                                                onValueChange = { medsDoseInput = it },
-                                                                label = { Text("Dose") },
-                                                                modifier = Modifier.weight(0.8f).testTag("rx_meds_dose"),
-                                                                textStyle = MaterialTheme.typography.bodySmall,
-                                                                singleLine = true
-                                                            )
-                                                        }
-                                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                                            OutlinedTextField(
-                                                                value = medsFreqInput,
-                                                                onValueChange = { medsFreqInput = it },
-                                                                label = { Text("Frequency") },
-                                                                modifier = Modifier.weight(1f).testTag("rx_meds_freq"),
-                                                                textStyle = MaterialTheme.typography.bodySmall,
-                                                                singleLine = true
-                                                            )
-                                                            OutlinedTextField(
-                                                                value = medsDurationInput,
-                                                                onValueChange = { medsDurationInput = it },
-                                                                label = { Text("Days") },
-                                                                modifier = Modifier.weight(0.6f).testTag("rx_meds_duration"),
-                                                                textStyle = MaterialTheme.typography.bodySmall,
-                                                                singleLine = true
-                                                            )
-                                                        }
-                                                        
-                                                        Spacer(modifier = Modifier.height(4.dp))
-                                                        GenericDrugAlternativeAdvisor(
-                                                            medsNameCurrent = medsNameInput,
-                                                            onSelectGeneric = { brand, generic ->
-                                                                medsNameInput = generic
-                                                            }
-                                                        )
+                                                        Row(
+                                                             modifier = Modifier.fillMaxWidth(),
+                                                             horizontalArrangement = Arrangement.SpaceBetween,
+                                                             verticalAlignment = Alignment.CenterVertically
+                                                         ) {
+                                                             Text(
+                                                                 text = "1. Prescription Details (PDR)",
+                                                                 style = MaterialTheme.typography.labelSmall,
+                                                                 fontWeight = FontWeight.Bold,
+                                                                 color = MaterialTheme.colorScheme.primary
+                                                             )
+                                                             if (draftedMedsList.isNotEmpty()) {
+                                                                 Surface(
+                                                                     shape = RoundedCornerShape(8.dp),
+                                                                     color = MaterialTheme.colorScheme.primaryContainer,
+                                                                     modifier = Modifier.padding(start = 4.dp)
+                                                                 ) {
+                                                                     Text(
+                                                                         text = "${draftedMedsList.size} Drafted",
+                                                                         fontSize = 11.sp,
+                                                                         fontWeight = FontWeight.Black,
+                                                                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                                         color = MaterialTheme.colorScheme.onPrimaryContainer
+                                                                     )
+                                                                 }
+                                                             }
+                                                         }
+                                                         // --- QUICK CONTEXTUAL MULTI-DRUG PRESETS ---
+                                                         Text(
+                                                             text = "Quick Presets:",
+                                                             style = MaterialTheme.typography.bodySmall,
+                                                             fontSize = 11.sp,
+                                                             fontWeight = FontWeight.SemiBold,
+                                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                             modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
+                                                         )
+
+                                                         Row(
+                                                             modifier = Modifier.fillMaxWidth(),
+                                                             horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                                             verticalAlignment = Alignment.CenterVertically
+                                                         ) {
+                                                             val presets = listOf(
+                                                                 Triple("Amoxil", "500mg", "8-hourly"),
+                                                                 Triple("Panado", "500mg", "6-hourly"),
+                                                                 Triple("Voltaren", "75mg", "12-hourly"),
+                                                                 Triple("Nexium", "40mg", "Daily"),
+                                                                 Triple("Asthavent", "2 puffs", "As needed")
+                                                             )
+                                                             presets.forEach { (name, dose, freq) ->
+                                                                 val actualName = when(name) {
+                                                                     "Amoxil" -> "Amoxicillin (Amoxil) 500mg"
+                                                                     "Panado" -> "Paracetamol (Panado) 500mg"
+                                                                     "Voltaren" -> "Diclofenac SR (Voltaren) 75mg"
+                                                                     "Nexium" -> "Esomeprazole (Nexium) 40mg"
+                                                                     else -> "Asthavent Inhaler"
+                                                                 }
+                                                                 AssistChip(
+                                                                     onClick = {
+                                                                         medsNameInput = actualName
+                                                                         medsDoseInput = dose
+                                                                         medsFreqInput = freq
+                                                                         medsDurationInput = "5"
+                                                                     },
+                                                                     label = { Text(name, fontSize = 9.sp) }
+                                                                 )
+                                                             }
+                                                         }
+
+                                                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                             OutlinedTextField(
+                                                                 value = medsNameInput,
+                                                                 onValueChange = { medsNameInput = it },
+                                                                 label = { Text("Meds Name") },
+                                                                 modifier = Modifier.weight(1.2f).testTag("rx_meds_name"),
+                                                                 textStyle = MaterialTheme.typography.bodySmall,
+                                                                 singleLine = true
+                                                             )
+                                                             OutlinedTextField(
+                                                                 value = medsDoseInput,
+                                                                 onValueChange = { medsDoseInput = it },
+                                                                 label = { Text("Dose") },
+                                                                 modifier = Modifier.weight(0.8f).testTag("rx_meds_dose"),
+                                                                 textStyle = MaterialTheme.typography.bodySmall,
+                                                                 singleLine = true
+                                                             )
+                                                         }
+                                                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                             OutlinedTextField(
+                                                                 value = medsFreqInput,
+                                                                 onValueChange = { medsFreqInput = it },
+                                                                 label = { Text("Frequency") },
+                                                                 modifier = Modifier.weight(1f).testTag("rx_meds_freq"),
+                                                                 textStyle = MaterialTheme.typography.bodySmall,
+                                                                 singleLine = true
+                                                             )
+                                                             OutlinedTextField(
+                                                                 value = medsDurationInput,
+                                                                 onValueChange = { medsDurationInput = it },
+                                                                 label = { Text("Days") },
+                                                                 modifier = Modifier.weight(0.6f).testTag("rx_meds_duration"),
+                                                                 textStyle = MaterialTheme.typography.bodySmall,
+                                                                 singleLine = true
+                                                             )
+                                                         }
+                                                         
+                                                         Spacer(modifier = Modifier.height(4.dp))
+
+                                                         Button(
+                                                             onClick = {
+                                                                 if (medsNameInput.isNotBlank()) {
+                                                                     draftedMedsList = draftedMedsList + PrescriptionItem(
+                                                                         name = medsNameInput,
+                                                                         dose = medsDoseInput.ifBlank { "As directed" },
+                                                                         freq = medsFreqInput.ifBlank { "Daily" },
+                                                                         duration = medsDurationInput.ifBlank { "5" }
+                                                                     )
+                                                                     medsNameInput = ""
+                                                                     medsDoseInput = ""
+                                                                     medsFreqInput = ""
+                                                                     medsDurationInput = ""
+                                                                 }
+                                                             },
+                                                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                                             modifier = Modifier.fillMaxWidth().testTag("add_prescription_item_button"),
+                                                             shape = RoundedCornerShape(8.dp),
+                                                             enabled = medsNameInput.isNotBlank()
+                                                         ) {
+                                                             Text("💊 ADD DRUG TO SCRIPT", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                         }
+
+                                                         if (draftedMedsList.isNotEmpty()) {
+                                                             Card(
+                                                                 colors = CardDefaults.cardColors(
+                                                                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                                                                 ),
+                                                                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                                                 shape = RoundedCornerShape(8.dp)
+                                                             ) {
+                                                                 Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                                     Text(
+                                                                         text = "Current Script List:",
+                                                                         fontSize = 11.sp,
+                                                                         fontWeight = FontWeight.Bold,
+                                                                         color = MaterialTheme.colorScheme.primary
+                                                                     )
+                                                                     draftedMedsList.forEachIndexed { index, item ->
+                                                                         Row(
+                                                                             modifier = Modifier.fillMaxWidth(),
+                                                                             horizontalArrangement = Arrangement.SpaceBetween,
+                                                                             verticalAlignment = Alignment.CenterVertically
+                                                                         ) {
+                                                                             Column(modifier = Modifier.weight(1f)) {
+                                                                                 Text(
+                                                                                     text = "${index + 1}. ${item.name}",
+                                                                                     fontSize = 11.sp,
+                                                                                     fontWeight = FontWeight.Bold
+                                                                                 )
+                                                                                 Text(
+                                                                                     text = "• Dose: ${item.dose} | Freq: ${item.freq} | Duration: ${item.duration} days",
+                                                                                     fontSize = 10.sp,
+                                                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                                                 )
+                                                                             }
+                                                                             IconButton(
+                                                                                 onClick = {
+                                                                                     draftedMedsList = draftedMedsList.toMutableList().apply { removeAt(index) }
+                                                                                 },
+                                                                                 modifier = Modifier.size(24.dp)
+                                                                             ) {
+                                                                                 Icon(
+                                                                                     imageVector = Icons.Default.Close,
+                                                                                     contentDescription = "Remove drug",
+                                                                                     tint = MaterialTheme.colorScheme.error,
+                                                                                     modifier = Modifier.size(16.dp)
+                                                                                 )
+                                                                             }
+                                                                         }
+                                                                     }
+                                                                 }
+                                                             }
+                                                         }
+
+                                                         Spacer(modifier = Modifier.height(4.dp))
+                                                         GenericDrugAlternativeAdvisor(
+                                                             medsNameCurrent = medsNameInput,
+                                                             onSelectGeneric = { brand, generic ->
+                                                                 medsNameInput = generic
+                                                             }
+                                                         )
                                                     }
                                                 }
                                                 2 -> {
@@ -1244,8 +1403,28 @@ fun DashboardScreen(
                                                 }
                                                 Button(
                                                     onClick = {
-                                                        val normalizedMeds = medsNameInput.trim()
-                                                        val isMedsEmptyOrNA = normalizedMeds.isEmpty() || 
+                                                        val hasMedsInList = draftedMedsList.isNotEmpty()
+                                                         val normalizedMeds = medsNameInput.trim()
+                                                         val isMedsFieldEmptyOrNA = normalizedMeds.isEmpty() || 
+                                                                               normalizedMeds.equals("n/a", ignoreCase = true) || 
+                                                                               normalizedMeds.equals("null", ignoreCase = true) ||
+                                                                               normalizedMeds.equals("none", ignoreCase = true)
+
+                                                         val isMedsEmptyOrNA = !hasMedsInList && isMedsFieldEmptyOrNA
+                                                         
+                                                         val medsNameStr = if (hasMedsInList) {
+                                                             draftedMedsList.joinToString("\n") { "- ${it.name} (${it.dose}, ${it.freq} for ${it.duration} days)" }
+                                                         } else if (!isMedsFieldEmptyOrNA) {
+                                                             medsNameInput
+                                                         } else {
+                                                             ""
+                                                         }
+
+                                                         val medsDoseStr = if (hasMedsInList) "As indicated" else medsDoseInput
+                                                         val medsFreqStr = if (hasMedsInList) "As indicated" else medsFreqInput
+                                                         val medsDurationStr = if (hasMedsInList) "As indicated" else medsDurationInput
+                                                         val medsCount = if (hasMedsInList) draftedMedsList.size else if (!isMedsFieldEmptyOrNA) 1 else 0
+                                                        val isMedsEmptyOrNA_dup = normalizedMeds.isEmpty() || 
                                                                               normalizedMeds.equals("n/a", ignoreCase = true) || 
                                                                               normalizedMeds.equals("null", ignoreCase = true) ||
                                                                               normalizedMeds.equals("none", ignoreCase = true)
@@ -1267,16 +1446,18 @@ fun DashboardScreen(
                                                             viewModel.logAndEmitError("Error: Please enter at least a valid Prescription, Specialist Referral, or Sick Note to compile.")
                                                         } else {
                                                             viewModel.compilePrescriptionAndReferral(
-                                                                medsName = if (isMedsEmptyOrNA) "" else medsNameInput,
-                                                                medsDose = if (isMedsEmptyOrNA) "" else medsDoseInput,
-                                                                medsFreq = if (isMedsEmptyOrNA) "" else medsFreqInput,
-                                                                medsDuration = if (isMedsEmptyOrNA) "" else medsDurationInput,
+                                                                medsName = medsNameStr,
+                                                                medsDose = medsDoseStr,
+                                                                medsFreq = medsFreqStr,
+                                                                medsDuration = medsDurationStr,
                                                                 referralSpecialty = if (isRefEmptyOrNA) "" else referralSpecialityInput,
                                                                 referralReason = if (isRefEmptyOrNA) "" else referralReasonInput,
                                                                 sickNoteReason = if (isSickEmptyOrNA) "" else sickNoteReasonInput,
-                                                                sickNoteDays = sickNoteDaysInput.toIntOrNull() ?: 0
+                                                                sickNoteDays = sickNoteDaysInput.toIntOrNull() ?: 0,
+                                                                medsCount = medsCount
                                                             )
                                                             showPaperworkDraftPanel = false
+                                                            draftedMedsList = emptyList()
                                                         }
                                                     },
                                                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
@@ -2889,6 +3070,108 @@ fun ClinicalHubCard(
                                                     style = MaterialTheme.typography.bodySmall,
                                                     color = stabilityColor,
                                                     fontWeight = FontWeight.ExtraBold
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(6.dp))
+
+                                    if (uiState.intakeFormData != null) {
+                                        val f = uiState.intakeFormData!!
+                                        Card(
+                                            colors = CardDefaults.cardColors(
+                                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
+                                            ),
+                                            shape = RoundedCornerShape(12.dp),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                                        ) {
+                                            Column(modifier = Modifier.padding(12.dp)) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Assignment,
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(
+                                                        text = "OFFICIAL PATIENT REGISTRATION FILE",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        fontWeight = FontWeight.Black,
+                                                        color = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
+                                                
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                                
+                                                val details = listOf(
+                                                    "Full Name" to "${f.firstName} ${f.surname}",
+                                                    "ID / MRN" to f.idNumber,
+                                                    "Birth Date" to f.dob,
+                                                    "Gender" to f.gender,
+                                                    "Medical Aid" to f.medicalAid,
+                                                    "Chronic" to f.chronicConditions,
+                                                    "Allergies" to f.allergies,
+                                                    "Emergency" to f.emergencyContact
+                                                )
+                                                
+                                                details.forEach { (label, value) ->
+                                                    if (value.isNotBlank() && value != "N/A" && value != "None") {
+                                                        Row(
+                                                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                                            verticalAlignment = Alignment.CenterVertically
+                                                        ) {
+                                                            Text(
+                                                                text = label,
+                                                                style = MaterialTheme.typography.bodySmall,
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                                fontWeight = FontWeight.Bold,
+                                                                modifier = Modifier.weight(0.35f)
+                                                            )
+                                                            Text(
+                                                                text = value,
+                                                                style = MaterialTheme.typography.bodySmall,
+                                                                color = MaterialTheme.colorScheme.onSurface,
+                                                                textAlign = TextAlign.End,
+                                                                modifier = Modifier.weight(0.65f)
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        Card(
+                                            colors = CardDefaults.cardColors(
+                                                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f)
+                                            ),
+                                            shape = RoundedCornerShape(12.dp),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .border(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(12.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Info,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.error,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(
+                                                    text = "Patient Registration form is missing/unfiled. Tap the button at the top to auto-generate & verify this profile.",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onErrorContainer
                                                 )
                                             }
                                         }

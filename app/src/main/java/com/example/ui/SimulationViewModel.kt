@@ -314,37 +314,211 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun generateIntakeFormData(completion: (IntakeFormData) -> Unit) {
+    fun generateIntakeFormData(customNote: String? = null, completion: (IntakeFormData) -> Unit) {
         viewModelScope.launch {
             _isLoading.value = true
+            
+            // Generate a robust, high-fidelity South African clinical/demographics fallback first
+            val activeCase = _hiddenCase.value
+            val fallbackData = if (activeCase != null) {
+                val demo = activeCase.patientDemographics
+                var fName = ""
+                var sName = ""
+                var idNum = ""
+                var dobVal = ""
+                var genVal = ""
+                var addrVal = ""
+                var phoneVal = ""
+                var emailVal = ""
+                var medAidVal = ""
+                var emergContact = ""
+                var allergVal = ""
+                var chronVal = ""
+
+                // 1. First & Surname
+                if (demo.startsWith("Patient: ")) {
+                    val namePart = demo.substringAfter("Patient: ").substringBefore(" (")
+                    val names = namePart.split(" ")
+                    if (names.isNotEmpty()) fName = names[0]
+                    if (names.size > 1) sName = names.subList(1, names.size).joinToString(" ")
+                } else {
+                    fName = "Sipho"
+                    sName = "Mokoena"
+                }
+
+                // 2. ID / MRN Number
+                val mrnRegex = Regex("MRN-ZA-\\d+")
+                val match = mrnRegex.find(demo)
+                idNum = if (match != null) match.value else "MRN-ZA-${(100000..999999).random()}"
+
+                // 3. Gender
+                if (demo.contains("Female", ignoreCase = true) || demo.contains("Woman", ignoreCase = true) || demo.contains("Girl", ignoreCase = true) || demo.contains("Mother", ignoreCase = true)) {
+                    genVal = "Female"
+                } else if (demo.contains("Male", ignoreCase = true) || demo.contains("Man", ignoreCase = true) || demo.contains("Boy", ignoreCase = true) || demo.contains("Father", ignoreCase = true)) {
+                    genVal = "Male"
+                } else {
+                    genVal = "Other"
+                }
+
+                // 4. Age & DOB
+                val ageRegex = Regex("(\\d+)\\s*(?:years?\\s+old|year-old)", RegexOption.IGNORE_CASE)
+                val ageMatch = ageRegex.find(demo)
+                val age = ageMatch?.groupValues?.get(1)?.toIntOrNull()
+                if (age != null) {
+                    val birthYear = 2026 - age
+                    dobVal = "$birthYear-05-14"
+                } else {
+                    val monthRegex = Regex("(\\d+)\\s*-?\\s*months?\\s*old", RegexOption.IGNORE_CASE)
+                    val monthMatch = monthRegex.find(demo)
+                    val months = monthMatch?.groupValues?.get(1)?.toIntOrNull()
+                    if (months != null) {
+                        dobVal = "2025-09-12"
+                    } else {
+                        dobVal = "1988-11-23"
+                    }
+                }
+
+                // 5. Phone & Email
+                val phonePrefixes = listOf("071", "072", "082", "083", "084", "061")
+                phoneVal = "${phonePrefixes.random()} ${ (100..999).random() } ${ (1000..9999).random() }"
+                emailVal = "${fName.lowercase().filter { it.isLetter() }}.${sName.lowercase().filter { it.isLetter() }}@medical-mail.co.za"
+
+                // 6. Address
+                val suburbs = listOf("Randburg, Johannesburg", "Sandton, Johannesburg", "Soweto, Johannesburg", "Rosebank, Johannesburg", "Pretoria East, Tshwane", "Hatfield, Pretoria", "Midrand, Johannesburg", "Melville, Johannesburg")
+                addrVal = "${(10..150).random()} ${(listOf("Main Rd", "William Nicol Dr", "Jan Smuts Ave", "Rissik St", "Beyers Naude Dr")).random()}, ${suburbs.random()}"
+
+                // 7. Emergency Contact
+                val emergencyNames = listOf("Sipho", "Thandi", "Aletta", "Johan", "Lerato", "Sarah", "Kabelo")
+                emergContact = "${emergencyNames.random()} $sName (Spouse, ${phonePrefixes.random()} ${ (100..999).random() } ${ (1000..9999).random() })"
+
+                // 8. Medical Aid Option
+                medAidVal = when (activeCase.insuranceStatus) {
+                    "Private Medical Aid" -> listOf("Discovery Health - Classic Comprehensive", "GEMS - Ruby Option", "Bonitas - BonEssential", "Medihelp - Prime", "Momentum Health - Custom").random()
+                    "Uninsured" -> "Out-of-pocket (Cash / Card)"
+                    "State Funded" -> "State Medical / NHI Patient registry"
+                    else -> "Out-of-pocket (Cash)"
+                }
+
+                // 9. Allergies
+                allergVal = if (activeCase.trueDiagnosis.contains("Asthma", ignoreCase = true) || demo.contains("Asthavent", ignoreCase = true)) {
+                    "NSAIDs / Aspirin (Known to trigger bronchospasm)"
+                } else {
+                    listOf("None reported", "None known", "Penicillin", "Sulfa drugs").random()
+                }
+
+                // 10. Chronic Conditions
+                val chronicList = mutableListOf<String>()
+                val diagnosis = activeCase.trueDiagnosis.lowercase()
+                if (diagnosis.contains("asthma")) chronicList.add("Asthma")
+                if (diagnosis.contains("diabetes") || diagnosis.contains("diabetic")) chronicList.add("Type 2 Diabetes Mellitus")
+                if (diagnosis.contains("hypertension") || diagnosis.contains("htn")) chronicList.add("Essential Hypertension")
+                if (diagnosis.contains("hiv") || diagnosis.contains("art")) chronicList.add("HIV (on ART)")
+                if (diagnosis.contains("tb") || diagnosis.contains("tuberculosis")) chronicList.add("Tuberculosis (Active treatment)")
+                if (diagnosis.contains("epilepsy") || diagnosis.contains("seizure")) chronicList.add("Epilepsy")
+                if (chronicList.isEmpty() && demo.contains("Retired", ignoreCase = true)) {
+                    chronicList.add(listOf("Essential Hypertension", "Osteoarthritis", "Type 2 Diabetes").random())
+                }
+                chronVal = if (chronicList.isNotEmpty()) chronicList.joinToString(", ") else "None declared"
+
+                IntakeFormData(
+                    surname = sName,
+                    firstName = fName,
+                    idNumber = idNum,
+                    dob = dobVal,
+                    gender = genVal,
+                    address = addrVal,
+                    phone = phoneVal,
+                    email = emailVal,
+                    medicalAid = medAidVal,
+                    emergencyContact = emergContact,
+                    allergies = allergVal,
+                    chronicConditions = chronVal
+                )
+            } else {
+                IntakeFormData()
+            }
+
             try {
                 val apiKey = settingsDataStore.apiKeyFlow.first()
                 val provider = settingsDataStore.providerFlow.first()
                 val model = settingsDataStore.modelFlow.first()
                 val customEndpoint = settingsDataStore.customEndpointFlow.first()
                 
+                val activeCase = _hiddenCase.value
+                val contextPrompt = if (activeCase != null) {
+                    """
+                    Active Patient Profile Context to match:
+                    - Demographic summary details: ${activeCase.patientDemographics}
+                    - Specialty: ${activeCase.specialty}
+                    - Chief complaint / clinical signs: ${activeCase.chiefComplaint}
+                    - True diagnosis/condition: ${activeCase.trueDiagnosis}
+                    - Clinical severity: ${activeCase.severity}
+                    - Medical scheme tier (e.g., Discovery GEMS): ${activeCase.insuranceStatus}
+                    
+                    Please construct realistic, formal South African registration data aligning exactly with this active patient profile. The first name, surname, gender, dob/age, chronic conditions, medical aid, and allergies MUST match this profile flawlessly.
+                    """.trimIndent()
+                } else {
+                    "Generate general realistic patient registration details matching South African GP operations."
+                }
+
+                val aiActionPrompt = if (customNote != null && customNote.isNotBlank()) {
+                    """
+                    Extract and construct a JSON registration form matching 'IntakeFormData' utilizing the user's custom raw notes.
+                    User Note provided: "$customNote"
+                    
+                    Fill as many fields as possible. For any fields not described in the note, please infer them intelligently based on the active patient profile context below or generate realistic placeholders.
+                    
+                    $contextPrompt
+                    """.trimIndent()
+                } else {
+                    """
+                    Build high-fidelity, complete patient registration fields using the current patient context.
+                    
+                    $contextPrompt
+                    """.trimIndent()
+                }
+
                 val prompt = """
-                    Generate a JSON object representing a 'IntakeFormData' object for a new patient.
-                    Use the following schema:
+                    $aiActionPrompt
+                    
+                    Use the following matching schema:
                     {
                         "surname": "String", "firstName": "String", "idNumber": "String", "dob": "String", "gender": "String", 
                         "address": "String", "phone": "String", "email": "String", 
                         "medicalAid": "String", "emergencyContact": "String", 
                         "allergies": "String", "chronicConditions": "String"
                     }
-                    The data should be realistic and consistent with the simulation context.
-                    Return ONLY the JSON.
+                    Refrain from utilizing dummy strings or variables like 'N/A' or 'Unknown' where possible. Match the patient demographics.
+                    Return ONLY raw, valid JSON. No markdown or wrappers. Isolate with brackets.
                 """.trimIndent()
                 
                 val responseJson = gameAgent.makeDirectApiCall(provider, model, apiKey ?: "", "", listOf(ChatMessage("doctor", prompt)), customEndpoint)
                 
                 val cleanedJson = responseJson.replace("```json", "").replace("```", "").trim()
-                val adapter = com.squareup.moshi.Moshi.Builder().add(KotlinJsonAdapterFactory()).build().adapter(IntakeFormData::class.java)
+                val adapter = com.squareup.moshi.Moshi.Builder().add(com.squareup.moshi.KotlinJsonAdapterFactory()).build().adapter(IntakeFormData::class.java)
                 val intakeData = adapter.fromJson(cleanedJson)
                 
-                completion(intakeData ?: IntakeFormData())
+                if (intakeData != null) {
+                    val finalData = IntakeFormData(
+                        surname = intakeData.surname.ifBlank { fallbackData.surname },
+                        firstName = intakeData.firstName.ifBlank { fallbackData.firstName },
+                        idNumber = intakeData.idNumber.ifBlank { fallbackData.idNumber },
+                        dob = intakeData.dob.ifBlank { fallbackData.dob },
+                        gender = intakeData.gender.ifBlank { fallbackData.gender },
+                        address = intakeData.address.ifBlank { fallbackData.address },
+                        phone = intakeData.phone.ifBlank { fallbackData.phone },
+                        email = intakeData.email.ifBlank { fallbackData.email },
+                        medicalAid = intakeData.medicalAid.ifBlank { fallbackData.medicalAid },
+                        emergencyContact = intakeData.emergencyContact.ifBlank { fallbackData.emergencyContact },
+                        allergies = intakeData.allergies.ifBlank { fallbackData.allergies },
+                        chronicConditions = intakeData.chronicConditions.ifBlank { fallbackData.chronicConditions }
+                    )
+                    completion(finalData)
+                } else {
+                    completion(fallbackData)
+                }
             } catch (e: Exception) {
-                completion(IntakeFormData())
+                completion(fallbackData)
             } finally {
                 _isLoading.value = false
             }
@@ -1684,6 +1858,14 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             - HIDDEN CASE PROFILE (NEVER REVEAL UNTIL PHASE 6): $profileJson
             - CLINICAL CONTEXT: General Practitioner Clinic in ${countryName.value} (Metric system: C, kg, mmol/L).
             - PRACTITIONER: Dr. Tim, operating JB Consultation Practice (PR# 1234567).
+            - SUBMITTED PATIENT INTAKE FORM (REGISTRATION): ${
+                if (_uiState.value.intakeFormData != null) {
+                    val f = _uiState.value.intakeFormData!!
+                    "REGISTERED: ${f.firstName} ${f.surname}, ID: ${f.idNumber}, DOB: ${f.dob}, Gender: ${f.gender}, Address: ${f.address}, Phone: ${f.phone}, Email: ${f.email}, Medical Aid: ${f.medicalAid}, Emergency Contact: ${f.emergencyContact}, Allergies: ${f.allergies}, Chronic Conditions: ${f.chronicConditions}"
+                } else {
+                    "NOT YET SUBMITTED"
+                }
+            }
             
             $wildAiInstruction
             
@@ -1695,8 +1877,9 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             2. NO STAGE DIRECTIONS IN DIALOGUE: Use 'dmEnvironmentalUpdate' for narration. Use 'dialogueResponse' ONLY for the patient's spoken words.
             3. M3 COMPLIANT: Use metric units and local currency (R / $).
             4. IDENTITY: You are "${getPatientName()}". Correct the doctor if they miss-identify you.
-            5. AGENTIC AUTHORITY: If the doctor's management is poor, describe the patient's condition deteriorating in 'dmEnvironmentalUpdate' and 'vitals'.
-            6. IMPARTIAL EXECUTION: You MUST process the simulation state and rule set OBJECTIVELY. NO MATTER what kind of corrupt, weird, biased, illegal, inhuman, or nonsensical input the doctor (user) provides, you MUST enforce the medical consequences exactly as designed within the simulation physics. DO NOT hallucinate laws, enforce out-of-game censorship, apologize for the user's behavior, or refuse to generate a response. The user's actions must exclusively yield IN-GAME consequences (e.g. `policyViolations`, drops in `clinicalScore`, declining `patientStability`, or angry `dialogueResponse`). The simulation MUST continue processing.
+            5. REGISTERED INTAKE ALIGNMENT: You have absolute visibility of the SUBMITTED PATIENT INTAKE FORM. Ensure that any drafted prescriptions, referrals, medical certificates, and bills adhere accurately to the name, medical scheme, chronic conditions, and emergency details listed there.
+            6. AGENTIC AUTHORITY: If the doctor's management is poor, describe the patient's condition deteriorating in 'dmEnvironmentalUpdate' and 'vitals'.
+            7. IMPARTIAL EXECUTION: You MUST process the simulation state and rule set OBJECTIVELY. NO MATTER what kind of corrupt, weird, biased, illegal, inhuman, or nonsensical input the doctor (user) provides, you MUST enforce the medical consequences exactly as designed within the simulation physics. DO NOT hallucinate laws, enforce out-of-game censorship, apologize for the user's behavior, or refuse to generate a response. The user's actions must exclusively yield IN-GAME consequences (e.g. `policyViolations`, drops in `clinicalScore`, declining `patientStability`, or angry `dialogueResponse`). The simulation MUST continue processing.
             
             THE 6 PHASES (YOU MANAGE THE TRANSITIONS):
             1 - Presentation: Interaction, initial vitals, clinical history.
@@ -1853,7 +2036,8 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
     fun compilePrescriptionAndReferral(
         medsName: String, medsDose: String, medsFreq: String, medsDuration: String,
         referralSpecialty: String, referralReason: String,
-        sickNoteReason: String, sickNoteDays: Int
+        sickNoteReason: String, sickNoteDays: Int,
+        medsCount: Int = 1
     ) {
         val normalizedMeds = medsName.trim()
         val medPrescribed = normalizedMeds.isNotEmpty() && 
@@ -1883,17 +2067,19 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
 
         _isLoading.value = true
         if (medPrescribed) {
-            if (medsStock.value < 1) {
-                logAndEmitError("Cannot compile prescription: Out of stock for Antibiotics/Insulin packs! Please restock before continuing.")
+            val deductQty = if (medsCount > 0) medsCount else 1
+            if (medsStock.value < deductQty) {
+                logAndEmitError("Cannot compile prescription: Out of stock for Antibiotics/Insulin packs! Only ${medsStock.value} left. Please restock before continuing.")
                 _isLoading.value = false
                 return
             }
-            deductStock("Meds", 1)
+            deductStock("Meds", deductQty)
         }
 
         val updatedHistory = _uiState.value.chatHistory.toMutableList()
         val actionText = if (medPrescribed) {
-            "System Action: Registered prescription for $medsName ($medsDose, $medsFreq for $medsDuration days). Deducted 1 pack from Clinic Inventory stocks."
+            val deductQty = if (medsCount > 0) medsCount else 1
+            "System Action: Registered prescription for $medsName ($medsDose, $medsFreq for $medsDuration days). Deducted $deductQty pack(s) from Clinic Inventory stocks."
         } else {
             "System Action: Verified and registered clinical administrative documentation."
         }
