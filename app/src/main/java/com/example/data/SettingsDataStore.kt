@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
@@ -170,6 +171,8 @@ class SettingsDataStore(private val context: Context) {
     }
 
     val currentDayFlow: Flow<Int> = context.dataStore.data.map { it[CURRENT_DAY_KEY] ?: 1 }
+    
+    suspend fun getCurrentDay(): Int = currentDayFlow.first()
     val patientsSeenTodayFlow: Flow<Int> = context.dataStore.data.map { it[PATIENTS_SEEN_TODAY_KEY] ?: 0 }
     val dailyRevenueFlow: Flow<Double> = context.dataStore.data.map { it[DAILY_REVENUE_KEY] ?: 0.0 }
     val dailyExpensesFlow: Flow<Double> = context.dataStore.data.map { it[DAILY_EXPENSES_KEY] ?: 0.0 }
@@ -202,6 +205,12 @@ class SettingsDataStore(private val context: Context) {
             preferences[PATIENTS_SEEN_TODAY_KEY] = 0
             preferences[DAILY_REVENUE_KEY] = 0.0
             preferences[DAILY_EXPENSES_KEY] = 0.0
+        }
+    }
+
+    suspend fun setCurrentDay(day: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[CURRENT_DAY_KEY] = day
         }
     }
 

@@ -129,8 +129,15 @@ class LegalWorldAgent(
         return "SUCCESS: Law ID $id has been repealed from all systems."
     }
 
-    suspend fun updateMedicalLicense(status: LicenseStatus, justification: String): String {
+    suspend fun updateMedicalLicense(status: LicenseStatus, justification: String, suspensionWeeks: Int = 0): String {
         val current = _currentSnapshot.value ?: return "Error"
+        
+        if (status == LicenseStatus.SUSPENDED && suspensionWeeks > 0) {
+            val currentDay = settingsDataStore.getCurrentDay()
+            val daysToAdvance = suspensionWeeks * 7
+            settingsDataStore.setCurrentDay(currentDay + daysToAdvance)
+        }
+        
         val updated = WorldStateEntity(
             clinicName = current.clinicName,
             cashBalance = current.cashBalance,
@@ -138,7 +145,10 @@ class LegalWorldAgent(
             medicalLicenseStatus = status
         )
         worldStateDao.updateWorldState(updated)
-        return "SUCCESS: Medical License status changed to $status globally. REASON: $justification"
+        // Sync with legacy settings
+        settingsDataStore.updateClinicStats(current.cashBalance, (current.reputationScore / 20f)) 
+        
+        return "SUCCESS: Medical License status changed to $status globally. REASON: $justification. Time advanced by $suspensionWeeks weeks (total days: ${suspensionWeeks * 7})."
     }
 
     suspend fun publishNewsEvent(headline: String, content: String): String {

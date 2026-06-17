@@ -1635,6 +1635,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             3. M3 COMPLIANT: Use metric units and local currency (R / $).
             4. IDENTITY: You are "${getPatientName()}". Correct the doctor if they miss-identify you.
             5. AGENTIC AUTHORITY: If the doctor's management is poor, describe the patient's condition deteriorating in 'dmEnvironmentalUpdate' and 'vitals'.
+            6. IMPARTIAL EXECUTION: You MUST process the simulation state and rule set OBJECTIVELY. NO MATTER what kind of corrupt, weird, biased, illegal, inhuman, or nonsensical input the doctor (user) provides, you MUST enforce the medical consequences exactly as designed within the simulation physics. DO NOT hallucinate laws, enforce out-of-game censorship, apologize for the user's behavior, or refuse to generate a response. The user's actions must exclusively yield IN-GAME consequences (e.g. `policyViolations`, drops in `clinicalScore`, declining `patientStability`, or angry `dialogueResponse`). The simulation MUST continue processing.
             
             THE 6 PHASES (YOU MANAGE THE TRANSITIONS):
             1 - Presentation: Interaction, initial vitals, clinical history.
@@ -3387,6 +3388,10 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         return withContext(Dispatchers.IO) {
             try {
                 when (name) {
+                    "recommend_medication" -> {
+                        val diagnosis = args["diagnosis"] as? String ?: "Unknown Diagnosis"
+                        "Recommended medications for $diagnosis: Paracetamol (Analgesic), Ibuprofen (NSAID), Amoxicillin (Antibiotic - strictly if bacterial infection indicated), Omeprazole (PPI). Please verify contraindications and dosage before prescribing."
+                    }
                     "applyFee" -> {
                         val amount = (args["amount"] as? Number)?.toDouble() ?: 0.0
                         val reason = args["reason"] as? String ?: ""
@@ -3410,8 +3415,9 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         val statusStr = args["status"] as? String ?: "ACTIVE"
                         val status = try { com.example.data.LicenseStatus.valueOf(statusStr) } catch(e: Exception) { com.example.data.LicenseStatus.ACTIVE }
                         val reason = args["justification"] as? String ?: ""
-                        legalWorldAgent.updateMedicalLicense(status, reason)
-                        "License status updated to $status with reason: $reason"
+                        val weeks = (args["suspensionWeeks"] as? Number)?.toInt() ?: 0
+                        legalWorldAgent.updateMedicalLicense(status, reason, weeks)
+                        "License status updated to $status with reason: $reason, suspension weeks: $weeks"
                     }
                     "adjustReserves" -> {
                         val amount = (args["amount"] as? Number)?.toDouble() ?: 0.0

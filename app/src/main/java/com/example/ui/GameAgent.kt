@@ -16,6 +16,18 @@ class GameAgent(
         GeminiTool(
             functionDeclarations = listOf(
                 GeminiFunctionDeclaration(
+                    name = "recommend_medication",
+                    description = "Recommend appropriate drugs for the patient based on the diagnosis and condition.",
+                    parameters = mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "diagnosis" to mapOf("type" to "string", "description" to "The diagnosis to recommend drugs for"),
+                            "current_medications" to mapOf("type" to "array", "items" to mapOf("type" to "string"), "description" to "Medications already planned")
+                        ),
+                        "required" to listOf("diagnosis")
+                    )
+                ),
+                GeminiFunctionDeclaration(
                     name = "applyFee",
                     description = "Apply a financial penalty fine to the clinic.",
                     parameters = mapOf(
@@ -59,7 +71,8 @@ class GameAgent(
                         "type" to "object",
                         "properties" to mapOf(
                             "status" to mapOf("type" to "string", "enum" to listOf("ACTIVE", "PROBATION", "SUSPENDED", "REVOKED")),
-                            "justification" to mapOf("type" to "string", "description" to "Why the status changed")
+                            "justification" to mapOf("type" to "string", "description" to "Why the status changed"),
+                            "suspensionWeeks" to mapOf("type" to "integer", "description" to "If suspended, how many weeks to advance time")
                         ),
                         "required" to listOf("status", "justification")
                     )
