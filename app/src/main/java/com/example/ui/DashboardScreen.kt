@@ -1841,11 +1841,11 @@ fun DashboardScreen(
                                             val schemeText = OrchidDeepStateManager.resolveAndRegisterInsuranceScheme(activeInsText)
                                             val copayText = if (schemeText != null) {
                                                 val pResp = 1.0 - schemeText.coveragePercent
-                                                "R ${String.format("%.2f", viewModel.consultationFee.value * pResp)} (${(pResp * 100).toInt()}%)"
+                                                "$currencySymbol ${String.format("%.2f", viewModel.consultationFee.value * pResp)} (${(pResp * 100).toInt()}%)"
                                             } else when (hiddenCase?.insuranceStatus) {
-                                                "Private Medical Aid" -> "R ${String.format("%.2f", viewModel.consultationFee.value * 0.20)} (20%)"
-                                                "State Funded" -> "R 0.00 (Medical Aid)"
-                                                else -> "R ${String.format("%.2f", viewModel.consultationFee.value + 250.0)}"
+                                                "Private Medical Aid" -> "$currencySymbol ${String.format("%.2f", viewModel.consultationFee.value * 0.20)} (20%)"
+                                                "State Funded" -> "$currencySymbol 0.00 (Medical Aid)"
+                                                else -> "$currencySymbol ${String.format("%.2f", viewModel.consultationFee.value + 250.0)}"
                                             }
                                             Text("💵 RECEIPT $copayText", fontSize = 11.sp, fontWeight = FontWeight.Black)
                                         }
@@ -2024,18 +2024,18 @@ fun DashboardScreen(
                 val patientResponsibility = 1.0 - matchedScheme.coveragePercent
                 val copayAmount = totalEst * patientResponsibility
                 val preAuthHint = if (matchedScheme.requiresPreAuth) "PRE-AUTH REQUIRED" else "No Pre-Auth Needed"
-                Pair("R ${String.format("%.2f", copayAmount)} (Co-Pay ${(patientResponsibility * 100).toInt()}%)", "${matchedScheme.name} limit applies. $preAuthHint")
+                Pair("$currencySymbol ${String.format("%.2f", copayAmount)} (Co-Pay ${(patientResponsibility * 100).toInt()}%)", "${matchedScheme.name} limit applies. $preAuthHint")
             } else {
                 when {
                     insuranceStatus.contains("State", ignoreCase = true) || insuranceStatus.contains("NHS", ignoreCase = true) -> {
-                        Pair("R 0.00 (State Authorized DSP)", "No co-pays required on network contracted diagnostics.")
+                        Pair("$currencySymbol 0.00 (State Authorized DSP)", "No co-pays required on network contracted diagnostics.")
                     }
                     insuranceStatus.contains("Private Medical Aid", ignoreCase = true) -> {
                         val copayAmount = totalEst * 0.20
-                        Pair("R ${String.format("%.2f", copayAmount)} (Standard Aid)", "20% Pathology levy rules apply.")
+                        Pair("$currencySymbol ${String.format("%.2f", copayAmount)} (Standard Aid)", "20% Pathology levy rules apply.")
                     }
                     else -> {
-                        Pair("R ${String.format("%.2f", totalEst)} (Full Cash Paying Out-of-Pocket)", "100% patient private responsibility.")
+                        Pair("$currencySymbol ${String.format("%.2f", totalEst)} (Full Cash Paying Out-of-Pocket)", "100% patient private responsibility.")
                     }
                 }
             }
@@ -2093,20 +2093,20 @@ fun DashboardScreen(
                                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                         Text("GP Consultation Code 0101:", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        Text("R ${String.format("%.2f", consultFeeVal)}", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        Text("$currencySymbol ${String.format("%.2f", consultFeeVal)}", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                     }
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                         Text("Pathology Lab Reagent Cost:", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        Text("R ${String.format("%.2f", labCostVal)}", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        Text("$currencySymbol ${String.format("%.2f", labCostVal)}", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                     }
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                         Text("Clinician Admin/Dispatch Fee:", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        Text("R 50.00", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        Text("$currencySymbol 50.00", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                     }
                                     androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), thickness = 0.5.dp)
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                         Text("Estimated Bill Total:", fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
-                                        Text("R ${String.format("%.2f", totalEst)}", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        Text("$currencySymbol ${String.format("%.2f", totalEst)}", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                     }
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                         Text("Disclosed Patient Co-Payment:", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
