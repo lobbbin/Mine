@@ -393,10 +393,14 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
 
                 // 8. Medical Aid Option
                 medAidVal = when (activeCase.insuranceStatus) {
-                    "Private Medical Aid" -> listOf("Discovery Health - Classic Comprehensive", "GEMS - Ruby Option", "Bonitas - BonEssential", "Medihelp - Prime", "Momentum Health - Custom").random()
-                    "Uninsured" -> "Out-of-pocket (Cash / Card)"
-                    "State Funded" -> "State Medical / NHI Patient registry"
-                    else -> "Out-of-pocket (Cash)"
+                    "Private Medical Aid" -> listOf("Discovery Elite Private", "CarePlus Basic").random()
+                    "Discovery Elite Private" -> "Discovery Elite Private"
+                    "CarePlus Basic" -> "CarePlus Basic"
+                    "National Health Service (NHS)" -> "National Health Service (NHS)"
+                    "Out-of-Pocket Cash" -> "Out-of-Pocket (Cash)"
+                    "Uninsured" -> "Out-of-Pocket (Cash)"
+                    "State Funded / Uninsured" -> "Out-of-Pocket (Cash)"
+                    else -> "Out-of-Pocket (Cash)"
                 }
 
                 // 9. Allergies
@@ -445,7 +449,19 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val customEndpoint = settingsDataStore.customEndpointFlow.first()
                 
                 val activeCase = _hiddenCase.value
+                val activeSchemes = OrchidDeepStateManager.medicalAidSchemes.value
+                val schemasNames = activeSchemes.map { it.name }.toMutableSet()
+                schemasNames.add("Out-of-Pocket Cash")
+                val schemesListStr = schemasNames.joinToString { "'$it'" }
+
                 val contextPrompt = if (activeCase != null) {
+                    val actualRawInsurance = activeCase.insuranceStatus
+                    val matchedSchemeName = when {
+                        actualRawInsurance.contains("Discovery", ignoreCase = true) || actualRawInsurance.contains("Private", ignoreCase = true) -> "Discovery Elite Private"
+                        actualRawInsurance.contains("CarePlus", ignoreCase = true) || actualRawInsurance.contains("Basic", ignoreCase = true) -> "CarePlus Basic"
+                        actualRawInsurance.contains("NHS", ignoreCase = true) || actualRawInsurance.contains("State", ignoreCase = true) || actualRawInsurance.contains("Government", ignoreCase = true) -> "National Health Service (NHS)"
+                        else -> "Out-of-Pocket Cash"
+                    }
                     """
                     Active Patient Profile Context to match:
                     - Demographic summary details: ${activeCase.patientDemographics}
@@ -453,7 +469,14 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     - Chief complaint / clinical signs: ${activeCase.chiefComplaint}
                     - True diagnosis/condition: ${activeCase.trueDiagnosis}
                     - Clinical severity: ${activeCase.severity}
-                    - Medical scheme tier (e.g., Discovery GEMS): ${activeCase.insuranceStatus}
+                    - Medical scheme tier listed in case: ${activeCase.insuranceStatus}
+                    - DIRECT GAME-LAW INSURANCE SCHEME ASSOCIATION: '$matchedSchemeName'
+                    
+                    CRITICAL CONSTRAINT FOR MEDICAL AID FIELD:
+                    The patient's registration form MUST explicitly identify their legal insurance scheme.
+                    Under the in-game laws/schemes, the patient is officially registered with and covered by the scheme named '$matchedSchemeName'.
+                    Therefore, the "medicalAid" field in your JSON output MUST be EXACTLY: "$matchedSchemeName" (or chosen from the active registry: $schemesListStr).
+                    DO NOT under any circumstances hallucinate, invent, or use any other medical aid name, subsidiary plan, or generic name (like Discovery GEMS, KeyCare, Classic Comprehensive, etc.). It must be exactly "$matchedSchemeName".
                     
                     Please construct realistic, formal South African registration data aligning exactly with this active patient profile. The first name, surname, gender, dob/age, chronic conditions, medical aid, and allergies MUST match this profile flawlessly.
                     """.trimIndent()
@@ -514,6 +537,107 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         chronicConditions = intakeData.chronicConditions.ifBlank { fallbackData.chronicConditions }
                     )
                     completion(finalData)
+                } else {
+                    completion(fallbackData)
+                }
+            } catch (e: Exception) {
+                completion(fallbackData)
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun generateSuggestedPaperwork(completion: (com.example.data.SuggestedPaperwork) -> Unit) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            
+            // Build absolute fallback in case AI call fails
+            val activeCase = _hiddenCase.value
+            val fallbackData = if (activeCase != null) {
+                val diag = activeCase.trueDiagnosis
+                val isSevere = activeCase.severity.contains("Severe", ignoreCase = true)
+                val isAsthma = diag.contains("Asthma", ignoreCase = true)
+                val defaultMeds = if (isAsthma) {
+                    listOf(
+                        com.example.data.SuggestedPrescriptionItem("Asthavent Inhaler (Salbutamol)", "2 puffs", "As needed", "30"),
+                        com.example.data.SuggestedPrescriptionItem("Beclomethasone Inhaler", "1 puff", "12-hourly", "30")
+                    )
+                } else if (diag.contains("tonsillitis", ignoreCase = true) || diag.contains("pharyngitis", ignoreCase = true)) {
+                    listOf(
+                        com.example.data.SuggestedPrescriptionItem("Amoxicillin 500mg", "1 capsule", "8-hourly", "5"),
+                        com.example.data.SuggestedPrescriptionItem("Paracetamol 500mg", "2 tablets", "6-hourly", "5")
+                    )
+                } else {
+                    listOf(
+                        com.example.data.SuggestedPrescriptionItem("Paracetamol 500mg", "2 tablets", "6-hourly", "5")
+                    )
+                }
+                
+                com.example.data.SuggestedPaperwork(
+                    diagnosis = diag,
+                    treatmentPlan = "Prescribed appropriate therapy. Supportive care, hydration, and rest.",
+                    meds = defaultMeds,
+                    referralSpecialty = if (isSevere) "Internal Medicine Specialist" else "",
+                    referralReason = if (isSevere) "Urgent escalation and specialized diagnostic evaluation due to severe presentation." else "",
+                    sickNoteReason = diag,
+                    sickNoteDays = if (isSevere) 3 else 1
+                )
+            } else {
+                com.example.data.SuggestedPaperwork()
+            }
+
+            try {
+                val apiKey = settingsDataStore.apiKeyFlow.first()
+                val provider = settingsDataStore.providerFlow.first()
+                val model = settingsDataStore.modelFlow.first()
+                val customEndpoint = settingsDataStore.customEndpointFlow.first()
+                
+                if (activeCase != null) {
+                    val prompt = """
+                        You are the senior attending clinical supervisor autofilling the required paperwork for a patient in our medical simulator.
+                        Active Patient Case:
+                        - Demographics: ${activeCase.patientDemographics}
+                        - Chief complaint: ${activeCase.chiefComplaint}
+                        - True Diagnosis: ${activeCase.trueDiagnosis}
+                        - Pathophysiology: ${activeCase.pathophysiology}
+                        - Clinical severity: ${activeCase.severity}
+                        
+                        You MUST craft a realistic clinical draft matching this exact active case, covering diagnosis, treatment plan, meds, referral (if appropriate), and sick note.
+                        
+                        Return a RAW, valid JSON object matching this schema exactly:
+                        {
+                            "diagnosis": "Precise name of medical condition conforming to True Diagnosis",
+                            "treatmentPlan": "Concise bullet-point style list of treatment directives, monitoring, and red flags.",
+                            "meds": [
+                                {
+                                    "name": "Exact standard generic/brand name of drug appropriate for diagnosis",
+                                    "dose": "Dosage (e.g. '500mg', '2 puffs', '5ml')",
+                                    "freq": "Frequency (e.g. '8-hourly', 'Daily', 'As needed')",
+                                    "duration": "Duration in days as string (e.g. '5')"
+                                }
+                            ],
+                            "referralSpecialty": "If the case is Severe, specify appropriate specialty panel (e.g. Cardiologist, Pulmonologist, General Surgeon, or Empty string)",
+                            "referralReason": "Clinical justification or empty string",
+                            "sickNoteReason": "Symptom or diagnosis justifying medical leave of absence",
+                            "sickNoteDays": Number representing recommended days off (e.g. 1, 2, or 3)
+                        }
+                        
+                        DO NOT return any markdown formatting, backticks, or other wrappers. Just the raw isolated JSON object.
+                    """.trimIndent()
+                    
+                    val responseJson = gameAgent.makeDirectApiCall(provider, model, apiKey ?: "", "", listOf(ChatMessage("doctor", prompt)), customEndpoint)
+                    val cleanedJson = responseJson.replace("```json", "").replace("```", "").trim()
+                    
+                    val moshi = com.squareup.moshi.Moshi.Builder().add(com.squareup.moshi.KotlinJsonAdapterFactory()).build()
+                    val adapter = moshi.adapter(com.example.data.SuggestedPaperwork::class.java)
+                    val suggested = adapter.fromJson(cleanedJson)
+                    
+                    if (suggested != null) {
+                        completion(suggested)
+                    } else {
+                        completion(fallbackData)
+                    }
                 } else {
                     completion(fallbackData)
                 }
@@ -1471,7 +1595,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                               "pathophysiology": "highly detailed master-level explanation of the mechanical and biological pathophysiology matching the diagnosis.",
                               "expectedLabs": "detailed summary of realistic clinical lab investigations, pathology, or imaging findings. Blood chemistry, counts, CRP, Hb, electrolytes, urine, glucose, or imaging as relevant.",
                               "severity": "$targetSeverity",
-                              "insuranceStatus": "The name of the patient's medical insurance, medical aid scheme, National Health Service (NHS), state-funded or 'Out-of-Pocket Cash'. You have complete freedom to select/choose any realistic provider or scheme name appropriate for the local South African / country context (for example: Discovery Health Saver, GEMS Jade, Bonitas Standard, Medshield, CarePlus Prime, NHS, or Out-of-Pocket Cash). Vary this dynamically so Elite does not always pop up.",
+                              "insuranceStatus": "The exact name of the patient's medical insurance scheme. You MUST select and return EXACTLY one of these four permissible strings (DO NOT invent, hallucinate, or use any other name): 'Discovery Elite Private', 'CarePlus Basic', 'National Health Service (NHS)', or 'Out-of-Pocket Cash'.",
                               "initialVitals": {
                                 "bp": "blood pressure string (e.g. '120/80')",
                                 "hr": "heart rate string",
@@ -1806,6 +1930,8 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             sb.append("\n1. Deduct the points specified in the law or decide an appropriate deduction (e.g., -20 CPD points per violation) directly from your 'clinicalScore' value.")
             sb.append("\n2. Declare the violation and levy a regulatory penalty fine specified by the law (e.g., R500 or any appropriate custom amount) directly in the 'policyViolations' list.")
             sb.append("\n3. If a violation occurred, populate the 'policyViolations' JSON array. The system will register a formal Statutory Law Violation, deduct the CPD points, fine the clinic, and launch an interactive High Court Trial with a unique indictment sheet based exactly on your reasons and those signed clauses! If no violations occurred, return an empty array or null.")
+            sb.append("\n\n🚨 STRICT ANTI-HALLUCINATION POLICY CONSTRAINT 🚨:")
+            sb.append("\nYOU ARE FORBIDDEN FROM HALLUCINATING, INVENTING, OR REFERENCING ANY HEALTH ACTS, LAWS, STATUTES, CO-PAYMENT ACTS, REGULATORY DIRECTIVES, OR CLINICAL CODES (such as general medical guidelines, HIPAA, POPIA, HPCSA protocols, generic insurance laws, etc.) unless the specific law is explicitly listed by name above under 'NATIONWIDE HEALTH LEGISLATION LAWS ACTIVE IN THE LAND'. If no policies are active, or if a law is not listed above, it does not exist in the simulation, and any action is legally compliant. ONLY audit and flag violations block-for-block for active policies listed above.")
             sb.toString()
         } else ""
 

@@ -170,5 +170,24 @@ data class HealthPolicy(
     val presidentialAlignment: String? = null
 )
 
+@JsonClass(generateAdapter = true)
+data class SuggestedPrescriptionItem(
+    val name: String,
+    val dose: String = "As directed",
+    val freq: String = "Daily",
+    val duration: String = "5"
+)
+
+@JsonClass(generateAdapter = true)
+data class SuggestedPaperwork(
+    val diagnosis: String = "",
+    val treatmentPlan: String = "",
+    val meds: List<SuggestedPrescriptionItem> = emptyList(),
+    val referralSpecialty: String = "",
+    val referralReason: String = "",
+    val sickNoteReason: String = "",
+    val sickNoteDays: Int = 0
+)
+
 
 

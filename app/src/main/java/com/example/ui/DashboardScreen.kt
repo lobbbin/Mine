@@ -1086,6 +1086,55 @@ fun DashboardScreen(
                                         }
                                     } else {
                                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = "Document Draft Station",
+                                                    style = MaterialTheme.typography.titleSmall,
+                                                    fontWeight = FontWeight.Black,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                                
+                                                Button(
+                                                    onClick = {
+                                                        viewModel.generateSuggestedPaperwork { suggested ->
+                                                            diagnosisInput = suggested.diagnosis
+                                                            treatmentPlanInput = suggested.treatmentPlan
+                                                            draftedMedsList = suggested.meds.map { item ->
+                                                                PrescriptionItem(
+                                                                    name = item.name,
+                                                                    dose = item.dose,
+                                                                    freq = item.freq,
+                                                                    duration = item.duration
+                                                                )
+                                                            }
+                                                            referralSpecialityInput = suggested.referralSpecialty
+                                                            referralReasonInput = suggested.referralReason
+                                                            sickNoteReasonInput = suggested.sickNoteReason
+                                                            sickNoteDaysInput = suggested.sickNoteDays.toString()
+                                                        }
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(
+                                                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                                                    ),
+                                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                                    enabled = !isLoading
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Science,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(12.dp),
+                                                        tint = MaterialTheme.colorScheme.tertiary
+                                                    )
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text("✨ AI AUTOFILL DRAFTS", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
+                                                }
+                                            }
+
                                             // Paperwork Selection Tabs
                                             Row(
                                                 modifier = Modifier

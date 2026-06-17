@@ -92,6 +92,12 @@ object OrchidDeepStateManager {
         if (lower.isBlank() || lower.contains("cash") || lower.contains("pocket") || lower.contains("self-fund") || lower.contains("uninsured") || lower.contains("none") || lower.contains("private cash") || lower.contains("self pay") || lower.contains("out of pocket")) {
             return null // Out-of-pocket cash
         }
+        if (lower == "private medical aid" || lower.contains("premium private") || lower.contains("discovery elite") || lower.contains("discovery health") || lower.contains("gems") || lower.contains("bonitas") || lower.contains("medihelp") || lower.contains("momentum")) {
+            return _medicalAidSchemes.value.find { it.id == "premium_private" }
+        }
+        if (lower == "basic medical aid" || lower.contains("careplus basic") || lower.contains("careplus") || lower.contains("basic plan")) {
+            return _medicalAidSchemes.value.find { it.id == "basic_plan" }
+        }
         if (lower.contains("state") || lower.contains("nhs") || lower.contains("government") || lower.contains("public") || lower.contains("enhs") || lower.contains("national health")) {
             val existingState = _medicalAidSchemes.value.find { it.id == "state_fund" || it.name.contains("NHS", ignoreCase = true) }
             if (existingState == null) {
