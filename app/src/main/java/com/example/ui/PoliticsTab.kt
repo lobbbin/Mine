@@ -90,6 +90,7 @@ fun PoliticsTab(
     val clinicBalance by viewModel.clinicBalance.collectAsStateWithLifecycle()
     val currencySymbol by viewModel.currencySymbol.collectAsStateWithLifecycle()
     val agenicInterventions by viewModel.agenicActionHandler.agenicInterventions.collectAsStateWithLifecycle()
+    val activePolicies by viewModel.activePolicies.collectAsStateWithLifecycle()
 
     // Dialog trigger variables
     var showTransferFundsDialog by remember { mutableStateOf(false) }
@@ -310,6 +311,20 @@ fun PoliticsTab(
                     ) {
                         Icon(Icons.Default.AccountBalance, contentDescription = null, modifier = Modifier.size(16.dp))
                         Text("Executive Mansion", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            )
+            Tab(
+                selected = activePoliticsSubTab == 2,
+                onClick = { activePoliticsSubTab = 2 },
+                text = { 
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(vertical = 10.dp)
+                    ) {
+                        Icon(Icons.Default.Gavel, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Text("Parliament Gazette", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             )
@@ -1487,6 +1502,182 @@ fun PoliticsTab(
                                 Text(issue.optionB.outcomeSummary, fontSize = 9.sp, color = MaterialTheme.colorScheme.outline)
                             }
                         }
+                    }
+                }
+            }
+        }
+
+        // --- 11. PARLIAMENTARY GAZETTE AND ACTIVE LAWS ARCHIVE ---
+        if (activePoliticsSubTab == 2) {
+            // Section A: Active Enacted laws list
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                border = CardDefaults.outlinedCardBorder()
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "📜 APPROVED CONSTITUTION & CLINICAL LAWS GAZETTE",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "All actively signed health mandates, diagnostic guidelines, and clinical regulations registered in Elysium.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+
+                    if (activePolicies.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "No sovereign laws have been enacted yet. Win elections, draft custom bills, and passed guidelines will be registered here permanently.",
+                                style = MaterialTheme.typography.bodySmall,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            activePolicies.forEachIndexed { index, policy ->
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "${index + 1}. ${policy.title}",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 12.sp,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Box(
+                                                modifier = Modifier
+                                                    .background(Color(0xFF2E7D32), RoundedCornerShape(4.dp))
+                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                            ) {
+                                                Text("ENACTED", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                                            }
+                                        }
+                                        Text(text = "Summary: ${policy.summary}", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(text = "Clinical Rule: ${policy.clinicalRule}", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                        Text(text = "Economic Impact: ${policy.economicImpact}", fontSize = 10.sp, color = MaterialTheme.colorScheme.outline)
+                                        
+                                        if (policy.extendedClauses.isNotEmpty()) {
+                                            Text("Mandated Clauses:", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
+                                            policy.extendedClauses.forEach { clause ->
+                                                Text("• $clause", fontSize = 9.sp, color = MaterialTheme.colorScheme.outline)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Section B: Interactive Legislative Sponsor desk, permanently unlocked!
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                border = CardDefaults.outlinedCardBorder()
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(Icons.Default.Gavel, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        Text(
+                            text = "📜 LEGISLATIVE BILL SPONSOR DESK",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Text(
+                        text = "Craft, sponsor, and draft health codes directly on the Parliamentary floor. Drafts are run through floor debate, committee reports, and public consensus voting.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+
+                    OutlinedTextField(
+                        value = draftBillTitle,
+                        onValueChange = { draftBillTitle = it },
+                        label = { Text("Legislation Title") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    // Sector focus
+                    Text("Select Funding Focus Area", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        val sectors = listOf("Hospital Grants", "Bio-Research", "Co-Pay Abolishment", "Pharma Regulation")
+                        sectors.forEach { area ->
+                            FilterChip(
+                                selected = selectedSector == area,
+                                onClick = { selectedSector = area },
+                                label = { Text(area, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+
+                    // Target allocation
+                    Text("Main Beneficiary Allocation", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        val allocations = listOf("Working Class / Citizens", "Hospitals / Clinicians", "Pharma Corporations")
+                        allocations.forEach { target ->
+                            FilterChip(
+                                selected = selectedAllocation == target,
+                                onClick = { selectedAllocation = target },
+                                label = { Text(target, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+
+                    // Funding Cost
+                    Text("Regulatory Taxation Surcharges model", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        val models = listOf("Federal Deficit Borrowing", "Corporate Surtax", "Citizen VAT Levy")
+                        models.forEach { cost ->
+                            FilterChip(
+                                selected = selectedTaxCost == cost,
+                                onClick = { selectedTaxCost = cost },
+                                label = { Text(cost, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Button(
+                        onClick = { handler.draftAndSponsorBill(draftBillTitle, selectedSector, selectedAllocation, selectedTaxCost) },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isAILoading
+                    ) {
+                        Text("Sponsor & Run Floor Voting Action (-R2,500 legal fees)")
                     }
                 }
             }

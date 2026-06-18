@@ -29,6 +29,10 @@ class AgenicActionHandler(
         _agenicInterventions.value = _agenicInterventions.value + "[$timeStamp] $action"
     }
 
+    fun publishExternalActionLog(action: String) {
+        logAction(action)
+    }
+
     /**
      * Bribes or influences politicians within a target faction.
      * Alters faction bias/polling and deducts from campaign or clinical reserves.
