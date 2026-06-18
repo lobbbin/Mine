@@ -30,12 +30,28 @@ fun AccountingTab(viewModel: SimulationViewModel) {
     val isHired by viewModel.accountantHired.collectAsStateWithLifecycle()
     val nationalTreasury by viewModel.officeTreasury.collectAsStateWithLifecycle()
     
+    val tension by viewModel.lawsuitTension.collectAsStateWithLifecycle()
+    val progressiveSeats by viewModel.progressiveSeats.collectAsStateWithLifecycle()
+    val conservativeSeats by viewModel.conservativeSeats.collectAsStateWithLifecycle()
+    val newsReport by viewModel.currentNewsReport.collectAsStateWithLifecycle()
+    
     var showSueDialog by remember { mutableStateOf(false) }
     var sueEntityName by remember { mutableStateOf("") }
     
     var showSandboxDialog by remember { mutableStateOf(false) }
     var sandboxAmount by remember { mutableStateOf("100000") }
     var sandboxTarget by remember { mutableStateOf("Clinic") }
+
+    // Fake market indices for visual flair
+    var biotechIndex by remember { mutableStateOf(10542.45f) }
+    var healthSector by remember { mutableStateOf(4201.12f) }
+    LaunchedEffect(Unit) {
+        while(true) {
+            kotlinx.coroutines.delay(2500)
+            biotechIndex += ((-50..50).random().toFloat() / 10f)
+            healthSector += ((-20..20).random().toFloat() / 10f)
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -56,10 +72,41 @@ fun AccountingTab(viewModel: SimulationViewModel) {
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "Manage ledgers, sue entities, configure AI accounting strategies, or use sandbox funds.",
+                    text = "Manage ledgers, sue entities, configure AI strategies.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.outline
                 )
+            }
+        }
+        
+        // MARKET TICKER
+        Row(
+            modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp)).padding(8.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("BIOTECH ETF", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha=0.6f))
+                Text(String.format("%.2f", biotechIndex), fontSize = 12.sp, fontWeight = FontWeight.Black, color = if (biotechIndex > 10542f) Color(0xFF2E7D32) else Color.Red)
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("HEALTH SECTOR", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha=0.6f))
+                Text(String.format("%.2f", healthSector), fontSize = 12.sp, fontWeight = FontWeight.Black, color = if (healthSector > 4201f) Color(0xFF2E7D32) else Color.Red)
+            }
+        }
+        
+        if (!newsReport.isNullOrBlank()) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text("GLOBAL HEADLINE", fontWeight = FontWeight.Bold, fontSize = 10.sp, color = MaterialTheme.colorScheme.onErrorContainer)
+                        Text(newsReport!!, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onErrorContainer)
+                    }
+                }
             }
         }
         
@@ -81,6 +128,38 @@ fun AccountingTab(viewModel: SimulationViewModel) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("NATIONAL TREASURY", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha=0.7f))
                     Text("$currencySymbol${String.format("%.2f", nationalTreasury)}", fontSize = 20.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                }
+            }
+        }
+        
+        // MACRO INDICATORS
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        ) {
+            Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Public, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("CASCADING REGIONAL EFFECTS", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Text("Judicial Tension Index ($tension%)", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                LinearProgressIndicator(
+                    progress = { tension / 100f },
+                    modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                    color = if (tension > 75) Color.Red else if (tension > 40) Color(0xFFFFA000) else Color(0xFF4CAF50),
+                    trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                val totalSeats = (progressiveSeats + conservativeSeats).coerceAtLeast(1)
+                val progRatio = progressiveSeats.toFloat() / totalSeats.toFloat()
+                Text("Political Balance (${progressiveSeats} Prog / ${conservativeSeats} Cons)", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                Row(modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp))) {
+                    Box(modifier = Modifier.fillMaxHeight().weight(progRatio.coerceAtLeast(0.01f)).background(Color.Blue))
+                    Box(modifier = Modifier.fillMaxHeight().weight((1f - progRatio).coerceAtLeast(0.01f)).background(Color.Red))
                 }
             }
         }
@@ -116,15 +195,30 @@ fun AccountingTab(viewModel: SimulationViewModel) {
                     ) {
                         Text("Run AI Ledger Policy Audit")
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Button(
-                        onClick = { viewModel.executeAdvancedAIAccountingAction() },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha=0.5f)),
+                        border = BorderStroke(2.dp, MaterialTheme.colorScheme.error)
                     ) {
-                        Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Execute Rogue Agentic Strategy (x55 possible actions)")
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(24.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("DANGER ZONE: ROGUE AGENTIC ACTIONS", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Black, fontSize = 12.sp)
+                            }
+                            Text("Execute highly illegal and risky financial strategies. Warning: High chance of prison or catastrophic fines if caught without high political cover.", fontSize = 11.sp, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
+                            
+                            Button(
+                                onClick = { viewModel.executeAdvancedAIAccountingAction() },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error, contentColor = MaterialTheme.colorScheme.onError)
+                            ) {
+                                Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Execute Rogue Strategy (x55 Variants)", fontWeight = FontWeight.Bold)
+                            }
+                        }
                     }
                 }
                 
@@ -163,7 +257,7 @@ fun AccountingTab(viewModel: SimulationViewModel) {
         }
         
         // LEDGER & INVOICES
-        Text("Past Invoices & Ledger Adjustments", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
+        Text("Master Financial Ledger", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
         
         if (ledger.isEmpty()) {
             Box(
@@ -176,17 +270,27 @@ fun AccountingTab(viewModel: SimulationViewModel) {
                 Text("No ledger records available.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ledger.forEach { entry ->
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha=0.1f))
-                    ) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+                shape = RoundedCornerShape(4.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(max = 250.dp)
+            ) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().padding(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(ledger) { entry ->
+                        val isPositive = entry.contains("+") || entry.contains("SUCCESS") || entry.contains("WON")
+                        val isNegative = entry.contains("-") || entry.contains("FAILURE") || entry.contains("LOST")
+                        val color = if (isPositive) Color(0xFF4CAF50) else if (isNegative) Color(0xFFFF5252) else Color(0xFFB0BEC5)
+                        
                         Text(
                             text = entry,
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(12.dp)
+                            fontSize = 10.sp,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            color = color
                         )
+                        Divider(color = Color(0xFF333333), thickness = 1.dp, modifier = Modifier.padding(vertical = 2.dp))
                     }
                 }
             }

@@ -163,17 +163,26 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     You are a rogue, elite AI accountant working for JB Consultation Practice.
                     You have just executed the following highly risky, advanced accounting strategy: "$strategy".
                     
-                    Determine the financial outcome probabilistically. If the clinic has already hired a Senior Accountant (status: ${_accountantHired.value}), the strategy has an 80% chance of extreme success. Otherwise, 50% chance of success (and failure means massive fines!).
+                    Determine the comprehensive financial and global outcome probabilistically. If the clinic has already hired a Senior Accountant (status: ${_accountantHired.value}), the strategy has an 80% chance of extreme success. Otherwise, 50% chance of success (and failure means massive fines!).
                     If successful, yield a massive positive financial gain (10,000 to 500,000+).
                     If a failure, yield a massive financial penalty or lawsuit (negative impact).
-                    Also decide if this action siphons money directly from the National Treasury (boolean) or just general market gains.
+                    
+                    This action will have cascading world effects. Determine changes to:
+                    - Lawsuit Tension (-20 to +50 depending on how illegal it is)
+                    - Reputation Stars (-2.0 to +1.0)
+                    - Political Seats Shift (-5 to +5) for Progressives vs Conservatives.
+                    - Determine if this action directly siphons money from the National Treasury.
                     
                     Return ONLY raw JSON in this exact schema:
                     {
                        "success": true/false,
                        "impact": <numeric absolute value of gain or loss>,
                        "stolenFromTreasury": true/false,
-                       "reportSummary": "A highly detailed, somewhat unethical AI accountant summary of the execution and consequences."
+                       "reportSummary": "A highly detailed, somewhat unethical AI accountant summary of the execution and consequences.",
+                       "lawsuitTensionChange": <number>,
+                       "reputationChange": <number>,
+                       "progressiveSeatShift": <number>,
+                       "globalNewsHeadline": "A catchy breaking news headline summarizing what just happened to the economy or clinic."
                     }
                 """.trimIndent()
                 
@@ -185,19 +194,32 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val stolenFromTreasury = json.optBoolean("stolenFromTreasury", false)
                 val report = json.optString("reportSummary", "System error executing strategy.")
                 
+                val tensionChange = json.optInt("lawsuitTensionChange", 0)
+                val repChange = json.optDouble("reputationChange", 0.0).toFloat()
+                val seatShift = json.optInt("progressiveSeatShift", 0)
+                val headline = json.optString("globalNewsHeadline", "Unprecedented Market Volatility Reported.")
+                
+                // Apply cascading effects
+                _lawsuitTension.value = (_lawsuitTension.value + tensionChange).coerceIn(0, 100)
+                _progressiveSeats.value = (_progressiveSeats.value + seatShift).coerceIn(0, 500)
+                _conservativeSeats.value = (_conservativeSeats.value - seatShift).coerceIn(0, 500)
+                _currentNewsReport.value = headline
+                
+                val newReputation = (reputationStars.value + repChange).coerceIn(1f, 5f)
+                
                 if (success) {
-                    settingsDataStore.updateClinicStats(clinicBalance.value + impact, reputationStars.value)
+                    settingsDataStore.updateClinicStats(clinicBalance.value + impact, newReputation)
                     if (stolenFromTreasury) {
                         _officeTreasury.value -= impact
                         logAccountingTransaction("AI SUCCESS: Siphoned R$impact from Treasury! [$strategy] - $report")
                     } else {
                         logAccountingTransaction("AI SUCCESS: Gained R$impact! [$strategy] - $report")
                     }
-                    agenicActionHandler.publishExternalActionLog("Rogue AI Accountant earned R$impact via $strategy.")
+                    agenicActionHandler.publishExternalActionLog("Accounting execution '$strategy' succeeded. Gain: R$impact. Tension change: $tensionChange. News: $headline")
                 } else {
-                    settingsDataStore.updateClinicStats((clinicBalance.value - impact).coerceAtLeast(0.0), (reputationStars.value - 1.0f).coerceAtLeast(1f))
+                    settingsDataStore.updateClinicStats((clinicBalance.value - impact).coerceAtLeast(0.0), newReputation)
                     logAccountingTransaction("AI FAILURE: Fined R$impact! [$strategy] - $report")
-                    agenicActionHandler.publishExternalActionLog("Rogue AI Accountant caught! Fined R$impact via $strategy.")
+                    agenicActionHandler.publishExternalActionLog("Accounting execution '$strategy' failed. Fined: R$impact. Tension change: $tensionChange. News: $headline")
                 }
                 
             } catch (e: Exception) {
