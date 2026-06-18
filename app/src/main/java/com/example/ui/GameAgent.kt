@@ -366,6 +366,84 @@ class GameAgent(
                         ),
                         "required" to listOf("transcript", "active_laws")
                     )
+                ),
+                GeminiFunctionDeclaration(
+                    name = "bribe_or_influence_politician",
+                    description = "Trigger a backroom lobbying scheme or financial contribution to leverage party alignments and boost polling.",
+                    parameters = mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "faction_name" to mapOf("type" to "string", "description" to "Factions: Progressives, Conservatives, Independents"),
+                            "amount" to mapOf("type" to "number", "description" to "Financial contribution amount"),
+                            "purpose" to mapOf("type" to "string", "description" to "Purpose of influence (e.g. support healthcare subsidies)")
+                        ),
+                        "required" to listOf("faction_name", "amount", "purpose")
+                    )
+                ),
+                GeminiFunctionDeclaration(
+                    name = "deploy_outbreak_sanitary_squad",
+                    description = "Deploy sanitation squads to localized districts to combat contagion outbreaks.",
+                    parameters = mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "municipal_region" to mapOf("type" to "string", "description" to "Regional district designation"),
+                            "funds_allocated" to mapOf("type" to "number", "description" to "Deployment budget"),
+                            "urgency" to mapOf("type" to "integer", "description" to "Urgency level from 1 (low) to 5 (critical)")
+                        ),
+                        "required" to listOf("municipal_region", "funds_allocated", "urgency")
+                    )
+                ),
+                GeminiFunctionDeclaration(
+                    name = "instigate_industrial_strike",
+                    description = "Instigate a medical labor strike or union walkout in rival medical institutions to redirect public patient flow to our clinic.",
+                    parameters = mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "target_hospital" to mapOf("type" to "string", "description" to "Name of rival facility"),
+                            "incitement_fund" to mapOf("type" to "number", "description" to "Fund allotted to trigger union lockouts"),
+                            "duration_days" to mapOf("type" to "integer", "description" to "Sovereign duration of strike blockades")
+                        ),
+                        "required" to listOf("target_hospital", "incitement_fund", "duration_days")
+                    )
+                ),
+                GeminiFunctionDeclaration(
+                    name = "trigger_national_quarantine_level",
+                    description = "Enforce lockdown quarantine boundaries in affected sectors to regulate clinical flow.",
+                    parameters = mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "quarantine_zone" to mapOf("type" to "string", "description" to "Target sector zone"),
+                            "lockdown_severity" to mapOf("type" to "integer", "description" to "Quarantine Level from 1 (Minor) to 5 (Sovereign Lockdown)"),
+                            "scientific_justification" to mapOf("type" to "string", "description" to "Scientific or medical justification for lockdown")
+                        ),
+                        "required" to listOf("quarantine_zone", "lockdown_severity", "scientific_justification")
+                    )
+                ),
+                GeminiFunctionDeclaration(
+                    name = "sponsor_medical_caucus",
+                    description = "Sponsor a high-profile televised medical symposium or policy debate to boost prestige and gain XP.",
+                    parameters = mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "caucus_theme" to mapOf("type" to "string", "description" to "Sovereign medical panel theme"),
+                            "marketing_cost" to mapOf("type" to "number", "description" to "Campaign marketing dollars"),
+                            "tv_broadcast_time_minutes" to mapOf("type" to "integer", "description" to "Airtime length on television")
+                        ),
+                        "required" to listOf("caucus_theme", "marketing_cost", "tv_broadcast_time_minutes")
+                    )
+                ),
+                GeminiFunctionDeclaration(
+                    name = "nationalize_vaccine_laboratory",
+                    description = "Leverage emergency sovereign executive privilege to nationalize key chemical or vaccine laboratory infrastructures.",
+                    parameters = mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "lab_name" to mapOf("type" to "string", "description" to "Name of the target facility to nationalize"),
+                            "patent_control_action" to mapOf("type" to "string", "description" to "Patent control strategy statement"),
+                            "compensation_fund" to mapOf("type" to "number", "description" to "Statutory compensation treasury payout value")
+                        ),
+                        "required" to listOf("lab_name", "patent_control_action", "compensation_fund")
+                    )
                 )
             )
         )

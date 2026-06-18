@@ -56,6 +56,8 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
     private val settingsDataStore = SettingsDataStore(application)
     val parliamentViewModel = ParliamentViewModel(application, settingsDataStore)
     val courtroomViewModel = CourtroomViewModel(application, settingsDataStore)
+    val politicsHandler = PoliticsHandler(this, application, settingsDataStore)
+    val agenicActionHandler = AgenicActionHandler(this, application, settingsDataStore)
     private val legalWorldAgent = LegalWorldAgent(appDatabase.worldStateDao(), settingsDataStore, viewModelScope)
 
     val worldSnapshot = legalWorldAgent.currentSnapshot
@@ -104,41 +106,6 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
 
     val currencyCode: StateFlow<String> = settingsDataStore.currencyCodeFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, "USD")
-
-    private val _g4fModels = MutableStateFlow<List<String>>(emptyList())
-    val g4fModels: StateFlow<List<String>> = _g4fModels.asStateFlow()
-
-    init {
-        refreshG4FModels()
-    }
-
-    fun refreshG4FModels() {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val client = okhttp3.OkHttpClient()
-                val request = okhttp3.Request.Builder()
-                    .url("https://raw.githubusercontent.com/Free-AI-Things/g4f-working/main/working/working_results.txt")
-                    .build()
-                val response = client.newCall(request).execute()
-                if (response.isSuccessful) {
-                    val bodyText = response.body?.string() ?: ""
-                    val models = bodyText.lines()
-                        .map { it.trim() }
-                        .filter { it.isNotEmpty() && it.contains("|") }
-                        .map {
-                            val parts = it.split("|")
-                            if (parts.size >= 2) "${parts[0]}.${parts[1]}" else it
-                        }
-                        .distinct()
-                    if (models.isNotEmpty()) {
-                        _g4fModels.value = models
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
 
     val reputationStars: StateFlow<Float> = settingsDataStore.reputationStarsFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, 3.5f)
@@ -1196,6 +1163,16 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                             document.add(com.itextpdf.text.Paragraph("Full Courtroom Record:", boldFont))
                             for (record in lawsuitLog.value) {
                                 document.add(com.itextpdf.text.Paragraph("- $record", normalFont))
+                            }
+                            document.add(com.itextpdf.text.Paragraph(" "))
+                        }
+
+                        val interventions = agenicActionHandler.agenicInterventions.value
+                        if (interventions.isNotEmpty()) {
+                            document.add(com.itextpdf.text.Paragraph("Sovereign Agenic Actions & World Interventions Log", headerFont))
+                            document.add(com.itextpdf.text.Paragraph(" "))
+                            for (record in interventions) {
+                                document.add(com.itextpdf.text.Paragraph("• $record", normalFont))
                             }
                             document.add(com.itextpdf.text.Paragraph(" "))
                         }
@@ -4111,6 +4088,42 @@ $memoryLines
                         val laws = args["active_laws"] as? String ?: ""
                         val finalResult = legalWorldAgent.auditEncounter(trans, laws)
                         "Audit completed. Active laws evaluation logged: $finalResult"
+                    }
+                    "bribe_or_influence_politician" -> {
+                        val faction = args["faction_name"] as? String ?: ""
+                        val amount = (args["amount"] as? Number)?.toDouble() ?: 0.0
+                        val purpose = args["purpose"] as? String ?: ""
+                        agenicActionHandler.bribeOrInfluencePolitician(faction, amount, purpose)
+                    }
+                    "deploy_outbreak_sanitary_squad" -> {
+                        val region = args["municipal_region"] as? String ?: "Local Ward"
+                        val budget = (args["funds_allocated"] as? Number)?.toDouble() ?: 0.0
+                        val urgency = (args["urgency"] as? Number)?.toInt() ?: 1
+                        agenicActionHandler.deployOutbreakSanitarySquad(region, budget, urgency)
+                    }
+                    "instigate_industrial_strike" -> {
+                        val hospital = args["target_hospital"] as? String ?: "General Hospital"
+                        val fund = (args["incitement_fund"] as? Number)?.toDouble() ?: 0.0
+                        val duration = (args["duration_days"] as? Number)?.toInt() ?: 1
+                        agenicActionHandler.instigateIndustrialStrike(hospital, fund, duration)
+                    }
+                    "trigger_national_quarantine_level" -> {
+                        val zone = args["quarantine_zone"] as? String ?: "Zone-A"
+                        val severity = (args["lockdown_severity"] as? Number)?.toInt() ?: 1
+                        val reason = args["scientific_justification"] as? String ?: ""
+                        agenicActionHandler.triggerNationalQuarantineLevel(zone, severity, reason)
+                    }
+                    "sponsor_medical_caucus" -> {
+                        val theme = args["caucus_theme"] as? String ?: "Public Health"
+                        val cost = (args["marketing_cost"] as? Number)?.toDouble() ?: 0.0
+                        val minutes = (args["tv_broadcast_time_minutes"] as? Number)?.toInt() ?: 30
+                        agenicActionHandler.sponsorMedicalCaucus(theme, cost, minutes)
+                    }
+                    "nationalize_vaccine_laboratory" -> {
+                        val nameLab = args["lab_name"] as? String ?: "Sovereign Pharma Labs"
+                        val patent = args["patent_control_action"] as? String ?: "Full control"
+                        val compens = (args["compensation_fund"] as? Number)?.toDouble() ?: 0.0
+                        agenicActionHandler.nationalizeVaccineLaboratory(nameLab, patent, compens)
                     }
                     else -> "Unknown helper action or no programmatic side effect for: $name"
                 }

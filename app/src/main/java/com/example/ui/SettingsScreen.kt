@@ -53,13 +53,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.R
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -89,7 +87,6 @@ fun SettingsScreen(
     val savedUiFontScale by viewModel.uiFontScale.collectAsState()
     val clinicBalance by viewModel.clinicBalance.collectAsState()
     val isBasicMode by viewModel.isBasicMode.collectAsState()
-    val fetchedG4FModels by viewModel.g4fModels.collectAsState()
 
     var apiKeyInput by remember(savedApiKey) { mutableStateOf(savedApiKey ?: "") }
     var providerInput by remember(savedProvider) { mutableStateOf(savedProvider) }
@@ -183,7 +180,7 @@ fun SettingsScreen(
             "Qwen/Qwen2.5-Coder-32B-Instruct",
             "custom"
         ),
-        "G4F (OpenAI-compatible)" to if (fetchedG4FModels.isNotEmpty()) fetchedG4FModels else listOf(
+        "G4F (OpenAI-compatible)" to listOf(
             "MiniMax/MiniMax-M1-80k",
             "MiniMaxAI/MiniMax-M2.5",
             "Qwen/Qwen3-Coder-30B-A3B-Instruct",
@@ -418,9 +415,9 @@ fun SettingsScreen(
     }
 
     // Automatically correct model input if its provider mapping is missing
-    LaunchedEffect(providerInput, fetchedG4FModels) {
+    LaunchedEffect(providerInput) {
         val models = providerModels[providerInput] ?: emptyList()
-        if (modelInput !in models && models.isNotEmpty() && modelInput != "custom") {
+        if (modelInput !in models && models.isNotEmpty()) {
             modelInput = models.first()
         }
     }
@@ -579,26 +576,6 @@ fun SettingsScreen(
                             },
                             modifier = Modifier.testTag("model_item_$selection")
                         )
-                    }
-                }
-            }
-
-            if (providerInput == "G4F (OpenAI-compatible)" && fetchedG4FModels.isNotEmpty()) {
-                val uriHandler = LocalUriHandler.current
-                Column(modifier = Modifier.padding(bottom = 8.dp)) {
-                    Text(
-                        text = "Loaded ${fetchedG4FModels.size} live models from g4f-working repo.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    OutlinedButton(
-                        onClick = { uriHandler.openUri("https://github.com/xtekky/gpt4free") },
-                        modifier = Modifier.padding(top = 4.dp).testTag("visit_g4f_repo_button"),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                    ) {
-                        Icon(imageVector = Icons.Default.Link, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.size(4.dp))
-                        Text("Visit gpt4free GitHub", fontSize = 10.sp)
                     }
                 }
             }

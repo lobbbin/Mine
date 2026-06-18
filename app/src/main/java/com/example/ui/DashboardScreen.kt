@@ -752,7 +752,7 @@ fun DashboardScreen(
                         Icon(Icons.Default.Flag, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (isBasicMode) "Sandbox & Laws" else "Health Politics & Laws",
+                            text = "Politics Career",
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp
                         )
@@ -1875,9 +1875,8 @@ fun DashboardScreen(
                 }
             }
             } else if (activeMainTab == 1) {
-                StateAndLegislationTab(
-                    viewModel = viewModel,
-                    onAdmittedClicked = { activeMainTab = 0 }
+                PoliticsTab(
+                    viewModel = viewModel
                 )
             } else if (activeMainTab == 2) {
                 DeveloperAiModdingConsoleTab(viewModel = viewModel)
