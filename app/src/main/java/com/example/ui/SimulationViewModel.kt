@@ -54,11 +54,26 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
     private val appDatabase = AppDatabase.getDatabase(application)
     private val encounterRepository = EncounterRepository(appDatabase.encounterDao())
     private val settingsDataStore = SettingsDataStore(application)
-    val parliamentViewModel = ParliamentViewModel(application, settingsDataStore)
-    val courtroomViewModel = CourtroomViewModel(application, settingsDataStore)
     private val legalWorldAgent = LegalWorldAgent(appDatabase.worldStateDao(), settingsDataStore, viewModelScope)
+    val parliamentViewModel = ParliamentViewModel(application, settingsDataStore, legalWorldAgent)
+    val courtroomViewModel = CourtroomViewModel(application, settingsDataStore)
 
     val worldSnapshot = legalWorldAgent.currentSnapshot
+    
+    private val _isStatutoryBlockadeActive = MutableStateFlow(false)
+    val isStatutoryBlockadeActive: StateFlow<Boolean> = _isStatutoryBlockadeActive.asStateFlow()
+
+    init {
+        // Monitor debt for blockade
+        viewModelScope.launch {
+            while (true) {
+                val debt = legalWorldAgent.getTotalUnpaidDebt()
+                _isStatutoryBlockadeActive.value = debt > 10000.0
+                delay(10000) // check every 10s
+            }
+        }
+    }
+
     val allEncounters = encounterRepository.allEncountersFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -265,6 +280,23 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
     fun saveCurrency(symbol: String, code: String) {
         viewModelScope.launch {
             settingsDataStore.saveCurrency(symbol, code)
+        }
+    }
+
+    fun payFine(fine: com.example.data.Fine) {
+        viewModelScope.launch {
+            val result = legalWorldAgent.payFine(fine)
+            println(result)
+        }
+    }
+
+    fun petitionForPardon(fine: com.example.data.Fine? = null, isSuspension: Boolean = false) {
+        viewModelScope.launch {
+            if (isSuspension) {
+                sendMessage("PRESIDENTIAL PETITION: I am formally requesting an executive pardon for my clinical license suspension. I believe my practice serves the greater good and I pledge full statutory compliance moving forward. [CMD: request executive pardon for suspension]")
+            } else if (fine != null) {
+                sendMessage("PRESIDENTIAL PETITION: I am formally requesting an executive pardon for the fine of ${fine.amount} regarding '${fine.reason}'. My clinical record and contribution to national health should be considered. [CMD: request executive pardon for fine ID ${fine.id}]")
+            }
         }
     }
 

@@ -262,6 +262,8 @@ fun DashboardScreen(
     val lawsuitJurors by viewModel.courtroomViewModel.lawsuitJurors.collectAsStateWithLifecycle()
     val lawsuitJurySentiment by viewModel.courtroomViewModel.lawsuitJurySentiment.collectAsStateWithLifecycle()
 
+    val isStatutoryBlockadeActive by viewModel.isStatutoryBlockadeActive.collectAsStateWithLifecycle()
+
     var showBottomSheet by remember { mutableStateOf(false) }
     var selectedSheetTab by remember { mutableStateOf(0) }
 
@@ -632,111 +634,131 @@ fun DashboardScreen(
         Scaffold(
             snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
-                TopAppBar(
-                    navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, contentDescription = "Menu")
+                Column {
+                    TopAppBar(
+                        navigationIcon = {
+                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                Icon(Icons.Default.Menu, contentDescription = "Menu")
+                            }
+                        },
+                        title = {
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "🏥 Practice Engine",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Surface(
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text(
+                                        text = doctorRank,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Black,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                // Added: Model display
+                                Surface(
+                                    color = MaterialTheme.colorScheme.tertiaryContainer,
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text(
+                                        text = model,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                                    )
+                                }
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.horizontalScroll(rememberScrollState())
+                            ) {
+                                Text(
+                                    text = "⭐ ${String.format("%.1f", reputationStars)}",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = Color(0xFFFBC02D)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "🧬 XP: $doctorXp",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "📆 Day $currentDay ($patientsSeenToday/5)",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "👥 Total: ${uiState.patientsSeen}",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = "💰 Bal: R ${String.format("%.0f", clinicBalance)}",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF2E7D32)
+                                )
+                            }
                         }
                     },
-                    title = {
-                    Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "🏥 Practice Engine",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Surface(
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text(
-                                    text = doctorRank,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Black,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            // Added: Model display
-                            Surface(
-                                color = MaterialTheme.colorScheme.tertiaryContainer,
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text(
-                                    text = model,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                    color = MaterialTheme.colorScheme.onTertiaryContainer
-                                )
-                            }
-                        }
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.horizontalScroll(rememberScrollState())
+                    actions = {
+                        IconButton(
+                            onClick = {
+                                selectedSheetTab = 0
+                                showBottomSheet = true
+                            },
+                            modifier = Modifier.testTag("open_folders_button")
                         ) {
+                            Icon(imageVector = Icons.Default.Description, contentDescription = "Records")
+                        }
+                        IconButton(
+                            onClick = onNavigateToSettings,
+                            modifier = Modifier.testTag("settings_button")
+                        ) {
+                            Icon(imageVector = Icons.Default.Settings, contentDescription = "Settings")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        titleContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                )
+                
+                AnimatedVisibility(visible = isStatutoryBlockadeActive) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(8.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                    ) {
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                            Spacer(Modifier.width(8.dp))
                             Text(
-                                text = "⭐ ${String.format("%.1f", reputationStars)}",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Black,
-                                color = Color(0xFFFBC02D)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = "🧬 XP: $doctorXp",
-                                fontSize = 14.sp,
+                                "REGULATORY BLOCKADE: Clinic operations suspended due to unpaid fines (>R10,000). Settle debt or obtain a Presidential Pardon to continue.",
+                                style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.secondary
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = "📆 Day $currentDay ($patientsSeenToday/5)",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = "👥 Total: ${uiState.patientsSeen}",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = "💰 Bal: R ${String.format("%.0f", clinicBalance)}",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF2E7D32)
+                                color = MaterialTheme.colorScheme.onErrorContainer
                             )
                         }
                     }
-                },
-                actions = {
-                    IconButton(
-                        onClick = {
-                            selectedSheetTab = 0
-                            showBottomSheet = true
-                        },
-                        modifier = Modifier.testTag("open_folders_button")
-                    ) {
-                        Icon(imageVector = Icons.Default.Description, contentDescription = "Records")
-                    }
-                    IconButton(
-                        onClick = onNavigateToSettings,
-                        modifier = Modifier.testTag("settings_button")
-                    ) {
-                        Icon(imageVector = Icons.Default.Settings, contentDescription = "Settings")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    titleContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            )
+                }
+            }
         },
         modifier = modifier.fillMaxSize()
     ) { innerPadding ->
@@ -6223,6 +6245,11 @@ fun WorldStatePanel(viewModel: SimulationViewModel) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Text("LICENSE STATUS", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                     Text(world.licenseStatus.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
+                    if (world.licenseStatus.name == "SUSPENDED") {
+                        TextButton(onClick = { viewModel.petitionForPardon(isSuspension = true) }, contentPadding = PaddingValues(0.dp)) {
+                            Text("Petition for Pardon", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
                 }
             }
             Card(
@@ -6271,8 +6298,11 @@ fun WorldStatePanel(viewModel: SimulationViewModel) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(fine.reason, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                             Text("Amount Due: ${fine.amount} $currencyCode", style = MaterialTheme.typography.bodySmall)
+                            TextButton(onClick = { viewModel.petitionForPardon(fine = fine) }, contentPadding = PaddingValues(0.dp)) {
+                                Text("Petition for Pardon", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                            }
                         }
-                        IconButton(onClick = { /* Could implement pay fine logic */ }) {
+                        IconButton(onClick = { viewModel.payFine(fine) }) {
                             Icon(imageVector = Icons.Default.Payments, contentDescription = "Pay")
                         }
                     }

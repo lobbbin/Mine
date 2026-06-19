@@ -96,6 +96,54 @@ class LegalWorldAgent(
         return "SUCCESS: Fine of $amount applied for: $reason. Reputation decreased to $newReputation."
     }
 
+    suspend fun payFine(fine: Fine): String {
+        val current = _currentSnapshot.value ?: return "Error: World State not loaded"
+        
+        if (current.cashBalance < fine.amount) {
+            return "FAILURE: Insufficient funds to pay fine."
+        }
+        
+        val paidFine = fine.copy(isPaid = true)
+        worldStateDao.updateFine(paidFine)
+        
+        val newBalance = current.cashBalance - fine.amount
+        val updated = WorldStateEntity(
+            clinicName = current.clinicName,
+            cashBalance = newBalance,
+            reputationScore = current.reputationScore,
+            medicalLicenseStatus = current.licenseStatus
+        )
+        worldStateDao.updateWorldState(updated)
+        
+        // Sync with legacy settings
+        settingsDataStore.updateClinicStats(newBalance, (current.reputationScore / 20f))
+        
+        return "SUCCESS: Fine of ${fine.amount} paid."
+    }
+
+    suspend fun pardonFine(fine: Fine): String {
+        val pardonedFine = fine.copy(isPaid = true)
+        worldStateDao.updateFine(pardonedFine)
+        return "PRESIDENTIAL PARDON: Fine of ${fine.amount} for '${fine.reason}' has been dismissed by executive order."
+    }
+
+    suspend fun pardonSuspension(): String {
+        val current = _currentSnapshot.value ?: return "Error"
+        val updated = WorldStateEntity(
+            clinicName = current.clinicName,
+            cashBalance = current.cashBalance,
+            reputationScore = current.reputationScore,
+            medicalLicenseStatus = LicenseStatus.ACTIVE
+        )
+        worldStateDao.updateWorldState(updated)
+        return "PRESIDENTIAL PARDON: All medical license suspensions have been lifted. Practitioner is restored to ACTIVE status."
+    }
+
+    suspend fun getTotalUnpaidDebt(): Double {
+        val fines = worldStateDao.getActiveFines().first()
+        return fines.filter { !it.isPaid }.sumOf { it.amount }
+    }
+
     suspend fun enactNewStatute(id: String, name: String, description: String, penalty: String): String {
         // 1. Add to Room DB
         val law = Law(id, name, description, penalty)

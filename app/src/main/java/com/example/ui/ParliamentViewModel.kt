@@ -13,7 +13,8 @@ import org.json.JSONObject
 
 class ParliamentViewModel(
     application: Application,
-    private val settingsDataStore: SettingsDataStore
+    private val settingsDataStore: SettingsDataStore,
+    private val legalWorldAgent: LegalWorldAgent
 ) : AndroidViewModel(application) {
 
     // Seating distribution in parliament (total 200 seats)
@@ -1090,6 +1091,20 @@ class ParliamentViewModel(
                     val party = params.optString("party", "conservatives")
                     adjustLobbyBiasDirectly(party, -0.25)
                     _votingLog.value = _votingLog.value + "🗳️ Party $party disenfranchised."
+                }
+                "grantPresidentialPardon" -> {
+                    val type = params.optString("type", "fine")
+                    if (type == "suspension") {
+                        val res = legalWorldAgent.pardonSuspension()
+                        _votingLog.value = _votingLog.value + res
+                    } else {
+                        // For simplicity, pardon all active fines if AI triggers a general pardon tool
+                        val current = legalWorldAgent.currentSnapshot.value
+                        current?.activeFines?.filter { !it.isPaid }?.forEach { fine ->
+                            legalWorldAgent.pardonFine(fine)
+                        }
+                        _votingLog.value = _votingLog.value + "🏛️ PRESIDENTIAL DECREE: National debt amnesty granted. All statutory fines are pardoned."
+                    }
                 }
             }
         }

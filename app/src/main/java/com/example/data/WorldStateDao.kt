@@ -25,4 +25,7 @@ interface WorldStateDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertFine(fine: Fine)
+
+    @Update
+    suspend fun updateFine(fine: Fine)
 }

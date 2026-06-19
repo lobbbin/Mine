@@ -366,6 +366,18 @@ class GameAgent(
                         ),
                         "required" to listOf("transcript", "active_laws")
                     )
+                ),
+                GeminiFunctionDeclaration(
+                    name = "grantPresidentialPardon",
+                    description = "Grant a presidential pardon for statutory fines or license suspensions.",
+                    parameters = mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "type" to mapOf("type" to "string", "enum" to listOf("fine", "suspension"), "description" to "The type of pardon to grant"),
+                            "justification" to mapOf("type" to "string", "description" to "Executive reasoning for the pardon")
+                        ),
+                        "required" to listOf("type", "justification")
+                    )
                 )
             )
         )
