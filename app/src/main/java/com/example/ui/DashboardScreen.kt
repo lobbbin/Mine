@@ -4430,6 +4430,7 @@ fun StateAndLegislationTab(
     var manualSummary by remember { mutableStateOf("") }
     var manualClinicalRule by remember { mutableStateOf("") }
     var manualEconomicImpact by remember { mutableStateOf("") }
+    var manualCustomEngineDirectives by remember { mutableStateOf("") }
     var clauseInputText by remember { mutableStateOf("") }
     var manualClausesList by remember { mutableStateOf(emptyList<String>()) }
 
@@ -5286,6 +5287,16 @@ fun StateAndLegislationTab(
                         shape = RoundedCornerShape(12.dp)
                     )
                     Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = manualCustomEngineDirectives,
+                        onValueChange = { manualCustomEngineDirectives = it },
+                        label = { Text("AI Engine Directives (Optional Override)") },
+                        placeholder = { Text("e.g. DENY_REFERRALS, BAN_ANTIBIOTICS") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     // Clauses collection
                     Text(
@@ -5372,13 +5383,15 @@ fun StateAndLegislationTab(
                                 summary = manualSummary,
                                 clinicalRule = manualClinicalRule,
                                 economicImpact = manualEconomicImpact,
-                                clauses = manualClausesList
+                                clauses = manualClausesList,
+                                customEngineDirectives = manualCustomEngineDirectives
                             )
                             // Clean up
                             manualTitle = ""
                             manualSummary = ""
                             manualClinicalRule = ""
                             manualEconomicImpact = ""
+                            manualCustomEngineDirectives = ""
                             manualClausesList = emptyList()
                         },
                         modifier = Modifier.fillMaxWidth(),

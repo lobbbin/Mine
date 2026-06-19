@@ -144,7 +144,8 @@ class ParliamentViewModel(
         clinicalRule: String,
         economicImpact: String,
         clauses: List<String>,
-        id: String? = null
+        id: String? = null,
+        customEngineDirectives: String = ""
     ) {
         val draftId = id ?: java.util.UUID.randomUUID().toString()
         val draft = HealthPolicy(
@@ -154,7 +155,8 @@ class ParliamentViewModel(
             extendedClauses = clauses,
             economicImpact = economicImpact,
             clinicalRule = clinicalRule,
-            status = "Draft"
+            status = "Draft",
+            customEngineDirectives = customEngineDirectives
         )
         _currentDraftPolicy.value = draft
         _votingLog.value = listOf("✨ Custom Legislative Bill formulated and loaded in active chamber memory!")
