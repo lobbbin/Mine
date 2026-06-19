@@ -337,6 +337,9 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
     private val _isVotingActive = MutableStateFlow(false)
     val isVotingActive: StateFlow<Boolean> = _isVotingActive.asStateFlow()
 
+    private val _hasDebated = MutableStateFlow(false)
+    val hasDebated: StateFlow<Boolean> = _hasDebated.asStateFlow()
+
     private val _voteProgress = MutableStateFlow(0f)
     val voteProgress: StateFlow<Float> = _voteProgress.asStateFlow()
 
@@ -1470,6 +1473,9 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         }
         viewModelScope.launch {
             parliamentViewModel.voteProgress.collect { _voteProgress.value = it }
+        }
+        viewModelScope.launch {
+            parliamentViewModel.hasDebated.collect { _hasDebated.value = it }
         }
         viewModelScope.launch {
             parliamentViewModel.currentVoteYes.collect { _currentVoteYes.value = it }
@@ -4111,10 +4117,15 @@ $memoryLines
                         val patientName = _uiState.value.patientDemographics.split(" ").firstOrNull() ?: "Patient"
                         val diag = _uiState.value.patientOutcome ?: "Competency Audit"
                         val charges = listOf("Breach identified: $reason ($sev severity)")
+                        val policies = settingsDataStore.activePoliciesFlow.first()
+                        val jurySize = policies.maxOfOrNull { it.jurySize } ?: 10
+                        val maxPleaRounds = policies.maxOfOrNull { it.maxPleaRounds } ?: 3
+                        OrchidDeepStateManager.resetTrialRounds(rounds = maxPleaRounds)
                         courtroomViewModel.resetLawsuit(
                             patientName = patientName,
                             diag = diag,
-                            charges = charges
+                            charges = charges,
+                            jurySize = jurySize
                         )
                         generateAIJuryBackground(patientName, diag, charges)
                         "Regulatory Malpractice Inquest launched ($sev severity) due to: $reason"
@@ -4513,16 +4524,22 @@ $memoryLines
         initialLog.add("🏛️ HIGH COURT OF ${countryName.value.uppercase()} - SOVEREIGN JUDICIARY DEPT\nLocation: Supreme Inquest division, Pretoria, Royal District\n\nPresiding Judge: 'Practitioner, this sovereign court has convened to review your formal appeal petition for the reinstatement of your $currentStatus medical license.'\n\nState Prosecutor: 'Your Honor, the State notes the petitioner's prior offenses and suspended status. The practitioner must strongly justify why their practice rights should be legally reinstated today under our current health statutes. How does the petitioner plead?'")
         _lawsuitLog.value = initialLog
 
-        OrchidDeepStateManager.setEvidencePool("Past Audit Records", "None", "")
-        OrchidDeepStateManager.resetTrialRounds()
+        viewModelScope.launch {
+            OrchidDeepStateManager.setEvidencePool("Past Audit Records", "None", "")
+            val policies = settingsDataStore.activePoliciesFlow.first()
+            val jurySize = policies.maxOfOrNull { it.jurySize } ?: 10
+            val maxPleaRounds = policies.maxOfOrNull { it.maxPleaRounds } ?: 3
+            OrchidDeepStateManager.resetTrialRounds(rounds = maxPleaRounds)
 
-        courtroomViewModel.resetLawsuit(
-            patientName = appealTarget,
-            diag = appealCase,
-            charges = charges
-        )
-        
-        generateAIJuryBackground(appealTarget, appealCase, charges)
+            courtroomViewModel.resetLawsuit(
+                patientName = appealTarget,
+                diag = appealCase,
+                charges = charges,
+                jurySize = jurySize
+            )
+            
+            generateAIJuryBackground(appealTarget, appealCase, charges)
+        }
     }
 
     // --- NEW DEEP STATE APIS (RESTOCK & DISPENSING ACTIONS) ---
@@ -5654,7 +5671,9 @@ $memoryLines
         economicImpact: String,
         clauses: List<String>,
         id: String? = null,
-        customEngineDirectives: String = ""
+        customEngineDirectives: String = "",
+        jurySize: Int = 4,
+        maxPleaRounds: Int = 3
     ) {
         val draftId = id ?: java.util.UUID.randomUUID().toString()
         val draft = HealthPolicy(
@@ -5665,7 +5684,9 @@ $memoryLines
             economicImpact = economicImpact,
             clinicalRule = clinicalRule,
             status = "Draft",
-            customEngineDirectives = customEngineDirectives
+            customEngineDirectives = customEngineDirectives,
+            jurySize = jurySize,
+            maxPleaRounds = maxPleaRounds
         )
         _currentDraftPolicy.value = draft
         _votingLog.value = listOf("✨ Custom Legislative Bill formulated and loaded in active chamber memory!")

@@ -160,7 +160,9 @@ data class HealthPolicy(
     val clinicalRule: String,
     val status: String, // "Draft", "Voting", "PresidentDesk", "Approved", "Vetoed", "Defeated"
     val requiresFreeHealth: Boolean = false,
-    val customEngineDirectives: String = "", 
+    val customEngineDirectives: String = "",
+    val jurySize: Int = 4,
+    val maxPleaRounds: Int = 3,
     val runtimeConstraints: Map<String, Boolean> = emptyMap(),
     val yesVotes: Int = 0,
     val noVotes: Int = 0,

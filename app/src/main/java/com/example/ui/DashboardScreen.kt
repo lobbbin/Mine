@@ -4431,6 +4431,8 @@ fun StateAndLegislationTab(
     var manualClinicalRule by remember { mutableStateOf("") }
     var manualEconomicImpact by remember { mutableStateOf("") }
     var manualCustomEngineDirectives by remember { mutableStateOf("") }
+    var manualJurySize by remember { mutableStateOf("4") }
+    var manualMaxPleaRounds by remember { mutableStateOf("3") }
     var clauseInputText by remember { mutableStateOf("") }
     var manualClausesList by remember { mutableStateOf(emptyList<String>()) }
 
@@ -5297,6 +5299,26 @@ fun StateAndLegislationTab(
                         shape = RoundedCornerShape(12.dp)
                     )
                     Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = manualJurySize,
+                        onValueChange = { manualJurySize = it },
+                        label = { Text("Jury Size (Default: 4)") },
+                        placeholder = { Text("e.g. 10") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = manualMaxPleaRounds,
+                        onValueChange = { manualMaxPleaRounds = it },
+                        label = { Text("Max Plea Rounds (Default: 3)") },
+                        placeholder = { Text("e.g. 5") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     // Clauses collection
                     Text(
@@ -5384,7 +5406,9 @@ fun StateAndLegislationTab(
                                 clinicalRule = manualClinicalRule,
                                 economicImpact = manualEconomicImpact,
                                 clauses = manualClausesList,
-                                customEngineDirectives = manualCustomEngineDirectives
+                                customEngineDirectives = manualCustomEngineDirectives,
+                                jurySize = manualJurySize.toIntOrNull() ?: 4,
+                                maxPleaRounds = manualMaxPleaRounds.toIntOrNull() ?: 3
                             )
                             // Clean up
                             manualTitle = ""
@@ -5392,6 +5416,8 @@ fun StateAndLegislationTab(
                             manualClinicalRule = ""
                             manualEconomicImpact = ""
                             manualCustomEngineDirectives = ""
+                            manualJurySize = "4"
+                            manualMaxPleaRounds = "3"
                             manualClausesList = emptyList()
                         },
                         modifier = Modifier.fillMaxWidth(),
@@ -5614,12 +5640,22 @@ fun StateAndLegislationTab(
                                     OutlinedButton(
                                         onClick = {
                                             viewModel.setLoading(true)
+                                            viewModel.parliamentViewModel.runDebateSession(draft, onDebateFinished = { viewModel.setLoading(false) })
+                                        },
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                                    ) {
+                                        Text("🗣️ DEBATE BILL", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Black)
+                                    }
+                                    OutlinedButton(
+                                        onClick = {
+                                            viewModel.setLoading(true)
                                             viewModel.parliamentViewModel.AIAutoAmendDraft(onFinished = { viewModel.setLoading(false) })
                                         },
                                         shape = RoundedCornerShape(12.dp),
                                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.tertiary)
                                     ) {
-                                        Text("🤖 AI STRUCTURAL REWRITE", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Black)
+                                        Text("🤖 AI REWRITE", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Black)
                                     }
                                     OutlinedButton(
                                         onClick = {
@@ -5936,7 +5972,7 @@ fun StateAndLegislationTab(
                                     )
                                 },
                                 modifier = Modifier.fillMaxWidth(),
-                                enabled = !isVotingActive
+                                enabled = !isVotingActive && viewModel.parliamentViewModel.hasDebated.value
                             ) {
                                 Text("🗳️ DISPATCH TO GENERAL PARLIAMENT FOR VOTE", fontWeight = FontWeight.Bold)
                             }

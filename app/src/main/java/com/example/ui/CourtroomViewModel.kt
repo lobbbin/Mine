@@ -78,7 +78,7 @@ class CourtroomViewModel(
         .build()
     private val lawsuitStateAdapter = moshi.adapter(LawsuitResponse::class.java).lenient()
 
-    fun resetLawsuit(patientName: String, diag: String, charges: List<String>, violations: List<PolicyAuditResult> = emptyList()) {
+    fun resetLawsuit(patientName: String, diag: String, charges: List<String>, violations: List<PolicyAuditResult> = emptyList(), jurySize: Int = 10) {
         _lawsuitPatientName.value = patientName
         _lawsuitCaseDiag.value = diag
         _lawsuitCharges.value = charges
@@ -90,14 +90,25 @@ class CourtroomViewModel(
         _lawsuitFine.value = 0.0
         _lawsuitSuspension.value = 0
         _lawsuitJurySentiment.value = 50
-        _lawsuitJurors.value = listOf(
+        
+        val fullJurorPool = listOf(
             Juror("Evelyn Vance", "Foreperson - High School Principal", "Undecided", "Reviewing Dr. Tim's clinical record..."),
             Juror("Kofi Mensah", "Aeronautical Engineer", "Undecided", "Awaiting physical evidence."),
             Juror("Aunt Sarah", "Retired Ward Nurse", "Favorable", "Evaluating clinical pressure and timings."),
             Juror("Dmitri Romanov", "Construction Contractor", "Skeptical", "Concerned about swift procedures."),
             Juror("Thabo Dube", "Financial Auditor", "Undecided", "Tracking expenses and cost margins."),
-            Juror("Priya Patel", "Highschool Biology Teacher", "Undecided", "Analysing diagnostic choices.")
+            Juror("Priya Patel", "Highschool Biology Teacher", "Undecided", "Analysing diagnostic choices."),
+            Juror("Dr. Aris Thorne", "Clinical Ethicist", "Undecided", "Reviewing ethical framework application."),
+            Juror("Lina Zhao", "Data Analyst", "Undecided", "Evaluating statistical significance of errors."),
+            Juror("Marcus Belrose", "Local Journalist", "Skeptical", "Assessing public impact and ethics."),
+            Juror("Hannah Okoro", "Social Worker", "Favorable", "Evaluating patient-centered communication and empathy."),
+            Juror("John A. Doe", "Public Defender", "Undecided", "Analyzing procedural errors."),
+            Juror("Jane B. Smith", "Biostatistician", "Undecided", "Evaluating clinical outcomes."),
+            Juror("Robert C. Brown", "Retired Teacher", "Favorable", "Applying wisdom."),
+            Juror("Sarah D. White", "Nurse", "Favorable", "Checking standards.")
         )
+        
+        _lawsuitJurors.value = fullJurorPool.take(jurySize.coerceIn(1, fullJurorPool.size))
         
         val initialLogs = mutableListOf<String>()
         initialLogs.add("⚖️ INQUEST DOCKET OPENED: State Healthcare Regulatory Body vs Dr. Tim.")

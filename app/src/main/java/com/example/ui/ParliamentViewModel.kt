@@ -45,6 +45,15 @@ class ParliamentViewModel(
     private val _isVotingActive = MutableStateFlow(false)
     val isVotingActive: StateFlow<Boolean> = _isVotingActive.asStateFlow()
 
+    private val _isDebateActive = MutableStateFlow(false)
+    val isDebateActive: StateFlow<Boolean> = _isDebateActive.asStateFlow()
+
+    private val _debateLog = MutableStateFlow<String>("")
+    val debateLog: StateFlow<String> = _debateLog.asStateFlow()
+    
+    private val _hasDebated = MutableStateFlow(false)
+    val hasDebated: StateFlow<Boolean> = _hasDebated.asStateFlow()
+
     private val _voteProgress = MutableStateFlow(0f)
     val voteProgress: StateFlow<Float> = _voteProgress.asStateFlow()
 
@@ -101,8 +110,11 @@ class ParliamentViewModel(
         - repealStatute { "id": string }
         - updatePrestige { "amount": integer }
         - broadcastNews { "headline": string, "breaking": boolean }
+
+        IMPORTANT LEGISLATIVE RULE:
+        You CANNOT enact laws directly. All new legislation MUST be proposed to Parliament for drafting and voting. The President (the user) MUST sign any act passed by Parliament before it becomes active law.
         
-        - 55 ADDITIONAL AGENTIC GAME-SHIFTING ACTIONS:
+        - 55 ADDITIONAL AGENT GAME-SHIFTING ACTIONS:
           triggerEpidemicAlert, adjustPrestige { "amount": int }, adjustReputation { "amount": double }, adjustLobbyInfluence { "faction": string, "change": double } (faction: progressives|conservatives|independents), levyEmergencyTax { "rate": double }, issueClinicalSubsidy { "amount": double }, harnessAIEnergyGrid, overrideNationalFormulary { "name": string, "classification": string, "description": string, "cost": double, "bp": string, "hr": string, "impact": string }, nationalizeFreeHealth, triggerStrikeRisk, resolveStaffDispute, upgradeFacilityTier, leakPrivateCabinetIntel, grantPresidentialPardon, disenfranchiseParty { "party": string }, issueSovereignBonds, simulateMarketInflation, defibrillateNow, perfuseOxygenContinuous, perfuseSalineBolus, injectAdrenalineEmergency, injectAtropineStat, injectAmiodaroneCardiac, injectInsulinDka, injectGlucoseHypo, applyIntubation, applyTourniquet, administerAntibioticWide, administerAnalgesicMorphine, administerNaloxoneOpiate, performEcgSurgical, performCprInterval, triggerLoadSheddingPowerBlackout, forceWaterShortageCrisis, generateSuperbugEncountEvent, hireLocumDoctorAssistant, orderStatTroponin, orderChestXRay, orderCtBrainScan, orderToxicologyPanel, adjustMedicalAidCoverage { "id": string, "coverage": double }, openAuditInvestigation, concludeActiveEncounter, triggerVIPHeartAttackCrisis, injectCardiacGlycoside, administerBronchodilator, administerSedativeTranquilizer, reportWhistleblower, restockSyringesDirect, restockSalineDirect, restockAdrenalineDirect, restockReagentsDirect, restockTherapeuticsDirect, bribeLobbyistBroker, leakPatientRecordsAnonymous
         
         If no systemic actions are necessary, simply OMIT the "agentActions" array.
@@ -129,6 +141,7 @@ class ParliamentViewModel(
 
     fun setDraftPolicy(policy: HealthPolicy?) {
         _currentDraftPolicy.value = policy
+        _hasDebated.value = false
     }
 
     fun clearApprovedPolicies() {
@@ -145,7 +158,9 @@ class ParliamentViewModel(
         economicImpact: String,
         clauses: List<String>,
         id: String? = null,
-        customEngineDirectives: String = ""
+        customEngineDirectives: String = "",
+        jurySize: Int = 4,
+        maxPleaRounds: Int = 3
     ) {
         val draftId = id ?: java.util.UUID.randomUUID().toString()
         val draft = HealthPolicy(
@@ -156,7 +171,9 @@ class ParliamentViewModel(
             economicImpact = economicImpact,
             clinicalRule = clinicalRule,
             status = "Draft",
-            customEngineDirectives = customEngineDirectives
+            customEngineDirectives = customEngineDirectives,
+            jurySize = jurySize,
+            maxPleaRounds = maxPleaRounds
         )
         _currentDraftPolicy.value = draft
         _votingLog.value = listOf("✨ Custom Legislative Bill formulated and loaded in active chamber memory!")
@@ -332,6 +349,50 @@ class ParliamentViewModel(
     private val _currentSeatMap = MutableStateFlow(String(CharArray(200) { 'U' }))
     val currentSeatMap: StateFlow<String> = _currentSeatMap.asStateFlow()
 
+    fun runDebateSession(
+        policy: HealthPolicy,
+        onDebateFinished: () -> Unit,
+        debateRounds: Int = 5
+    ) {
+        viewModelScope.launch {
+            _isDebateActive.value = true
+            _debateLog.value = "🗣️ Debate started for: '${policy.title}'\n\n"
+            
+            val activePolicies = settingsDataStore.activePoliciesFlow.first()
+            val activePolicyDirectives = activePolicies.joinToString("\n") { 
+                "LAW: ${it.title}. DIRECTIVE: ${it.customEngineDirectives}"
+            }
+            val debatingPolicyDirectives = if (policy.customEngineDirectives.isNotBlank()) "CURRENT BILL DIRECTIVE: ${policy.customEngineDirectives}" else ""
+            
+            val prompt = """
+                Simulate a parliamentary debate for bill: '${policy.title}'
+                Summary: ${policy.summary}
+                
+                $debatingPolicyDirectives
+                
+                ACTIVE LAW DIRECTIVES (You MUST follow/respect these for your parliamentary perspective):
+                $activePolicyDirectives
+                
+                Simulate the debate for $debateRounds rounds.
+                Participants: Progressives (supporting/opposing based on ideology), Conservatives (supporting/opposing).
+                Output a short, punchy summary of the heated exchange.
+                Keep it under 3 sentences for each round.
+            """.trimIndent()
+            
+            val currentProvider = provider.value
+            val currentModel = model.value
+            val userKey = apiKey.value ?: ""
+            val activeKey = resolveActiveApiKey(currentProvider, userKey)
+            
+            val response = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt, customEndpoint.value)
+            
+            _debateLog.value = "🗣️ Debate finished:\n\n$response"
+            _isDebateActive.value = false
+            _hasDebated.value = true
+            onDebateFinished()
+        }
+    }
+    
     fun runParliamentaryVote(
         policy: HealthPolicy,
         politicalPrestige: Int,
@@ -770,7 +831,7 @@ class ParliamentViewModel(
                     val sb = java.lang.StringBuilder()
                     sb.append("Currently Active National Healthcare Policies (Ensure your amendment aligns with or strategically overrides these):\n")
                     activePolList.forEachIndexed { i, p ->
-                        sb.append("${i+1}. ${p.title} - ${p.clinicalRule}\n")
+                        sb.append("${i+1}. ${p.title} - ${p.clinicalRule}. DIRECTIVE: ${p.customEngineDirectives}\n")
                     }
                     sb.toString()
                 } else {

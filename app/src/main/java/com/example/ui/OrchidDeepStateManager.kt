@@ -394,8 +394,8 @@ object OrchidDeepStateManager {
         return true
     }
 
-    fun resetTrialRounds() {
-        _trialRoundsCount.value = 3
+    fun resetTrialRounds(rounds: Int = 3) {
+        _trialRoundsCount.value = rounds
         _defensePleaHistory.value = emptyList()
         _selectedEvidenceToPresent.value = emptyList()
         _hiredLawyer.value = null
