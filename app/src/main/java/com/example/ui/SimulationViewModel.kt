@@ -4485,6 +4485,46 @@ $memoryLines
         OrchidDeepStateManager.resetTrialRounds()
     }
 
+    fun startLicenseAppealSimulation() {
+        val currentStatus = worldSnapshot.value?.licenseStatus?.name ?: "SUSPENDED"
+
+        _lawsuitActive.value = true
+        _lawsuitVerdict.value = null
+        _lawsuitFine.value = 0.0
+        _lawsuitSuspension.value = 0
+        _lawsuitTension.value = 50
+        _lawsuitProsecutorAggression.value = 50
+        _lawsuitCurrentStage.value = "charges"
+
+        _selectedJustificationLaws.value = emptyList()
+
+        val appealTarget = "Supreme Court of ${countryName.value}"
+        val appealCase = "License Appeal Petition"
+        
+        _lawsuitPatientName.value = appealTarget
+        _lawsuitCaseDiag.value = appealCase
+        
+        val charges = listOf("1. Formal petition to reinstate $currentStatus medical license.", "2. Review of practitioner's legal standing and rehabilitation.")
+        _lawsuitCharges.value = charges
+
+        _courtroomPatientLog.value = "=== APPEAL DOSSIER ===\nPractitioner is actively petitioning to overturn the $currentStatus status of their medical license and restore clinical practice rights."
+        
+        val initialLog = mutableListOf<String>()
+        initialLog.add("🏛️ HIGH COURT OF ${countryName.value.uppercase()} - SOVEREIGN JUDICIARY DEPT\nLocation: Supreme Inquest division, Pretoria, Royal District\n\nPresiding Judge: 'Practitioner, this sovereign court has convened to review your formal appeal petition for the reinstatement of your $currentStatus medical license.'\n\nState Prosecutor: 'Your Honor, the State notes the petitioner's prior offenses and suspended status. The practitioner must strongly justify why their practice rights should be legally reinstated today under our current health statutes. How does the petitioner plead?'")
+        _lawsuitLog.value = initialLog
+
+        OrchidDeepStateManager.setEvidencePool("Past Audit Records", "None", "")
+        OrchidDeepStateManager.resetTrialRounds()
+
+        courtroomViewModel.resetLawsuit(
+            patientName = appealTarget,
+            diag = appealCase,
+            charges = charges
+        )
+        
+        generateAIJuryBackground(appealTarget, appealCase, charges)
+    }
+
     // --- NEW DEEP STATE APIS (RESTOCK & DISPENSING ACTIONS) ---
 
     fun buyDispensaryRestock(itemId: String, quantity: Int) {
@@ -4937,6 +4977,11 @@ $memoryLines
                     if (weeks > 0 || vType.equals("Suspension", ignoreCase = true)) {
                         val suspensionVal = if (weeks > 0) weeks else 1
                         legalWorldAgent.updateMedicalLicense(com.example.data.LicenseStatus.SUSPENDED, text, suspensionVal)
+                    } else if (vType.equals("Exonerated", ignoreCase = true) || vType.equals("Warning", ignoreCase = true) || vType.equals("Fined", ignoreCase = true)) {
+                        val currentLicense = worldSnapshot.value?.licenseStatus
+                        if (currentLicense == com.example.data.LicenseStatus.REVOKED || currentLicense == com.example.data.LicenseStatus.SUSPENDED) {
+                            legalWorldAgent.updateMedicalLicense(com.example.data.LicenseStatus.ACTIVE, text)
+                        }
                     }
 
                     _lawsuitCurrentStage.value = "verdict"
@@ -5057,6 +5102,11 @@ $memoryLines
                     if (suspension > 0 || _lawsuitVerdict.value.equals("Suspension", ignoreCase = true)) {
                         val suspensionVal = if (suspension > 0) suspension else 1
                         legalWorldAgent.updateMedicalLicense(com.example.data.LicenseStatus.SUSPENDED, reply.finalVerdictText ?: "Suspended by court order", suspensionVal)
+                    } else if (_lawsuitVerdict.value.equals("Exonerated", ignoreCase = true) || _lawsuitVerdict.value.equals("Warning", ignoreCase = true) || _lawsuitVerdict.value.equals("Fined", ignoreCase = true)) {
+                        val currentLicense = worldSnapshot.value?.licenseStatus
+                        if (currentLicense == com.example.data.LicenseStatus.REVOKED || currentLicense == com.example.data.LicenseStatus.SUSPENDED) {
+                            legalWorldAgent.updateMedicalLicense(com.example.data.LicenseStatus.ACTIVE, reply.finalVerdictText ?: "Reinstated by court order.")
+                        }
                     }
 
                     _lawsuitCurrentStage.value = "verdict"

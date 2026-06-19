@@ -859,8 +859,15 @@ fun DashboardScreen(
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                         Spacer(modifier = Modifier.height(24.dp))
-                        Button(onClick = { activeMainTab = 1 }) { 
-                            Text("Go to Politics & Laws Hub") 
+                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Button(onClick = { 
+                                viewModel.startLicenseAppealSimulation()
+                            }) {
+                                Text("File Appeal Petition")
+                            }
+                            Button(onClick = { activeMainTab = 1 }, colors = ButtonDefaults.outlinedButtonColors()) { 
+                                Text("Go to Politics & Laws Hub") 
+                            }
                         }
                     }
                 } else {
