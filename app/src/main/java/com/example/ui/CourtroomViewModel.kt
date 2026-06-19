@@ -25,8 +25,16 @@ class CourtroomViewModel(
     private val _lawsuitJurors = MutableStateFlow<List<Juror>>(emptyList())
     val lawsuitJurors: StateFlow<List<Juror>> = _lawsuitJurors.asStateFlow()
 
+    fun updateJurors(jurors: List<Juror>) {
+        _lawsuitJurors.value = jurors
+    }
+
     private val _lawsuitJurySentiment = MutableStateFlow(50) // 0-100%
     val lawsuitJurySentiment: StateFlow<Int> = _lawsuitJurySentiment.asStateFlow()
+
+    fun updateJurySentiment(sentiment: Int) {
+        _lawsuitJurySentiment.value = sentiment
+    }
 
     private val _lawsuitPatientName = MutableStateFlow("")
     val lawsuitPatientName: StateFlow<String> = _lawsuitPatientName.asStateFlow()

@@ -4108,11 +4108,15 @@ $memoryLines
                         val reason = args["investigation_reason"] as? String ?: ""
                         val sev = args["severity"] as? String ?: "Low"
                         val dl = (args["deadline_days"] as? Number)?.toInt() ?: 7
+                        val patientName = _uiState.value.patientDemographics.split(" ").firstOrNull() ?: "Patient"
+                        val diag = _uiState.value.patientOutcome ?: "Competency Audit"
+                        val charges = listOf("Breach identified: $reason ($sev severity)")
                         courtroomViewModel.resetLawsuit(
-                            patientName = _uiState.value.patientDemographics.split(" ").firstOrNull() ?: "Patient",
-                            diag = _uiState.value.patientOutcome ?: "Competency Audit",
-                            charges = listOf("Breach identified: $reason ($sev severity)")
+                            patientName = patientName,
+                            diag = diag,
+                            charges = charges
                         )
+                        generateAIJuryBackground(patientName, diag, charges)
                         "Regulatory Malpractice Inquest launched ($sev severity) due to: $reason"
                     }
                     "enact_new_medical_statute" -> {
@@ -4601,6 +4605,60 @@ $memoryLines
 
     // --- COURTROOM INTERACTIVE ADVOCACY SERVICE ---
 
+    private fun generateAIJuryBackground(patientName: String, diag: String, charges: List<String>) {
+        viewModelScope.launch {
+            try {
+                val currentProvider = provider.value
+                val currentModel = model.value
+                val userKey = apiKey.value ?: ""
+                val activeKey = resolveActiveApiKey(currentProvider, userKey)
+
+                if (activeKey.isNotBlank()) {
+                    val prompt = """
+                        You are the judicial simulator for the Supreme Court. A new medical malpractice lawsuit has been filed.
+                        Patient: $patientName
+                        Condition: $diag
+                        Charges: ${charges.joinToString(", ")}
+
+                        Generate a dynamic, realistic jury panel of exactly 6 unique citizens with different occupations and initial stances towards healthcare and malpractice.
+                        
+                        Return raw JSON exactly matching this schema:
+                        {
+                           "jurors": [
+                              { "name": "First Last", "role": "Occupation", "inclination": "Favorable/Skeptical/Undecided/Hostile", "comment": "A 1-sentence thought on their assignment to this specific case." }
+                           ]
+                        }
+                    """.trimIndent()
+                    
+                    val responseRaw = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt)
+                    val sanitized = extractJsonString(responseRaw)
+                    val json = org.json.JSONObject(sanitized)
+                    
+                    val jurorsArray = json.optJSONArray("jurors")
+                    if (jurorsArray != null) {
+                        val newJurors = mutableListOf<Juror>()
+                        for (i in 0 until jurorsArray.length()) {
+                            val obj = jurorsArray.getJSONObject(i)
+                            newJurors.add(
+                                Juror(
+                                    name = obj.optString("name", "Unknown Juror"),
+                                    role = obj.optString("role", "Citizen"),
+                                    inclination = obj.optString("inclination", "Undecided"),
+                                    comment = obj.optString("comment", "Awaiting testimony...")
+                                )
+                            )
+                        }
+                        if (newJurors.size == 6) {
+                            courtroomViewModel.updateJurors(newJurors)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // Ignore silent failure for background tasks
+            }
+        }
+    }
+
     fun hireLawyerForTrial(lawyerId: String) {
         val lawyer = OrchidDeepStateManager.defenseLawyersCatalog.find { it.id == lawyerId } ?: return
         val currentBal = clinicBalance.value
@@ -4656,6 +4714,10 @@ $memoryLines
             "The defendant is specifically invoking these enacted laws to justify their actions or prove they complied:\n" + selectedJustify.joinToString("\n") { "- $it" }
         } else "The defendant has not specified which enacted laws they are trying to justify/disprove."
 
+        val currentJurorsText = courtroomViewModel.lawsuitJurors.value.mapIndexed { i, j ->
+            "${i + 1}. ${j.name} (${j.role}): Currently ${j.inclination} - ${j.comment}"
+        }.joinToString("\n")
+
         val prompt = """
             You are simulating an interactive clinical trial hearing in the Supreme Medical Court of the Republic of ${countryName.value}.
             
@@ -4676,6 +4738,9 @@ $memoryLines
             DEFENDANT'S JUSTIFIED REASONINGS:
             $justificationContext
             
+            CURRENT JURY PANEL (6 CITIZENS):
+            $currentJurorsText
+            
             LEGAL DEFENSE DETAILS IN THIS PLEA ROUND:
             - Defendant's Written Testimony / Pleading speech: "$pleaMsg"
             - Submitted Physical Exhibits / Clinical evidence: ${if (selectedEvidence.isNotEmpty()) selectedEvidence.joinToString(", ") else "None"}
@@ -4686,13 +4751,20 @@ $memoryLines
             2. The state prosecutor must cross-examine the doctor's specific typed statement "$pleaMsg" and check the validity of their submitted evidence: "${selectedEvidence.joinToString("; ")}".
             3. CRITICAL AUDIT: Compare the defendant's justification claims ($justificationContext) with the actual performance record log of what happened at the bedside. Verify if they are telling the truth or if they are offering a bogus distraction! For example, if they claim they complied with the Single-Payer ENHS Act by billing R0, verify if they did; if they claim compliance with diagnostics, check if they checked vitals/labs etc. Aggressively call them out in court if their excuses columns mismatch the raw patient log!
             4. If the defense makes true clinical and legal sense (it complies with the laws and standard medical protocols based on the logs), reduce the tension and aggression metrics. If they claim compliance but the logs show they clearly broke the law or acted carelessly, aggressively call them out on it, and increase the tension and aggression metrics.
-            5. Provide the prosecutor's aggressive response and the Judge's subsequent inquiry in 'courtDialogue'.
-            6. Return raw JSON matching this EXACT schema:
+            5. Evaluate the current 6 jurors' reactions. You must update each of the 6 jurors' inclination and write a 1-sentence thought from them.
+            6. Provide the prosecutor's aggressive response and the Judge's subsequent inquiry in 'courtDialogue'.
+            7. Return raw JSON matching this EXACT schema:
             {
                "courtDialogue": "Prosecutor's sharp rebuttal questioning the evidence and auditing justifications against logs, followed by the Presiding Judge's formal query on the record.",
                "tensionAdjustment": -10,
                "aggressionAdjustment": -15,
-               "defenseInsightText": "A quick note of guidance or strategic legal advice from Dr. Tim's hired defense lawyer."
+               "defenseInsightText": "A quick note of guidance or strategic legal advice from Dr. Tim's hired defense lawyer.",
+               "jurySentiment": 60,
+               "jurorReactions": [
+                  { "name": "Juror Name 1", "inclination": "Favorable/Skeptical/Undecided/Hostile", "comment": "A 1-sentence reaction..." },
+                  { "name": "Juror Name 2", "inclination": "Favorable/Skeptical/Undecided/Hostile", "comment": "A 1-sentence reaction..." },
+                  // ... all 6 jurors
+               ]
             }
         """.trimIndent()
 
@@ -4712,6 +4784,33 @@ $memoryLines
                     val dAdj = json.optInt("tensionAdjustment", 5)
                     val aAdj = json.optInt("aggressionAdjustment", 5)
                     val insight = json.optString("defenseInsightText", "Ensure you back up your claims with physical vitals evidence.")
+                    val jSentiment = json.optInt("jurySentiment", courtroomViewModel.lawsuitJurySentiment.value)
+                    
+                    val jurorReactionsArray = json.optJSONArray("jurorReactions")
+                    if (jurorReactionsArray != null) {
+                        val currentJurors = courtroomViewModel.lawsuitJurors.value
+                        val updatedJurors = mutableListOf<Juror>()
+                        for (i in 0 until jurorReactionsArray.length()) {
+                            val obj = jurorReactionsArray.getJSONObject(i)
+                            val name = obj.optString("name", "")
+                            val inclination = obj.optString("inclination", "Undecided")
+                            val comment = obj.optString("comment", "")
+                            
+                            val originalJuror = currentJurors.find { it.name == name } ?: currentJurors.getOrNull(i)
+                            if (originalJuror != null) {
+                                updatedJurors.add(originalJuror.copy(
+                                    name = if (name.isNotBlank()) name else originalJuror.name,
+                                    inclination = inclination,
+                                    comment = comment
+                                ))
+                            }
+                        }
+                        if (updatedJurors.isNotEmpty()) {
+                            courtroomViewModel.updateJurors(updatedJurors)
+                        }
+                    }
+                    
+                    courtroomViewModel.updateJurySentiment(jSentiment.coerceIn(0, 100))
                     
                     // Process potential agent actions
                     extractAndProcessActions(sanitized)
@@ -4780,6 +4879,7 @@ $memoryLines
             - Defense Representation: ${lawyer?.displayName ?: "None (Self-represented)"}
             - Court Tension Level: ${_lawsuitTension.value}%
             - Prosecution Hostility/Aggression Level: ${_lawsuitProsecutorAggression.value}%
+            - AI Jury Sentiment: ${courtroomViewModel.lawsuitJurySentiment.value}% (Above 50% favors the doctor, below 50% favors the state)
             
             HEALTH STATUTES IN SCOPE:
             $policyDetailsStr
@@ -4789,8 +4889,9 @@ $memoryLines
             YOUR DIRECTIVE:
             1. Formulate a final, realistic sentencing judgment.
             2. Evaluate whether the doctor successfully justified that they didn't violate the active clinical laws in their defense pleadings, backed up by the actual performance records log.
-            3. Verdict types allowed: "Exonerated" (if temperature score/tension <= 45% and they proved they fully complied with all active health laws as validated by the factual bedside log), "Warning" (tension 46-60%), "Fined" (tension 61-80% or clear statutory violation in patient log), "Suspension" (tension > 80% or severe deliberate statutory breach).
-            4. If Fined, define a numeric cash fine (e.g. R500.00 to R3000.00). Deduct this from the clinic's balance.
+            3. The 6-person AI Jury panel's final voting sentiment is critical. The Judge should heavily weigh their sentiment when determining the final verdict penalty.
+            4. Verdict types allowed: "Exonerated" (if jury sentiment >= 65% and tension score <= 45%), "Warning" (tension 46-60%), "Fined" (tension 61-80% or clear statutory violation in patient log), "Suspension" (tension > 80% or severe deliberate statutory breach).
+            5. If Fined, define a numeric cash fine (e.g. R500.00 to R3000.00). Deduct this from the clinic's balance.
             5. If Suspension, define the suspension weeks (e.g. 1 to 3 weeks).
             6. Return raw JSON matching this schema:
             {
