@@ -46,6 +46,7 @@ import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material.icons.filled.WindPower
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Air
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Bolt
@@ -243,6 +244,7 @@ fun DashboardScreen(
     val isBasicMode by viewModel.isBasicMode.collectAsStateWithLifecycle()
     val hasChosenMode by viewModel.hasChosenMode.collectAsStateWithLifecycle()
     val uiFontScale by viewModel.uiFontScale.collectAsStateWithLifecycle()
+    val worldSnapshot by viewModel.worldSnapshot.collectAsStateWithLifecycle()
 
     val lawsuitActive by viewModel.lawsuitActive.collectAsStateWithLifecycle()
     val lawsuitLog by viewModel.lawsuitLog.collectAsStateWithLifecycle()
@@ -832,7 +834,37 @@ fun DashboardScreen(
             }
 
             if (activeMainTab == 0) {
-                // --- Ambient Sick Politician Banner inside Clinical Hub ---
+                if (worldSnapshot?.licenseStatus == com.example.data.LicenseStatus.REVOKED || worldSnapshot?.licenseStatus == com.example.data.LicenseStatus.SUSPENDED) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(Icons.Default.Warning, contentDescription = "Suspended", modifier = Modifier.size(80.dp), tint = MaterialTheme.colorScheme.error)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            "MEDICAL LICENSE ${worldSnapshot?.licenseStatus?.name}", 
+                            fontWeight = FontWeight.Black, 
+                            fontSize = 24.sp, 
+                            color = MaterialTheme.colorScheme.error, 
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "You cannot practice medicine, consult patients, or access the clinical hub while your license is ${worldSnapshot?.licenseStatus?.name?.lowercase()}.\n\nPlease resolve your legal standing with the Sovereign Judiciary.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Button(onClick = { activeMainTab = 1 }) { 
+                            Text("Go to Politics & Laws Hub") 
+                        }
+                    }
+                } else {
+                    // --- Ambient Sick Politician Banner inside Clinical Hub ---
                 if (sickPoliticianAlert != null) {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
@@ -1945,6 +1977,7 @@ fun DashboardScreen(
                     }
                 }
             }
+            } // Close the license status else block
             } else if (activeMainTab == 1) {
                 StateAndLegislationTab(
                     viewModel = viewModel,
