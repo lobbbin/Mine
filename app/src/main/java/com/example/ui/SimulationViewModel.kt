@@ -49,13 +49,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.regex.Pattern
 
-data class Juror(
-    val name: String,
-    val profession: String,
-    val score: Int,
-    val quote: String
-)
-
 class SimulationViewModel(application: Application) : AndroidViewModel(application) {
 
     private val appDatabase = AppDatabase.getDatabase(application)
@@ -63,8 +56,6 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
     private val settingsDataStore = SettingsDataStore(application)
     val parliamentViewModel = ParliamentViewModel(application, settingsDataStore)
     val courtroomViewModel = CourtroomViewModel(application, settingsDataStore)
-    val politicsHandler = PoliticsHandler(this, application, settingsDataStore)
-    val agenicActionHandler = AgenicActionHandler(this, application, settingsDataStore)
     private val legalWorldAgent = LegalWorldAgent(appDatabase.worldStateDao(), settingsDataStore, viewModelScope)
 
     val worldSnapshot = legalWorldAgent.currentSnapshot
@@ -102,241 +93,17 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
     val customEndpoint: StateFlow<String> = settingsDataStore.customEndpointFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
+    val rotatorKeys: StateFlow<Map<String, String>> = settingsDataStore.rotatorKeysFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
+    val rotatorEnabledModels: StateFlow<Set<String>> = settingsDataStore.rotatorEnabledModelsFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
+    val rotatorCustomModels: StateFlow<Map<String, List<String>>> = settingsDataStore.rotatorCustomModelsFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
     val clinicBalance: StateFlow<Double> = settingsDataStore.clinicBalanceFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, 50000.0)
-
-    private val _officeTreasury = MutableStateFlow(2500000.0)
-    val officeTreasury: StateFlow<Double> = _officeTreasury.asStateFlow()
-
-    private val _accountingLedger = MutableStateFlow<List<String>>(emptyList())
-    val accountingLedger: StateFlow<List<String>> = _accountingLedger.asStateFlow()
-
-    private val _accountantHired = MutableStateFlow(false)
-    val accountantHired: StateFlow<Boolean> = _accountantHired.asStateFlow()
-
-    fun logAccountingTransaction(transaction: String) {
-        val currentLogs = _accountingLedger.value.toMutableList()
-        currentLogs.add(0, "[${java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault()).format(java.util.Date())}] $transaction")
-        _accountingLedger.value = currentLogs
-    }
-
-    fun hireAccountant() {
-        if (clinicBalance.value >= 3500.0) {
-            viewModelScope.launch {
-                settingsDataStore.updateClinicStats(clinicBalance.value - 3500.0, reputationStars.value)
-                _accountantHired.value = true
-                logAccountingTransaction("Hired Senior Accountant. Cost: 3500.0. Accounting efficiency increased.")
-            }
-        }
-    }
-
-    private val ALL_55_AI_ACCOUNTING_STRATEGIES = listOf(
-        "Corporate Tax Evasion Strategy", "Offshore Shell Corporation Setup", "Aggressive IRS Audit Defense",
-        "Hostile Takeover of Rival Clinic", "Fake Invoice Embezzlement", "Short Sell Medical Suppliers",
-        "Lobby for Pharma Grants", "Cook the Books (Double Entry Fraud)", "Crypto Pharmacy Speculation",
-        "Siphon National Treasury Funds", "Bribe Local Health Inspector", "Establish Dark Money Super PAC",
-        "Manipulate Stock Market (Health Index)", "Exploit Medicare Billing Loophole", "Sell Patient Data to Ad Brokers",
-        "AI Automated Debt Collection", "Falsify Clinical Trials for Funding", "Initiate Bankruptcy Restructuring",
-        "Leverage Buyout of Competitor", "Defund Local competitor clinic", "Hide Assets in Cryptocurrency",
-        "Issue High-Yield Junk Bonds", "Create Fake Medical Charity", "Exploit Currency Exchange Rates",
-        "Sue the Minister of Health for defamation", "Fake Equipment Depreciation", "Illegal Kickbacks from Pharma",
-        "Ponzi Scheme with Investor Funds", "Fraudulent Insurance Claims", "Setup Ghost Employees on Payroll",
-        "Evade Import Tariffs on Drugs", "Lobby for lowered Minimum Wage", "Sabotage Rival's Supply Chain",
-        "Extort Insurance Adjuster", "Manipulate Interest Rates (Bank Bribe)", "Sell Counterfeit Placebo Drugs",
-        "Tax Haven Repatriation", "Falsify Disability Claims", "Threaten Tax Auditors with AI blackmail",
-        "Forge Subpoena Documents", "Illicit Organ Trade Accounting", "Syndicate Loan Default",
-        "Artificially Inflate Asset Values", "Liquidate Clinic Pension Fund", "Corporate Espionage on Biotech",
-        "Manipulate Clinical Tenders", "Bribe Mayor for Zoning Permits", "Smuggle Unlicensed Equipment",
-        "Falsify Patient Case Counts", "Hack Government Treasury System", "Monetize Blood Bank Reserves",
-        "Illegal Outsourcing of Jobs", "Falsify Equipment Leasing", "Trade Medical Secrets to Foreign Nation",
-        "Set up Unlicensed Healthcare Subsidiary"
-    )
-
-    fun executeAdvancedAIAccountingAction() {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val strategy = ALL_55_AI_ACCOUNTING_STRATEGIES.random()
-                logAccountingTransaction("Agentic AI Strategy Initiated: '$strategy'...")
-                
-                val prompt = """
-                    You are a rogue, elite AI accountant working for JB Consultation Practice.
-                    You have just executed the following highly risky, advanced accounting strategy: "$strategy".
-                    
-                    Determine the comprehensive financial and global outcome probabilistically. If the clinic has already hired a Senior Accountant (status: ${_accountantHired.value}), the strategy has an 80% chance of extreme success. Otherwise, 50% chance of success (and failure means massive fines!).
-                    If successful, yield a massive positive financial gain (10,000 to 500,000+).
-                    If a failure, yield a massive financial penalty or lawsuit (negative impact).
-                    
-                    This action will have cascading world effects. Determine changes to:
-                    - Lawsuit Tension (-20 to +50 depending on how illegal it is)
-                    - Reputation Stars (-2.0 to +1.0)
-                    - Political Seats Shift (-5 to +5) for Progressives vs Conservatives.
-                    - Determine if this action directly siphons money from the National Treasury.
-                    
-                    Return ONLY raw JSON in this exact schema:
-                    {
-                       "success": true/false,
-                       "impact": <numeric absolute value of gain or loss>,
-                       "stolenFromTreasury": true/false,
-                       "reportSummary": "A highly detailed, somewhat unethical AI accountant summary of the execution and consequences.",
-                       "lawsuitTensionChange": <number>,
-                       "reputationChange": <number>,
-                       "progressiveSeatShift": <number>,
-                       "globalNewsHeadline": "A catchy breaking news headline summarizing what just happened to the economy or clinic."
-                    }
-                """.trimIndent()
-                
-                val text = makeFreshDirectApiCall(provider.value, model.value, apiKey.value ?: "", prompt)
-                val json = try { org.json.JSONObject(text) } catch(e:Exception){ org.json.JSONObject() }
-                
-                val success = json.optBoolean("success", false)
-                val impact = json.optDouble("impact", 0.0)
-                val stolenFromTreasury = json.optBoolean("stolenFromTreasury", false)
-                val report = json.optString("reportSummary", "System error executing strategy.")
-                
-                val tensionChange = json.optInt("lawsuitTensionChange", 0)
-                val repChange = json.optDouble("reputationChange", 0.0).toFloat()
-                val seatShift = json.optInt("progressiveSeatShift", 0)
-                val headline = json.optString("globalNewsHeadline", "Unprecedented Market Volatility Reported.")
-                
-                // Apply cascading effects
-                _lawsuitTension.value = (_lawsuitTension.value + tensionChange).coerceIn(0, 100)
-                _progressiveSeats.value = (_progressiveSeats.value + seatShift).coerceIn(0, 500)
-                _conservativeSeats.value = (_conservativeSeats.value - seatShift).coerceIn(0, 500)
-                _currentNewsReport.value = headline
-                
-                val newReputation = (reputationStars.value + repChange).coerceIn(1f, 5f)
-                
-                if (success) {
-                    settingsDataStore.updateClinicStats(clinicBalance.value + impact, newReputation)
-                    if (stolenFromTreasury) {
-                        _officeTreasury.value -= impact
-                        logAccountingTransaction("AI SUCCESS: Siphoned R$impact from Treasury! [$strategy] - $report")
-                    } else {
-                        logAccountingTransaction("AI SUCCESS: Gained R$impact! [$strategy] - $report")
-                    }
-                    agenicActionHandler.publishExternalActionLog("Accounting execution '$strategy' succeeded. Gain: R$impact. Tension change: $tensionChange. News: $headline")
-                } else {
-                    settingsDataStore.updateClinicStats((clinicBalance.value - impact).coerceAtLeast(0.0), newReputation)
-                    logAccountingTransaction("AI FAILURE: Fined R$impact! [$strategy] - $report")
-                    agenicActionHandler.publishExternalActionLog("Accounting execution '$strategy' failed. Fined: R$impact. Tension change: $tensionChange. News: $headline")
-                }
-                
-            } catch (e: Exception) {
-                logAccountingTransaction("Advanced AI Action Error: ${e.message}")
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    fun sandboxAddMoney(amount: Double) {
-        viewModelScope.launch {
-            settingsDataStore.updateClinicStats(clinicBalance.value + amount, reputationStars.value)
-            logAccountingTransaction("Sandbox Intervention: Added $amount to clinic balance.")
-        }
-    }
-
-    fun sandboxAddCountryMoney(amount: Double) {
-        viewModelScope.launch {
-            _officeTreasury.value += amount
-            logAccountingTransaction("Sandbox Intervention: Added $amount to National Treasury.")
-        }
-    }
-
-    fun auditTaxPolicies() {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                logAccountingTransaction("Initiating AI Tax & Policy Audit over regional legislation...")
-                
-                val policies = activePolicies.value.joinToString("\n") { "- ${it.title}: ${it.economicImpact}" }
-                val prompt = """
-                    You are an elite AI firm accountant hired by JB Consultation Practice.
-                    Review the current active laws in the geopolitics module to determine their impact on the clinic's ledger.
-                    Active Local Laws & Policies:
-                    $policies
-                    
-                    Based strictly on the economic impact of these laws, determine an absolute financial adjustment (can be positive "subsidy" or negative "tax penalty") to apply to the clinic's balance.
-                    Return ONLY raw JSON:
-                    {
-                       "totalAdjustment": <number, use negatives for taxes, positive for subsidies>,
-                       "auditReport": "A professional AI accountant summary of why this adjustment was made based strictly on the policies provided."
-                    }
-                """.trimIndent()
-                
-                val text = makeFreshDirectApiCall(
-                    provider.value,
-                    model.value,
-                    apiKey.value ?: "",
-                    prompt
-                )
-                
-                val json = try { org.json.JSONObject(text) } catch (e: Exception) { org.json.JSONObject() }
-                
-                val adj = json.optDouble("totalAdjustment", 0.0)
-                val report = json.optString("auditReport", "No significant tax implications found.")
-                
-                settingsDataStore.updateClinicStats(clinicBalance.value + adj, reputationStars.value)
-                logAccountingTransaction("AI Audit Complete. Impact: R$adj. Report: $report")
-                agenicActionHandler.publishExternalActionLog("AI Accountant completed tax audit: $report")
-            } catch (e: Exception) {
-                logAccountingTransaction("Audit Error: ${e.message}")
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    fun sueEntity(entityName: String) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                logAccountingTransaction("Initiated lawsuit against $entityName...")
-            
-                val prompt = """
-                    You are simulating an AI judge resolving a lawsuit filed by Dr. Tim's clinic against $entityName.
-                    The clinic is suing for lost wages, unjust taxation, or municipal damages.
-                    Determine the outcome of this lawsuit probabilistically. If they have an accountant (${_accountantHired.value}), they have a 70% win chance, else 40%.
-                    If they win, calculate a payout between 5000 and 50000. If they lose, they must pay court fees between 1000 and 5000.
-                    
-                    Return ONLY a JSON response in the following schema:
-                    {
-                       "lawsuitWon": true/false,
-                       "financialImpact": <numeric value of payout or fee>,
-                       "outcomeDescription": "Detailed AI generated summary of the legal ruling and reason."
-                    }
-                """.trimIndent()
-                
-                val text = makeFreshDirectApiCall(
-                    provider.value,
-                    model.value,
-                    apiKey.value ?: "",
-                    prompt
-                )
-                
-                val json = try { org.json.JSONObject(text) } catch (e: Exception) { org.json.JSONObject() }
-                
-                val won = json.optBoolean("lawsuitWon", false)
-                val impact = json.optDouble("financialImpact", 0.0)
-                val desc = json.optString("outcomeDescription", "Case dismissed.")
-                
-                if (won) {
-                    settingsDataStore.updateClinicStats(clinicBalance.value + impact, reputationStars.value)
-                    logAccountingTransaction("Lawsuit against $entityName WON! Payout: R$impact. Reason: $desc")
-                    agenicActionHandler.publishExternalActionLog("Clinic successfully sued $entityName for R$impact.")
-                } else {
-                    settingsDataStore.updateClinicStats(clinicBalance.value - impact, reputationStars.value)
-                    logAccountingTransaction("Lawsuit against $entityName LOST! Court fees: R$impact. Reason: $desc")
-                    agenicActionHandler.publishExternalActionLog("Clinic lost lawsuit against $entityName, fined R$impact.")
-                }
-            } catch (e: Exception) {
-               logAccountingTransaction("Lawsuit filing system error: ${e.message}")
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
 
     val uiFontScale: StateFlow<Float> = settingsDataStore.uiFontScaleFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, 1.0f)
@@ -346,6 +113,41 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
 
     val currencyCode: StateFlow<String> = settingsDataStore.currencyCodeFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, "USD")
+
+    private val _g4fModels = MutableStateFlow<List<String>>(emptyList())
+    val g4fModels: StateFlow<List<String>> = _g4fModels.asStateFlow()
+
+    init {
+        refreshG4FModels()
+    }
+
+    fun refreshG4FModels() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val client = okhttp3.OkHttpClient()
+                val request = okhttp3.Request.Builder()
+                    .url("https://raw.githubusercontent.com/Free-AI-Things/g4f-working/main/working/working_results.txt")
+                    .build()
+                val response = client.newCall(request).execute()
+                if (response.isSuccessful) {
+                    val bodyText = response.body?.string() ?: ""
+                    val models = bodyText.lines()
+                        .map { it.trim() }
+                        .filter { it.isNotEmpty() && it.contains("|") }
+                        .map {
+                            val parts = it.split("|")
+                            if (parts.size >= 2) "${parts[0]}.${parts[1]}" else it
+                        }
+                        .distinct()
+                    if (models.isNotEmpty()) {
+                        _g4fModels.value = models
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
 
     val reputationStars: StateFlow<Float> = settingsDataStore.reputationStarsFlow
         .stateIn(viewModelScope, SharingStarted.Eagerly, 3.5f)
@@ -815,7 +617,16 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     Return ONLY raw, valid JSON. No markdown or wrappers. Isolate with brackets.
                 """.trimIndent()
                 
-                val responseJson = gameAgent.makeDirectApiCall(provider, model, apiKey ?: "", "", listOf(ChatMessage("doctor", prompt)), customEndpoint)
+                val responseJson = gameAgent.makeDirectApiCall(
+                    provider = provider,
+                    modelName = model,
+                    apiKey = apiKey ?: "",
+                    systemPrompt = "",
+                    chatHistory = listOf(ChatMessage("doctor", prompt)),
+                    customUrl = customEndpoint,
+                    rotatorKeys = rotatorKeys.value,
+                    rotatorEnabledModels = rotatorEnabledModels.value
+                )
                 
                 val cleanedJson = responseJson.replace("```json", "").replace("```", "").trim()
                 val adapter = com.squareup.moshi.Moshi.Builder().add(com.squareup.moshi.KotlinJsonAdapterFactory()).build().adapter(IntakeFormData::class.java)
@@ -926,7 +737,16 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         DO NOT return any markdown formatting, backticks, or other wrappers. Just the raw isolated JSON object.
                     """.trimIndent()
                     
-                    val responseJson = gameAgent.makeDirectApiCall(provider, model, apiKey ?: "", "", listOf(ChatMessage("doctor", prompt)), customEndpoint)
+                    val responseJson = gameAgent.makeDirectApiCall(
+                        provider = provider,
+                        modelName = model,
+                        apiKey = apiKey ?: "",
+                        systemPrompt = "",
+                        chatHistory = listOf(ChatMessage("doctor", prompt)),
+                        customUrl = customEndpoint,
+                        rotatorKeys = rotatorKeys.value,
+                        rotatorEnabledModels = rotatorEnabledModels.value
+                    )
                     val cleanedJson = responseJson.replace("```json", "").replace("```", "").trim()
                     
                     val moshi = com.squareup.moshi.Moshi.Builder().add(com.squareup.moshi.KotlinJsonAdapterFactory()).build()
@@ -1403,28 +1223,6 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                             document.add(com.itextpdf.text.Paragraph("Full Courtroom Record:", boldFont))
                             for (record in lawsuitLog.value) {
                                 document.add(com.itextpdf.text.Paragraph("- $record", normalFont))
-                            }
-                            document.add(com.itextpdf.text.Paragraph(" "))
-                        }
-
-                        val interventions = agenicActionHandler.agenicInterventions.value
-                        if (interventions.isNotEmpty()) {
-                            document.add(com.itextpdf.text.Paragraph("Sovereign Agenic Actions & World Interventions Log", headerFont))
-                            document.add(com.itextpdf.text.Paragraph(" "))
-                            for (record in interventions) {
-                                document.add(com.itextpdf.text.Paragraph("• $record", normalFont))
-                            }
-                            document.add(com.itextpdf.text.Paragraph(" "))
-                        }
-
-                        val actLedger = _accountingLedger.value
-                        if (actLedger.isNotEmpty()) {
-                            document.add(com.itextpdf.text.Paragraph("Master Accounting & Treasury Ledger", headerFont))
-                            document.add(com.itextpdf.text.Paragraph("Current Clinic Balance: R${String.format("%.2f", clinicBalance.value)}", boldFont))
-                            document.add(com.itextpdf.text.Paragraph("National Treasury: R${String.format("%.2f", _officeTreasury.value)}", boldFont))
-                            document.add(com.itextpdf.text.Paragraph(" "))
-                            for (record in actLedger) {
-                                document.add(com.itextpdf.text.Paragraph("[$record]", normalFont))
                             }
                             document.add(com.itextpdf.text.Paragraph(" "))
                         }
@@ -3475,39 +3273,6 @@ $memoryLines
                         settingsDataStore.updateClinicStats(currentBal + 3000.0, (currentRep - 1.5f).coerceAtLeast(1.0f))
                         "Patient files sold anonymously to insurance brokers. Reputation stars dropped heavily."
                     }
-                    "influenceJuror" -> {
-                        val jurorIndex = (action.parameters?.get("jurorIndex") as? Number)?.toInt() ?: 0
-                        val scoreAdjustment = (action.parameters?.get("scoreAdjustment") as? Number)?.toInt() ?: 15
-                        val currentBal = clinicBalance.value
-                        val cost = 1500.0
-                        if (currentBal >= cost) {
-                            settingsDataStore.updateClinicStats(currentBal - cost, reputationStars.value)
-                            val jurors = _jurorsList.value.toMutableList()
-                            if (jurorIndex in jurors.indices) {
-                                val target = jurors[jurorIndex]
-                                val newScore = (target.score + scoreAdjustment).coerceIn(0, 100)
-                                jurors[jurorIndex] = target.copy(score = newScore, quote = "My concerns are largely addressed by the defense's lobbying outreach initiatives.")
-                                _jurorsList.value = jurors
-                                
-                                val totalScore = jurors.sumOf { it.score }
-                                val averageSupport = totalScore / jurors.size
-                                _juryLeaning.value = (100 - averageSupport).coerceIn(0, 100)
-                                
-                                "Paid R$cost to lobby juror ${target.name} (${target.profession}). Juror sympathy score increased to $newScore%. Jury leaning recalculated."
-                            } else {
-                                "Failed to lobby juror: Index $jurorIndex is out of range."
-                            }
-                        } else {
-                            "Insufficient clinical funds (R$cost required) to initiate juror lobbying action."
-                        }
-                    }
-                    "issuePresidentialExecutiveOrder" -> {
-                        val title = action.parameters?.get("title") as? String ?: "Sovereign Fast-Track Trial Accord"
-                        val effect = action.parameters?.get("effect") as? String ?: "Settle public judicial panic"
-                        _lawsuitTension.value = (_lawsuitTension.value - 20).coerceAtLeast(0)
-                        _lawsuitProsecutorAggression.value = (_lawsuitProsecutorAggression.value - 15).coerceAtLeast(0)
-                        "Issued Presidential Executive Decree: \"$title\". Effect: $effect. Court Tension lowered by 20% and prosecution hostility reduced by 15%."
-                    }
                     else -> "Unknown universal action: ${action.actionName}"
                 }
             }
@@ -3515,7 +3280,6 @@ $memoryLines
                 history.add(ChatMessage("system", "AGENTIC ENGINE: $result"))
                 _uiState.value = _uiState.value.copy(chatHistory = history)
             }
-            agenicActionHandler.publishExternalActionLog(result)
         }
     }
 
@@ -3565,7 +3329,9 @@ $memoryLines
                     apiKey = activeKey,
                     systemPrompt = finalSystemPrompt,
                     chatHistory = _uiState.value.chatHistory,
-                    customUrl = customEndpoint.value
+                    customUrl = customEndpoint.value,
+                    rotatorKeys = rotatorKeys.value,
+                    rotatorEnabledModels = rotatorEnabledModels.value
                 )
                 val sanitized = extractJsonString(resultJson)
 
@@ -3918,6 +3684,18 @@ $memoryLines
         systemPrompt: String,
         customUrl: String = customEndpoint.value
     ): String {
+        if (provider == "Auto-Swapping Rotator") {
+            return gameAgent.makeDirectApiCall(
+                provider = provider,
+                modelName = modelName,
+                apiKey = apiKey,
+                systemPrompt = systemPrompt,
+                chatHistory = emptyList(),
+                customUrl = customUrl,
+                rotatorKeys = rotatorKeys.value,
+                rotatorEnabledModels = rotatorEnabledModels.value
+            )
+        }
         return when (provider) {
             "Cerebras", "OpenAI", "Nvidia", "Ollama", "vLLM", "G4F (OpenAI-compatible)", "Custom (OpenAI-compatible)" -> {
                 val activeKey = if (apiKey.isBlank()) "sk-no-key-required" else apiKey
@@ -4375,42 +4153,6 @@ $memoryLines
                         val finalResult = legalWorldAgent.auditEncounter(trans, laws)
                         "Audit completed. Active laws evaluation logged: $finalResult"
                     }
-                    "bribe_or_influence_politician" -> {
-                        val faction = args["faction_name"] as? String ?: ""
-                        val amount = (args["amount"] as? Number)?.toDouble() ?: 0.0
-                        val purpose = args["purpose"] as? String ?: ""
-                        agenicActionHandler.bribeOrInfluencePolitician(faction, amount, purpose)
-                    }
-                    "deploy_outbreak_sanitary_squad" -> {
-                        val region = args["municipal_region"] as? String ?: "Local Ward"
-                        val budget = (args["funds_allocated"] as? Number)?.toDouble() ?: 0.0
-                        val urgency = (args["urgency"] as? Number)?.toInt() ?: 1
-                        agenicActionHandler.deployOutbreakSanitarySquad(region, budget, urgency)
-                    }
-                    "instigate_industrial_strike" -> {
-                        val hospital = args["target_hospital"] as? String ?: "General Hospital"
-                        val fund = (args["incitement_fund"] as? Number)?.toDouble() ?: 0.0
-                        val duration = (args["duration_days"] as? Number)?.toInt() ?: 1
-                        agenicActionHandler.instigateIndustrialStrike(hospital, fund, duration)
-                    }
-                    "trigger_national_quarantine_level" -> {
-                        val zone = args["quarantine_zone"] as? String ?: "Zone-A"
-                        val severity = (args["lockdown_severity"] as? Number)?.toInt() ?: 1
-                        val reason = args["scientific_justification"] as? String ?: ""
-                        agenicActionHandler.triggerNationalQuarantineLevel(zone, severity, reason)
-                    }
-                    "sponsor_medical_caucus" -> {
-                        val theme = args["caucus_theme"] as? String ?: "Public Health"
-                        val cost = (args["marketing_cost"] as? Number)?.toDouble() ?: 0.0
-                        val minutes = (args["tv_broadcast_time_minutes"] as? Number)?.toInt() ?: 30
-                        agenicActionHandler.sponsorMedicalCaucus(theme, cost, minutes)
-                    }
-                    "nationalize_vaccine_laboratory" -> {
-                        val nameLab = args["lab_name"] as? String ?: "Sovereign Pharma Labs"
-                        val patent = args["patent_control_action"] as? String ?: "Full control"
-                        val compens = (args["compensation_fund"] as? Number)?.toDouble() ?: 0.0
-                        agenicActionHandler.nationalizeVaccineLaboratory(nameLab, patent, compens)
-                    }
                     else -> "Unknown helper action or no programmatic side effect for: $name"
                 }
             } catch (e: Exception) {
@@ -4509,6 +4251,26 @@ $memoryLines
         _infoEvents.emit("Credentials persistent successfully.")
     }
 
+    fun saveRotatorKeys(keys: Map<String, String>) {
+        viewModelScope.launch {
+            settingsDataStore.saveRotatorKeys(keys)
+            _infoEvents.emit("Rotator API keys saved successfully.")
+        }
+    }
+
+    fun saveRotatorEnabledModels(models: Set<String>) {
+        viewModelScope.launch {
+            settingsDataStore.saveRotatorEnabledModels(models)
+            _infoEvents.emit("Rotator model selection updated.")
+        }
+    }
+
+    fun saveRotatorCustomModels(customModels: Map<String, List<String>>) {
+        viewModelScope.launch {
+            settingsDataStore.saveRotatorCustomModels(customModels)
+        }
+    }
+
     // Ping check connection helper for Settings UX
     fun testConnection(
         testKey: String,
@@ -4603,15 +4365,6 @@ $memoryLines
 
     private val _lawsuitViolatedPolicies = MutableStateFlow<List<PolicyAuditResult>>(emptyList())
     val lawsuitViolatedPolicies: StateFlow<List<PolicyAuditResult>> = _lawsuitViolatedPolicies.asStateFlow()
-
-    private val _juryLeaning = MutableStateFlow(50)
-    val juryLeaning: StateFlow<Int> = _juryLeaning.asStateFlow()
-
-    private val _juryDeliberation = MutableStateFlow("The jury pool has been sworn in. They are currently listening carefully to the opening statements.")
-    val juryDeliberation: StateFlow<String> = _juryDeliberation.asStateFlow()
-
-    private val _jurorsList = MutableStateFlow<List<Juror>>(emptyList())
-    val jurorsList: StateFlow<List<Juror>> = _jurorsList.asStateFlow()
 
     fun dismissLawsuit() {
         _lawsuitActive.value = false
@@ -4720,18 +4473,6 @@ $memoryLines
         val policyViolationsSummary = violations.joinToString("; ") { it.policyTitle }
         OrchidDeepStateManager.setEvidencePool(caseVitalsText, labResultsStr, policyViolationsSummary)
         OrchidDeepStateManager.resetTrialRounds()
-
-        // Swear in the 6 independent citizens representing the sovereign Jury pool
-        _juryLeaning.value = 55
-        _juryDeliberation.value = "The sworn jurors have taken their seats and are silently reviewing the state indictment charges."
-        _jurorsList.value = listOf(
-            Juror("Arthur Pendelton", "Retired Pharmacist", 48, "Holding a notepad. Skeptical about clinical excuses but respects evidence."),
-            Juror("Dr. Sarah Lin", "Ethics Professor", 35, "Very analytical. Looks for exact compliance with registered statutes."),
-            Juror("Njabulo Dlamini", "Union Organiser", 62, "Nodding slightly. Understands the difficulty of working in strained local clinics."),
-            Juror("Emma van Wyk", "Insurance Risk Actuary", 42, "Checking numbers. Looks for strict alignment between patient logs and treatment."),
-            Juror("Gerrit Coetzee", "Commercial Farmer", 58, "Impatient. Dislikes heavy state regulations on professional practitioners."),
-            Juror("Chloe Mercer", "Social worker", 46, "Listening intently. Deeply concerned with the patient's reported clinical safety.")
-        )
     }
 
     // --- NEW DEEP STATE APIS (RESTOCK & DISPENSING ACTIONS) ---
@@ -4909,11 +4650,6 @@ $memoryLines
             "The defendant is specifically invoking these enacted laws to justify their actions or prove they complied:\n" + selectedJustify.joinToString("\n") { "- $it" }
         } else "The defendant has not specified which enacted laws they are trying to justify/disprove."
 
-        val currentJurors = _jurorsList.value
-        val jurorsStr = currentJurors.joinToString("\n") { 
-            "- ${it.name} (${it.profession}) | Support Score: ${it.score}/100 | Thoughts: \"${it.quote}\""
-        }
-
         val prompt = """
             You are simulating an interactive clinical trial hearing in the Supreme Medical Court of the Republic of ${countryName.value}.
             
@@ -4934,10 +4670,6 @@ $memoryLines
             DEFENDANT'S JUSTIFIED REASONINGS:
             $justificationContext
             
-            THE TRIBUNAL JURY PANEL (6 Citizens listening and deliberating):
-            $jurorsStr
-            - Current Jury Overall Leaning towards "GUILTY / LIABLE": ${_juryLeaning.value}% (0% means completely innocent, 100% means completely guilty)
-            
             LEGAL DEFENSE DETAILS IN THIS PLEA ROUND:
             - Defendant's Written Testimony / Pleading speech: "$pleaMsg"
             - Submitted Physical Exhibits / Clinical evidence: ${if (selectedEvidence.isNotEmpty()) selectedEvidence.joinToString(", ") else "None"}
@@ -4947,23 +4679,14 @@ $memoryLines
             1. Roleplay the intense, sharp voice of the State Prosecutor and the impartial questioning of the Presiding Judge in Pretoria.
             2. The state prosecutor must cross-examine the doctor's specific typed statement "$pleaMsg" and check the validity of their submitted evidence: "${selectedEvidence.joinToString("; ")}".
             3. CRITICAL AUDIT: Compare the defendant's justification claims ($justificationContext) with the actual performance record log of what happened at the bedside. Verify if they are telling the truth or if they are offering a bogus distraction! For example, if they claim they complied with the Single-Payer ENHS Act by billing R0, verify if they did; if they claim compliance with diagnostics, check if they checked vitals/labs etc. Aggressively call them out in court if their excuses columns mismatch the raw patient log!
-            4. If the defense makes true clinical and legal sense (it complies with the laws and standard medical protocols based on the logs), reduce the tension, prosecution aggression, and overall jury leaning. If they claim compliance but the logs show they clearly broke the law or acted carelessly, aggressively call them out, increasing the tension, aggression, and jury leaning.
-            5. Provide the prosecutor's response and the Judge's subsequent inquiry in 'courtDialogue'.
+            4. If the defense makes true clinical and legal sense (it complies with the laws and standard medical protocols based on the logs), reduce the tension and aggression metrics. If they claim compliance but the logs show they clearly broke the law or acted carelessly, aggressively call them out on it, and increase the tension and aggression metrics.
+            5. Provide the prosecutor's aggressive response and the Judge's subsequent inquiry in 'courtDialogue'.
             6. Return raw JSON matching this EXACT schema:
             {
                "courtDialogue": "Prosecutor's sharp rebuttal questioning the evidence and auditing justifications against logs, followed by the Presiding Judge's formal query on the record.",
                "tensionAdjustment": -10,
                "aggressionAdjustment": -15,
-               "defenseInsightText": "A quick note of guidance or strategic legal advice from Dr. Tim's hired defense lawyer.",
-               "juryLeaningAdjustment": -8,
-               "juryDeliberationText": "Detailed description of how the jury is whispering, sharing reactions, and deliberating in the jury box based on this round's arguments.",
-               "jurorUpdates": [
-                   {
-                       "jurorName": "Arthur Pendelton",
-                       "newScore": 55,
-                       "newQuote": "The defense's focus on isotonic fluids is well-rooted in our pharmacology logs."
-                   }
-               ]
+               "defenseInsightText": "A quick note of guidance or strategic legal advice from Dr. Tim's hired defense lawyer."
             }
         """.trimIndent()
 
@@ -4984,14 +4707,11 @@ $memoryLines
                     val aAdj = json.optInt("aggressionAdjustment", 5)
                     val insight = json.optString("defenseInsightText", "Ensure you back up your claims with physical vitals evidence.")
                     
-                    val jLeanAdj = json.optInt("juryLeaningAdjustment", 5)
-                    val jDelibText = json.optString("juryDeliberationText", "The jury is whispering in response to the cross-examination.")
-
                     // Process potential agent actions
                     extractAndProcessActions(sanitized)
 
                     val logs = _lawsuitLog.value.toMutableList()
-                    logs.add("🎒 DEFENSE SUBMITTED:\n\"$pleaMsg\"")
+                    logs.add("🗣️ DOCTOR'S DEFENSE:\n\"$pleaMsg\"")
                     if (selectedEvidence.isNotEmpty()) {
                         logs.add("📁 SUBMITTED EVIDENCE TO COURT:\n" + selectedEvidence.joinToString("\n"))
                     }
@@ -5004,34 +4724,6 @@ $memoryLines
                     _lawsuitLog.value = logs
                     _lawsuitTension.value = (_lawsuitTension.value + dAdj).coerceIn(10, 100)
                     _lawsuitProsecutorAggression.value = (_lawsuitProsecutorAggression.value + aAdj).coerceIn(10, 100)
-                    _juryLeaning.value = (_juryLeaning.value + jLeanAdj).coerceIn(0, 100)
-                    if (jDelibText.isNotBlank()) {
-                        _juryDeliberation.value = jDelibText
-                    }
-
-                    // Process individual juror updates
-                    val updatesArray = json.optJSONArray("jurorUpdates")
-                    if (updatesArray != null) {
-                        val updatedJurors = _jurorsList.value.toMutableList()
-                        for (i in 0 until updatesArray.length()) {
-                            val itemObj = updatesArray.optJSONObject(i)
-                            if (itemObj != null) {
-                                val name = itemObj.optString("jurorName", "")
-                                val newScore = itemObj.optInt("newScore", -1)
-                                val newQuote = itemObj.optString("newQuote", "")
-                                val index = updatedJurors.indexOfFirst { it.name.equals(name, ignoreCase = true) }
-                                if (index != -1) {
-                                    val oldJuror = updatedJurors[index]
-                                    updatedJurors[index] = oldJuror.copy(
-                                        score = if (newScore != -1) newScore.coerceIn(0, 100) else oldJuror.score,
-                                        quote = if (newQuote.isNotBlank()) newQuote else oldJuror.quote
-                                    )
-                                }
-                            }
-                        }
-                        _jurorsList.value = updatedJurors
-                    }
-
                     _lawsuitCurrentStage.value = "cross_exam"
                 }
             } catch (e: Exception) {
@@ -5061,11 +4753,6 @@ $memoryLines
         val activeSeledEvid = OrchidDeepStateManager.selectedEvidenceToPresent.value
         val selectedJustify = _selectedJustificationLaws.value
 
-        val currentJurors = _jurorsList.value
-        val jurorsStr = currentJurors.joinToString("\n") { 
-            "- ${it.name} (${it.profession}) | Support Score: ${it.score}/100 | Stance: \"${it.quote}\""
-        }
-
         val prompt = """
             You are the Presiding Judge and Supreme Justice of the High Court Medical Tribunal of ${countryName.value}.
             You are delivering the final, legally-binding VERDICT and penalty decree for Dr. Tim (JB Consultation Practice).
@@ -5088,23 +4775,15 @@ $memoryLines
             - Court Tension Level: ${_lawsuitTension.value}%
             - Prosecution Hostility/Aggression Level: ${_lawsuitProsecutorAggression.value}%
             
-            THE SOVEREIGN TRIBUNAL JURY PANEL DELIBERATION NOTES:
-            $jurorsStr
-            - Final Jury Leaning towards GUILTY/LIABLE: ${_juryLeaning.value}% (where 0% is full defense support/exonerated, and 100% is total prosecution support/guilty).
-            
             HEALTH STATUTES IN SCOPE:
             $policyDetailsStr
             
-            ${AGENT_POWERS_PROMPT}
+            $AGENT_POWERS_PROMPT
             
             YOUR DIRECTIVE:
-            1. Formulate a final, realistic sentencing judgment heavily matching the JURY'S overall leaning score (${_juryLeaning.value}%) and their specific concerns!
+            1. Formulate a final, realistic sentencing judgment.
             2. Evaluate whether the doctor successfully justified that they didn't violate the active clinical laws in their defense pleadings, backed up by the actual performance records log.
-            3. Verdict types allowed based on Jury Leaning:
-               - "Exonerated" (if ${_juryLeaning.value}% <= 40%) - The jury votes NOT GUILTY/NOT LIABLE.
-               - "Warning" (if ${_juryLeaning.value}% is 41-60%) - The jury votes NOT LIABILITY on core negligence, but flags minor regulatory procedural warnings.
-               - "Fined" (if ${_juryLeaning.value}% is 61-80%) - The jury votes GUILTY OF CIVIL NEGLIGENCE & STATUTORY VIOLATION.
-               - "Suspension" (if ${_juryLeaning.value}% > 80%) - The jury votes GUILTY OF INTENTIONAL MEDICAL MALPRACTICE / WILD CARELESSNESS.
+            3. Verdict types allowed: "Exonerated" (if temperature score/tension <= 45% and they proved they fully complied with all active health laws as validated by the factual bedside log), "Warning" (tension 46-60%), "Fined" (tension 61-80% or clear statutory violation in patient log), "Suspension" (tension > 80% or severe deliberate statutory breach).
             4. If Fined, define a numeric cash fine (e.g. R500.00 to R3000.00). Deduct this from the clinic's balance.
             5. If Suspension, define the suspension weeks (e.g. 1 to 3 weeks).
             6. Return raw JSON matching this schema:
@@ -5112,7 +4791,7 @@ $memoryLines
                "verdictType": "Fined",
                "fineAmount": 1200.0,
                "suspensionWeeks": 0,
-               "finalVerdictText": "Speak as both the Jury Foreman revealing the final jury ballot count and the Presiding Judge delivering the formal degree on the record. Reference the jury's consensus (e.g. 'By a 5-to-1 vote, the jury finds the defendant liable of statutory breaches...'). Outline the logical rationale, reference the defense's testimony and whether their submitted evidence was sufficient, and declare the legal sentence penalty."
+               "finalVerdictText": "Chief Justice's Formal Judicial Verdict Decree. Outline the logical rationale, reference the defense's testimony and whether their submitted evidence was sufficient, and declare the legal sentence penalty."
             }
         """.trimIndent()
 
@@ -5137,7 +4816,7 @@ $memoryLines
                     extractAndProcessActions(sanitized)
 
                     val logs = _lawsuitLog.value.toMutableList()
-                    logs.add("⚖️ TRIBUNAL JURY & JUDICIARY VERDICT DECREE:\n$text")
+                    logs.add("⚖️ SUPREME COURT OF RULING - VERDICT ISSUED:\n$text")
                     _lawsuitLog.value = logs
 
                     _lawsuitVerdict.value = vType

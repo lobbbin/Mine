@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -188,10 +187,10 @@ fun DashboardScreen(
     val lawsuitFine by viewModel.lawsuitFine.collectAsStateWithLifecycle()
     val lawsuitSuspension by viewModel.lawsuitSuspension.collectAsStateWithLifecycle()
     val lawsuitCurrentStage by viewModel.lawsuitCurrentStage.collectAsStateWithLifecycle()
-    val juryLeaning by viewModel.juryLeaning.collectAsStateWithLifecycle()
-    val juryDeliberation by viewModel.juryDeliberation.collectAsStateWithLifecycle()
-    val jurorsList by viewModel.jurorsList.collectAsStateWithLifecycle()
     val wildAiUninsuredMode by viewModel.wildAiUninsuredMode.collectAsStateWithLifecycle()
+
+    val lawsuitJurors by viewModel.courtroomViewModel.lawsuitJurors.collectAsStateWithLifecycle()
+    val lawsuitJurySentiment by viewModel.courtroomViewModel.lawsuitJurySentiment.collectAsStateWithLifecycle()
 
     var showBottomSheet by remember { mutableStateOf(false) }
     var selectedSheetTab by remember { mutableStateOf(0) }
@@ -753,35 +752,12 @@ fun DashboardScreen(
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Flag, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(Icons.Default.Flag, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Politics",
+                            text = if (isBasicMode) "Sandbox & Laws" else "Health Politics & Laws",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
-                        )
-                    }
-                }
-                
-                Surface(
-                    onClick = { activeMainTab = 3 },
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (activeMainTab == 3) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.surface,
-                    contentColor = if (activeMainTab == 3) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f).height(44.dp),
-                    tonalElevation = 2.dp
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.AccountBalance, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Accounting",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
+                            fontSize = 13.sp
                         )
                     }
                 }
@@ -1902,13 +1878,12 @@ fun DashboardScreen(
                 }
             }
             } else if (activeMainTab == 1) {
-                PoliticsTab(
-                    viewModel = viewModel
+                StateAndLegislationTab(
+                    viewModel = viewModel,
+                    onAdmittedClicked = { activeMainTab = 0 }
                 )
             } else if (activeMainTab == 2) {
                 DeveloperAiModdingConsoleTab(viewModel = viewModel)
-            } else if (activeMainTab == 3) {
-                AccountingTab(viewModel = viewModel)
             }
         }
     }
@@ -2408,125 +2383,207 @@ fun DashboardScreen(
                                 )
                             }
                         }
-
-                        // --- 12. GRAND COURT PANEL & JURY SEATS ---
+                        
+                        // --- DYNAMIC AI-POWERED JUDGE & JURY PANEL ---
+                        Spacer(Modifier.height(8.dp))
                         Card(
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
                         ) {
-                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = "👥 ACTIVE CITIZEN JURY SYSTEM",
+                                            fontWeight = FontWeight.ExtraBold,
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Text(
+                                            text = "Simulating 6 clinical peers weighing Dr. Tim's liability",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    
+                                    val consensusLabel = when {
+                                        lawsuitJurySentiment > 65 -> "✅ ACQUITTAL BIAS"
+                                        lawsuitJurySentiment < 45 -> "⚠️ STATUTORY GUILT"
+                                        else -> "⚖️ BALANCED DEBATE"
+                                    }
+                                    val consensusColor = when {
+                                        lawsuitJurySentiment > 65 -> Color(0xFF2E7D32)
+                                        lawsuitJurySentiment < 45 -> Color(0xFFC62828)
+                                        else -> Color(0xFFF9A825)
+                                    }
+                                    
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(consensusColor.copy(alpha = 0.15f))
+                                            .border(1.dp, consensusColor.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
+                                            .padding(horizontal = 6.dp, vertical = 3.dp)
+                                    ) {
+                                        Text(
+                                            text = consensusLabel,
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = consensusColor
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = "👥 TRIBUNAL GRAND JURY PANEL",
+                                        text = "Prosecution Bias",
+                                        fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.primary
+                                        color = Color(0xFFFFCDD2)
                                     )
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = "Jury Leaning Guilty: ",
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 11.sp,
-                                            color = MaterialTheme.colorScheme.outline
-                                        )
-                                        Text(
-                                            text = "$juryLeaning%",
-                                            fontWeight = FontWeight.Black,
-                                            fontSize = 12.sp,
-                                            color = if (juryLeaning > 60) Color(0xFFC62828) else if (juryLeaning < 40) Color(0xFF2E7D32) else Color(0xFFFFB300)
-                                        )
-                                    }
-                                }
-
-                                // Interactive Leaning Slider Indicator
-                                androidx.compose.material3.LinearProgressIndicator(
-                                    progress = { juryLeaning / 100f },
-                                    modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
-                                    color = if (juryLeaning > 60) Color(0xFFC62828) else if (juryLeaning < 40) Color(0xFF2E7D32) else Color(0xFFFFB300),
-                                    trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                )
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text("🟢 NOT GUILTY (EXONERATED)", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
-                                    Text("🟡 UNDECIDED DIALOGUE", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFFB300))
-                                    Text("🔴 GUILTY", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFFC62828))
-                                }
-
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
-                                        .padding(8.dp)
-                                ) {
                                     Text(
-                                        text = "🗣️ Jury Deliberation: \"$juryDeliberation\"",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        fontStyle = FontStyle.Italic,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        text = "Jury Favorability: $lawsuitJurySentiment%",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = if (lawsuitJurySentiment >= 50) Color(0xFF81C784) else Color(0xFFE57373)
+                                    )
+                                    Text(
+                                        text = "Defense Support",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFC8E6C9)
                                     )
                                 }
 
-                                Text(
-                                    text = "INDIVIDUAL JURORS SEATS:",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Black,
-                                    color = MaterialTheme.colorScheme.outline,
-                                    modifier = Modifier.padding(top = 4.dp)
-                                )
-
-                                // Horizontal scrolling row of the 6 individual Juror Cards
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                androidx.compose.material3.LinearProgressIndicator(
+                                    progress = { lawsuitJurySentiment / 100f },
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .horizontalScroll(rememberScrollState())
+                                        .padding(vertical = 4.dp)
+                                        .height(8.dp)
+                                        .clip(RoundedCornerShape(4.dp)),
+                                    color = if (lawsuitJurySentiment >= 50) Color(0xFF2E7D32) else Color(0xFFC62828),
+                                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                )
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    jurorsList.forEach { juror ->
-                                        val statusColor = if (juror.score >= 60) Color(0xFF2E7D32) else if (juror.score < 40) Color(0xFFC62828) else Color(0xFFFFB300)
-                                        val statusLabel = if (juror.score >= 60) "Sympathetic 🟢" else if (juror.score < 40) "Hostile 🔴" else "Undecided 🟡"
+                                    lawsuitJurors.forEach { juror ->
+                                        val statusColor = when (juror.inclination) {
+                                            "Favorable" -> Color(0xFF81C784)
+                                            "Hostile" -> Color(0xFFE57373)
+                                            "Skeptical" -> Color(0xFFFFB74D)
+                                            else -> Color.LightGray
+                                        }
+                                        
+                                        val statusBg = statusColor.copy(alpha = 0.1f)
+                                        val initialChar = if (juror.name.isNotEmpty()) juror.name.first().toString() else "J"
 
                                         Card(
-                                            modifier = Modifier.width(170.dp),
-                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
-                                            border = BorderStroke(1.dp, statusColor.copy(alpha = 0.4f))
+                                            modifier = Modifier
+                                                .width(220.dp)
+                                                .heightIn(min = 120.dp),
+                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                                            border = BorderStroke(1.dp, statusColor.copy(alpha = 0.5f)),
+                                            shape = RoundedCornerShape(10.dp)
                                         ) {
-                                            Column(modifier = Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                                Text(juror.name, fontWeight = FontWeight.Bold, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface)
-                                                Text(juror.profession, fontSize = 9.sp, color = MaterialTheme.colorScheme.outline)
-                                                
+                                            Column(modifier = Modifier.padding(10.dp)) {
                                                 Row(
                                                     modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                                                     verticalAlignment = Alignment.CenterVertically
                                                 ) {
-                                                    Text("Approve: ${juror.score}%", fontWeight = FontWeight.Bold, fontSize = 9.sp, color = statusColor)
-                                                    Text(statusLabel, fontWeight = FontWeight.Bold, fontSize = 8.sp, color = statusColor)
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(24.dp)
+                                                            .clip(CircleShape)
+                                                            .background(statusColor.copy(alpha = 0.25f)),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Text(
+                                                            text = initialChar,
+                                                            fontSize = 11.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = if (juror.inclination == "Hostile") Color.White else statusColor
+                                                        )
+                                                    }
+                                                    
+                                                    Column(modifier = Modifier.weight(1f)) {
+                                                        Text(
+                                                            text = juror.name,
+                                                            fontWeight = FontWeight.Bold,
+                                                            fontSize = 11.sp,
+                                                            maxLines = 1,
+                                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                                        )
+                                                        Text(
+                                                            text = juror.role,
+                                                            fontSize = 8.sp,
+                                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                            maxLines = 1,
+                                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                                        )
+                                                    }
+                                                    
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(4.dp))
+                                                            .background(statusBg)
+                                                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = juror.inclination.uppercase(),
+                                                            fontSize = 8.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = statusColor
+                                                        )
+                                                    }
                                                 }
 
-                                                Text(
-                                                    text = juror.quote,
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    fontSize = 8.5.sp,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    maxLines = 3,
-                                                    modifier = Modifier.padding(top = 2.dp)
-                                                )
+                                                Spacer(modifier = Modifier.height(6.dp))
+                                                
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .weight(1f)
+                                                        .clip(RoundedCornerShape(6.dp))
+                                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f))
+                                                        .padding(6.dp)
+                                                ) {
+                                                    Text(
+                                                        text = if (juror.comment.isNotBlank()) "\"${juror.comment}\"" else "\"Awaiting testimony...\"",
+                                                        fontSize = 9.5.sp,
+                                                        fontStyle = FontStyle.Italic,
+                                                        color = MaterialTheme.colorScheme.onSurface,
+                                                        lineHeight = 11.sp,
+                                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                                        maxLines = 4
+                                                    )
+                                                }
                                             }
                                         }
                                     }
                                 }
                             }
                         }
-                        
+
                         Spacer(Modifier.height(8.dp))
 
                         // Formal Grand Jury Indictments block

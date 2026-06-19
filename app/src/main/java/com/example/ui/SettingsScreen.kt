@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -20,6 +21,15 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -53,11 +63,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.R
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -87,6 +99,72 @@ fun SettingsScreen(
     val savedUiFontScale by viewModel.uiFontScale.collectAsState()
     val clinicBalance by viewModel.clinicBalance.collectAsState()
     val isBasicMode by viewModel.isBasicMode.collectAsState()
+    val fetchedG4FModels by viewModel.g4fModels.collectAsState()
+    val savedRotatorKeys by viewModel.rotatorKeys.collectAsState()
+    val savedEnabledModels by viewModel.rotatorEnabledModels.collectAsState()
+    val savedCustomModels by viewModel.rotatorCustomModels.collectAsState()
+
+    val rotatorDefaultPoolModels = remember {
+        mapOf(
+            "Groq" to listOf("llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"),
+            "OpenRouter" to listOf("openrouter/auto", "google/gemini-2.5-flash:free", "meta-llama/llama-3.3-70b-instruct:free", "deepseek/deepseek-r1:free"),
+            "Cerebras" to listOf("llama-3.3-70b", "llama-3.1-8b", "llama3.1-8b"),
+            "Google AI Studio" to listOf("gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash"),
+            "Nvidia NIM" to listOf("meta/llama-3.3-70b-instruct", "nvidia/llama-3.1-nemotron-70b-instruct", "meta/llama-3.1-8b-instruct", "nvidia/nemotron-4-340b-instruct", "nvidia/nemotron-mini-4b-instruct", "nvidia/nemotron-3-nano-30b-a3b:free", "nvidia/nemotron-3-super-120b-a12b:free", "nvidia/nemotron-nano-12b-v2-vl:free", "nvidia/nemotron-nano-9b-v2:free"),
+            "OpenCode (Zen)" to listOf("deepseek-v4-pro", "glm-5.1", "kimi-k2.6", "qwen3.5-plus", "qwen3.6-plus", "qwen3.6-plus-free", "grok-build-0.1", "minimax-m2.7", "minimax-m3-free", "mimo-v2.5-free", "nemotron-3-ultra-free", "north-mini-code-free"),
+            "Kilocode" to listOf("arcee-trinity-large-preview", "minimax-m2.5", "mistralai/devstral-2512", "grok-code-fast-1", "gemini-3-flash-preview", "claude-haiku-4.5"),
+            "SambaNova" to listOf("Meta-Llama-3.3-70B-Instruct", "Meta-Llama-3.1-8B-Instruct", "Meta-Llama-3.1-405B-Instruct"),
+            "Together AI" to listOf("meta-llama/Llama-3.3-70B-Instruct-Turbo", "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", "mistralai/Mixtral-8x7B-Instruct-v0.1"),
+            "Fireworks AI" to listOf("accounts/fireworks/models/llama-v3p3-70b-instruct", "accounts/fireworks/models/llama-v3p1-8b-instruct", "accounts/fireworks/models/mixtral-8x7b-instruct"),
+            "Mistral AI" to listOf("open-mistral-7b", "mistral-small-latest", "mistral-large-latest"),
+            "Cohere" to listOf("command-r-plus", "command-r", "command-light"),
+            "DeepSeek" to listOf("deepseek-chat", "deepseek-coder", "deepseek-reasoner"),
+            "DeepInfra" to listOf("meta-llama/Llama-3.3-70B-Instruct", "meta-llama/Meta-Llama-3.1-8B-Instruct", "mistralai/Mixtral-8x22B-Instruct-v0.1"),
+            "Novita AI" to listOf("meta-llama/llama-3.3-70b-instruct", "meta-llama/llama-3.1-8b-instruct", "mistralai/mistral-7b-instruct"),
+            "Hyperbolic" to listOf("meta-llama/Llama-3.3-70B-Instruct", "meta-llama/Meta-Llama-3.1-8B-Instruct", "deepseek-ai/DeepSeek-V3")
+        )
+    }
+
+    val rotatorAllPoolModels = remember(rotatorDefaultPoolModels, savedCustomModels) {
+        val mergedModels = mutableMapOf<String, List<String>>()
+        rotatorDefaultPoolModels.forEach { (provider, defaultModels) ->
+            val customModelsForProvider = savedCustomModels[provider] ?: emptyList()
+            mergedModels[provider] = (defaultModels + customModelsForProvider).distinct()
+        }
+        mergedModels
+    }
+
+    var selectedRotatorModels by remember(savedEnabledModels) {
+        mutableStateOf(
+            if (savedEnabledModels.isEmpty()) {
+                rotatorAllPoolModels.values.flatten().toSet()
+            } else {
+                savedEnabledModels
+            }
+        )
+    }
+
+    var expandedProviders by remember { mutableStateOf(emptySet<String>()) }
+    
+    var showAddCustomModelDialog by remember { mutableStateOf<String?>(null) }
+    var newCustomModelName by remember { mutableStateOf("") }
+
+    var groqKey by remember(savedRotatorKeys) { mutableStateOf(savedRotatorKeys["groq"] ?: "") }
+    var openrouterKey by remember(savedRotatorKeys) { mutableStateOf(savedRotatorKeys["openrouter"] ?: "") }
+    var cerebrasKey by remember(savedRotatorKeys) { mutableStateOf(savedRotatorKeys["cerebras"] ?: "") }
+    var googleKey by remember(savedRotatorKeys) { mutableStateOf(savedRotatorKeys["google"] ?: "") }
+    var nvidiaKey by remember(savedRotatorKeys) { mutableStateOf(savedRotatorKeys["nvidia"] ?: "") }
+    var sambanovaKey by remember(savedRotatorKeys) { mutableStateOf(savedRotatorKeys["sambanova"] ?: "") }
+    var togetherKey by remember(savedRotatorKeys) { mutableStateOf(savedRotatorKeys["together"] ?: "") }
+    var fireworksKey by remember(savedRotatorKeys) { mutableStateOf(savedRotatorKeys["fireworks"] ?: "") }
+    var mistralKey by remember(savedRotatorKeys) { mutableStateOf(savedRotatorKeys["mistral"] ?: "") }
+    var cohereKey by remember(savedRotatorKeys) { mutableStateOf(savedRotatorKeys["cohere"] ?: "") }
+    var deepseekKey by remember(savedRotatorKeys) { mutableStateOf(savedRotatorKeys["deepseek"] ?: "") }
+    var deepinfraKey by remember(savedRotatorKeys) { mutableStateOf(savedRotatorKeys["deepinfra"] ?: "") }
+    var novitaKey by remember(savedRotatorKeys) { mutableStateOf(savedRotatorKeys["novita"] ?: "") }
+    var hyperbolicKey by remember(savedRotatorKeys) { mutableStateOf(savedRotatorKeys["hyperbolic"] ?: "") }
+    var opencodeKey by remember(savedRotatorKeys) { mutableStateOf(savedRotatorKeys["opencode"] ?: "") }
+    var kilocodeKey by remember(savedRotatorKeys) { mutableStateOf(savedRotatorKeys["kilocode"] ?: "") }
 
     var apiKeyInput by remember(savedApiKey) { mutableStateOf(savedApiKey ?: "") }
     var providerInput by remember(savedProvider) { mutableStateOf(savedProvider) }
@@ -101,66 +179,67 @@ fun SettingsScreen(
     var uiFontScaleInput by remember(savedUiFontScale) { mutableStateOf(savedUiFontScale) }
     var clinicBalanceInput by remember(clinicBalance) { mutableStateOf(clinicBalance.toInt().toString()) }
 
-    val providers = listOf("Google", "OpenAI", "Anthropic", "Cerebras", "Nvidia", "Ollama", "vLLM", "G4F (OpenAI-compatible)", "Custom (OpenAI-compatible)")
+    val providers = listOf("Google", "OpenAI", "Anthropic", "OpenRouter", "Cerebras", "Nvidia", "Ollama", "vLLM", "G4F (OpenAI-compatible)", "OpenCode (Zen)", "Kilocode", "Custom (OpenAI-compatible)", "Auto-Swapping Rotator")
     val providerModels = mapOf(
+        "Auto-Swapping Rotator" to listOf("Automatic-Failover-14x"),
         "Google" to listOf(
-            "gemini-3.5-flash",
-            "gemini-3.1-pro-preview",
-            "gemini-3.1-flash-lite-preview",
+            "gemini-2.5-flash",
+            "gemini-2.5-pro",
+            "gemini-1.5-flash",
             "custom"
         ),
-        "OpenAI" to listOf("gpt-4o", "gpt-4o-mini", "gpt-4", "custom"),
-        "Anthropic" to listOf("claude-3-5-sonnet", "claude-3-haiku", "custom"),
+        "OpenAI" to listOf("gpt-4o", "gpt-4o-mini", "o3-mini", "gpt-4", "custom"),
+        "Anthropic" to listOf("claude-3-5-sonnet", "claude-3-5-haiku", "claude-3-opus", "custom"),
+        "OpenRouter" to listOf(
+            "openrouter/auto",
+            "google/gemini-2.5-flash:free",
+            "meta-llama/llama-3.3-70b-instruct:free",
+            "deepseek/deepseek-r1:free",
+            "google/gemini-2.5-pro",
+            "meta-llama/llama-3.3-70b-instruct",
+            "deepseek/deepseek-r1",
+            "custom"
+        ),
+        "OpenCode (Zen)" to listOf(
+            "deepseek-v4-pro",
+            "glm-5.1",
+            "kimi-k2.6",
+            "qwen3.5-plus",
+            "qwen3.6-plus",
+            "qwen3.6-plus-free",
+            "grok-build-0.1",
+            "minimax-m2.7",
+            "minimax-m3-free",
+            "mimo-v2.5-free",
+            "nemotron-3-ultra-free",
+            "north-mini-code-free",
+            "custom"
+        ),
+        "Kilocode" to listOf(
+            "arcee-trinity-large-preview",
+            "minimax-m2.5",
+            "mistralai/devstral-2512",
+            "grok-code-fast-1",
+            "gemini-3-flash-preview",
+            "claude-haiku-4.5",
+            "custom"
+        ),
         "Cerebras" to listOf(
-            "llama3.3-70b",
+            "llama-3.3-70b",
+            "llama-3.1-8b",
             "llama3.1-8b",
-            "deepseek-r1-distill-llama-70b",
-            "deepseek-r1-distill-qwen-14b",
             "custom"
         ),
         "Nvidia" to listOf(
-            "minimaxai/minimax-m3",
-            "minimaxai/minimax-m2.7",
-            "google/gemma-4-31b-it",
-            "mistralai/mistral-medium-3.5-128b",
-            "mistralai/mistral-large-3-675b-instruct-2512",
             "meta/llama-3.3-70b-instruct",
-            "meta/llama-3.1-405b-instruct",
-            "meta/llama-3.1-70b-instruct",
-            "meta/llama-3.1-8b-instruct",
-            "meta/llama-3.2-3b-instruct",
-            "meta/llama-3.2-1b-instruct",
-            "mistralai/mistral-large-2-instruct",
-            "mistralai/mistral-nemo-12b-instruct",
-            "mistralai/mixtral-8x22b-instruct-v0.1",
-            "mistralai/mixtral-8x7b-instruct-v0.1",
-            "mistralai/mistral-7b-instruct-v0.3",
-            "google/gemma-2-27b-it",
-            "google/gemma-2-9b-it",
-            "google/gemma-7b-it",
-            "google/gemma-2b-it",
-            "microsoft/phi-3-medium-4k-instruct",
-            "microsoft/phi-3-small-128k-instruct",
-            "microsoft/phi-3-mini-128k-instruct",
             "nvidia/llama-3.1-nemotron-70b-instruct",
+            "meta/llama-3.1-8b-instruct",
             "nvidia/nemotron-4-340b-instruct",
-            "qwen/qwen2.5-72b-instruct",
-            "qwen/qwen2.5-coder-32b-instruct",
-            "qwen/qwen2.5-7b-instruct",
-            "databricks/dbrx-instruct",
-            "snowflake/arctic",
-            "upstage/solar-10.7b-instruct",
-            "01-ai/yi-large",
-            "deepseek-ai/deepseek-r1",
-            "deepseek-ai/deepseek-v4-flash",
-            "deepseek-ai/deepseek-v4-pro",
-            "z-ai/glm-5.1",
-            "qwen/qwen3.5-122b-a10b",
-            "qwen/qwen3.5-397b-a17b",
-            "stepfun-ai/step-3.7-flash",
-            "nvidia/cosmos3-nano-reasoner",
-            "nvidia/nemotron-3-ultra-550b-a55b",
-            "moonshotai/kimi-k2.6",
+            "nvidia/nemotron-mini-4b-instruct",
+            "nvidia/nemotron-3-nano-30b-a3b:free",
+            "nvidia/nemotron-3-super-120b-a12b:free",
+            "nvidia/nemotron-nano-12b-v2-vl:free",
+            "nvidia/nemotron-nano-9b-v2:free",
             "custom"
         ),
         "Ollama" to listOf(
@@ -180,7 +259,7 @@ fun SettingsScreen(
             "Qwen/Qwen2.5-Coder-32B-Instruct",
             "custom"
         ),
-        "G4F (OpenAI-compatible)" to listOf(
+        "G4F (OpenAI-compatible)" to if (fetchedG4FModels.isNotEmpty()) fetchedG4FModels else listOf(
             "MiniMax/MiniMax-M1-80k",
             "MiniMaxAI/MiniMax-M2.5",
             "Qwen/Qwen3-Coder-30B-A3B-Instruct",
@@ -415,9 +494,9 @@ fun SettingsScreen(
     }
 
     // Automatically correct model input if its provider mapping is missing
-    LaunchedEffect(providerInput) {
+    LaunchedEffect(providerInput, fetchedG4FModels) {
         val models = providerModels[providerInput] ?: emptyList()
-        if (modelInput !in models && models.isNotEmpty()) {
+        if (modelInput !in models && models.isNotEmpty() && modelInput != "custom") {
             modelInput = models.first()
         }
     }
@@ -580,6 +659,26 @@ fun SettingsScreen(
                 }
             }
 
+            if (providerInput == "G4F (OpenAI-compatible)" && fetchedG4FModels.isNotEmpty()) {
+                val uriHandler = LocalUriHandler.current
+                Column(modifier = Modifier.padding(bottom = 8.dp)) {
+                    Text(
+                        text = "Loaded ${fetchedG4FModels.size} live models from g4f-working repo.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    OutlinedButton(
+                        onClick = { uriHandler.openUri("https://github.com/xtekky/gpt4free") },
+                        modifier = Modifier.padding(top = 4.dp).testTag("visit_g4f_repo_button"),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.Link, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.size(4.dp))
+                        Text("Visit gpt4free GitHub", fontSize = 10.sp)
+                    }
+                }
+            }
+
             if (modelInput == "custom") {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
@@ -602,25 +701,240 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // --- Secure API Key TextField ---
-            Text(
-                text = "Secure API Key",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.align(Alignment.Start)
-            )
-            OutlinedTextField(
-                value = apiKeyInput,
-                onValueChange = { apiKeyInput = it },
-                placeholder = { Text("AI Provider API Key") },
-                visualTransformation = PasswordVisualTransformation(),
-                leadingIcon = { Icon(imageVector = Icons.Default.Key, contentDescription = "API Key") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp)
-                    .testTag("api_key_field"),
-                singleLine = true
-            )
+            if (providerInput == "Auto-Swapping Rotator") {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = "🔄 Auto-Swapping Key Rotator Pool (16 APIs)",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Fill keys for the providers you have accounts with. Unfilled/blank keys will be skipped during auto-swapping failovers.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        
+                        val keyInputs = listOf(
+                            Triple("Groq", groqKey, { v: String -> groqKey = v }),
+                            Triple("OpenRouter", openrouterKey, { v: String -> openrouterKey = v }),
+                            Triple("Cerebras", cerebrasKey, { v: String -> cerebrasKey = v }),
+                            Triple("Google AI Studio", googleKey, { v: String -> googleKey = v }),
+                            Triple("Nvidia NIM", nvidiaKey, { v: String -> nvidiaKey = v }),
+                            Triple("SambaNova", sambanovaKey, { v: String -> sambanovaKey = v }),
+                            Triple("Together AI", togetherKey, { v: String -> togetherKey = v }),
+                            Triple("Fireworks AI", fireworksKey, { v: String -> fireworksKey = v }),
+                            Triple("Mistral AI", mistralKey, { v: String -> mistralKey = v }),
+                            Triple("Cohere", cohereKey, { v: String -> cohereKey = v }),
+                            Triple("DeepSeek", deepseekKey, { v: String -> deepseekKey = v }),
+                            Triple("DeepInfra", deepinfraKey, { v: String -> deepinfraKey = v }),
+                            Triple("Novita AI", novitaKey, { v: String -> novitaKey = v }),
+                            Triple("Hyperbolic", hyperbolicKey, { v: String -> hyperbolicKey = v }),
+                            Triple("OpenCode (Zen)", opencodeKey, { v: String -> opencodeKey = v }),
+                            Triple("Kilocode", kilocodeKey, { v: String -> kilocodeKey = v })
+                        )
+                        
+                        keyInputs.forEach { (label, value, onValChange) ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.weight(1.3f)
+                                )
+                                OutlinedTextField(
+                                    value = value,
+                                    onValueChange = onValChange,
+                                    placeholder = { Text("key or empty...") },
+                                    visualTransformation = PasswordVisualTransformation(),
+                                    singleLine = true,
+                                    modifier = Modifier.weight(2.7f),
+                                    textStyle = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
+
+                        // --- Models Failover Pool Accordion Checklist ---
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Divider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f))
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "🎯 Models Failover Pool",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                TextButton(
+                                    onClick = {
+                                        selectedRotatorModels = rotatorAllPoolModels.values.flatten().toSet()
+                                    }
+                                ) {
+                                    Text("All", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                                TextButton(
+                                    onClick = {
+                                        selectedRotatorModels = emptySet()
+                                    }
+                                ) {
+                                    Text("None", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+
+                        Text(
+                            text = "Choose individual models to enable. Active endpoints will rotate automatically fallback.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+
+                        rotatorAllPoolModels.forEach { (providerName, models) ->
+                            val selectedCount = models.count { selectedRotatorModels.contains(it) }
+                            val isExpanded = expandedProviders.contains(providerName)
+                            
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                            ) {
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                expandedProviders = if (isExpanded) {
+                                                    expandedProviders - providerName
+                                                } else {
+                                                    expandedProviders + providerName
+                                                }
+                                            }
+                                            .padding(10.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = providerName,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                text = "$selectedCount of ${models.size} models active",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = if (selectedCount == 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                        Icon(
+                                            imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                            contentDescription = "Toggle Section",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                    
+                                    if (isExpanded) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.1f))
+                                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            models.forEach { modelName ->
+                                                val isChecked = selectedRotatorModels.contains(modelName)
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .clickable {
+                                                            selectedRotatorModels = if (isChecked) {
+                                                                selectedRotatorModels - modelName
+                                                            } else {
+                                                                selectedRotatorModels + modelName
+                                                            }
+                                                        }
+                                                        .padding(vertical = 4.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Checkbox(
+                                                        checked = isChecked,
+                                                        onCheckedChange = { checked ->
+                                                            selectedRotatorModels = if (checked == true) {
+                                                                selectedRotatorModels + modelName
+                                                            } else {
+                                                                selectedRotatorModels - modelName
+                                                            }
+                                                        }
+                                                    )
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(
+                                                        text = modelName,
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        fontWeight = FontWeight.Medium
+                                                    )
+                                                }
+                                            }
+                                            
+                                            // Add custom model button
+                                            TextButton(
+                                                onClick = { showAddCustomModelDialog = providerName },
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Icon(imageVector = Icons.Default.Add, contentDescription = "Add custom model")
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("Add Custom Model")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                // --- Secure API Key TextField ---
+                Text(
+                    text = "Secure API Key",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.Start)
+                )
+                OutlinedTextField(
+                    value = apiKeyInput,
+                    onValueChange = { apiKeyInput = it },
+                    placeholder = { Text("AI Provider API Key") },
+                    visualTransformation = PasswordVisualTransformation(),
+                    leadingIcon = { Icon(imageVector = Icons.Default.Key, contentDescription = "API Key") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                        .testTag("api_key_field"),
+                    singleLine = true
+                )
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -730,6 +1044,29 @@ fun SettingsScreen(
                                 newModel = modelToSave,
                                 newCustomEndpoint = customEndpointInput
                             )
+                            if (providerInput == "Auto-Swapping Rotator") {
+                                viewModel.saveRotatorKeys(
+                                    mapOf(
+                                        "groq" to groqKey,
+                                        "openrouter" to openrouterKey,
+                                        "cerebras" to cerebrasKey,
+                                        "google" to googleKey,
+                                        "nvidia" to nvidiaKey,
+                                        "sambanova" to sambanovaKey,
+                                        "together" to togetherKey,
+                                        "fireworks" to fireworksKey,
+                                        "mistral" to mistralKey,
+                                        "cohere" to cohereKey,
+                                        "deepseek" to deepseekKey,
+                                        "deepinfra" to deepinfraKey,
+                                        "novita" to novitaKey,
+                                        "hyperbolic" to hyperbolicKey,
+                                        "opencode" to opencodeKey,
+                                        "kilocode" to kilocodeKey
+                                    )
+                                )
+                                viewModel.saveRotatorEnabledModels(selectedRotatorModels)
+                            }
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
@@ -1253,5 +1590,51 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+    
+    // Custom Model Dialog
+    if (showAddCustomModelDialog != null) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { 
+                showAddCustomModelDialog = null 
+                newCustomModelName = ""
+            },
+            title = { Text("Add Custom Model to ${showAddCustomModelDialog}") },
+            text = {
+                OutlinedTextField(
+                    value = newCustomModelName,
+                    onValueChange = { newCustomModelName = it },
+                    label = { Text("Model ID (e.g., custom-model-1)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    val providerName = showAddCustomModelDialog
+                    if (providerName != null && newCustomModelName.isNotBlank()) {
+                        val currentCustom = savedCustomModels.toMutableMap()
+                        val listForProvider = currentCustom[providerName]?.toMutableList() ?: mutableListOf()
+                        if (!listForProvider.contains(newCustomModelName.trim())) {
+                            listForProvider.add(newCustomModelName.trim())
+                            currentCustom[providerName] = listForProvider
+                            viewModel.saveRotatorCustomModels(currentCustom)
+                        }
+                    }
+                    showAddCustomModelDialog = null
+                    newCustomModelName = ""
+                }) {
+                    Text("Add Model")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { 
+                    showAddCustomModelDialog = null 
+                    newCustomModelName = ""
+                }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }

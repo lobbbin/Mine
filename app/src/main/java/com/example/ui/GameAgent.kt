@@ -366,84 +366,6 @@ class GameAgent(
                         ),
                         "required" to listOf("transcript", "active_laws")
                     )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "bribe_or_influence_politician",
-                    description = "Trigger a backroom lobbying scheme or financial contribution to leverage party alignments and boost polling.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "faction_name" to mapOf("type" to "string", "description" to "Factions: Progressives, Conservatives, Independents"),
-                            "amount" to mapOf("type" to "number", "description" to "Financial contribution amount"),
-                            "purpose" to mapOf("type" to "string", "description" to "Purpose of influence (e.g. support healthcare subsidies)")
-                        ),
-                        "required" to listOf("faction_name", "amount", "purpose")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "deploy_outbreak_sanitary_squad",
-                    description = "Deploy sanitation squads to localized districts to combat contagion outbreaks.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "municipal_region" to mapOf("type" to "string", "description" to "Regional district designation"),
-                            "funds_allocated" to mapOf("type" to "number", "description" to "Deployment budget"),
-                            "urgency" to mapOf("type" to "integer", "description" to "Urgency level from 1 (low) to 5 (critical)")
-                        ),
-                        "required" to listOf("municipal_region", "funds_allocated", "urgency")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "instigate_industrial_strike",
-                    description = "Instigate a medical labor strike or union walkout in rival medical institutions to redirect public patient flow to our clinic.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "target_hospital" to mapOf("type" to "string", "description" to "Name of rival facility"),
-                            "incitement_fund" to mapOf("type" to "number", "description" to "Fund allotted to trigger union lockouts"),
-                            "duration_days" to mapOf("type" to "integer", "description" to "Sovereign duration of strike blockades")
-                        ),
-                        "required" to listOf("target_hospital", "incitement_fund", "duration_days")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "trigger_national_quarantine_level",
-                    description = "Enforce lockdown quarantine boundaries in affected sectors to regulate clinical flow.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "quarantine_zone" to mapOf("type" to "string", "description" to "Target sector zone"),
-                            "lockdown_severity" to mapOf("type" to "integer", "description" to "Quarantine Level from 1 (Minor) to 5 (Sovereign Lockdown)"),
-                            "scientific_justification" to mapOf("type" to "string", "description" to "Scientific or medical justification for lockdown")
-                        ),
-                        "required" to listOf("quarantine_zone", "lockdown_severity", "scientific_justification")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "sponsor_medical_caucus",
-                    description = "Sponsor a high-profile televised medical symposium or policy debate to boost prestige and gain XP.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "caucus_theme" to mapOf("type" to "string", "description" to "Sovereign medical panel theme"),
-                            "marketing_cost" to mapOf("type" to "number", "description" to "Campaign marketing dollars"),
-                            "tv_broadcast_time_minutes" to mapOf("type" to "integer", "description" to "Airtime length on television")
-                        ),
-                        "required" to listOf("caucus_theme", "marketing_cost", "tv_broadcast_time_minutes")
-                    )
-                ),
-                GeminiFunctionDeclaration(
-                    name = "nationalize_vaccine_laboratory",
-                    description = "Leverage emergency sovereign executive privilege to nationalize key chemical or vaccine laboratory infrastructures.",
-                    parameters = mapOf(
-                        "type" to "object",
-                        "properties" to mapOf(
-                            "lab_name" to mapOf("type" to "string", "description" to "Name of the target facility to nationalize"),
-                            "patent_control_action" to mapOf("type" to "string", "description" to "Patent control strategy statement"),
-                            "compensation_fund" to mapOf("type" to "number", "description" to "Statutory compensation treasury payout value")
-                        ),
-                        "required" to listOf("lab_name", "patent_control_action", "compensation_fund")
-                    )
                 )
             )
         )
@@ -455,11 +377,16 @@ class GameAgent(
         apiKey: String,
         systemPrompt: String,
         chatHistory: List<ChatMessage>,
-        customUrl: String
+        customUrl: String,
+        rotatorKeys: Map<String, String> = emptyMap(),
+        rotatorEnabledModels: Set<String> = emptySet()
     ): String {
         return withContext(Dispatchers.IO) {
-            when (provider) {
-                "Cerebras", "OpenAI", "Nvidia", "Ollama", "vLLM", "G4F (OpenAI-compatible)", "Custom (OpenAI-compatible)" -> {
+            if (provider == "Auto-Swapping Rotator") {
+                executeRotatorSwapFlow(systemPrompt, chatHistory, rotatorKeys, rotatorEnabledModels)
+            } else {
+                when (provider) {
+                "OpenRouter", "Cerebras", "OpenAI", "Nvidia", "Ollama", "vLLM", "G4F (OpenAI-compatible)", "OpenCode (Zen)", "Kilocode", "Custom (OpenAI-compatible)" -> {
                     val activeKey = if (apiKey.isBlank()) "sk-no-key-required" else apiKey
                     val messages = mutableListOf<OpenAIMessage>()
                     messages.add(OpenAIMessage("system", systemPrompt))
@@ -485,7 +412,7 @@ class GameAgent(
                             finalTopP = 0.95
                             finalMaxTokens = 262144
                         }
-                        modelName == "minimaxai/minimax-m3" || modelName == "minimaxai/minimax-m2.7" -> {
+                        modelName.contains("minimax", ignoreCase = true) -> {
                             finalTemp = 1.0
                             finalTopP = 0.95
                             finalMaxTokens = 8192
@@ -514,7 +441,7 @@ class GameAgent(
                     val request = OpenAIRequest(
                         model = modelName,
                         messages = messages,
-                        response_format = if (isCustomUrl || provider in listOf("Cerebras", "Nvidia", "Ollama", "vLLM", "G4F (OpenAI-compatible)", "Custom (OpenAI-compatible)")) null else OpenAIResponseFormat("json_object"),
+                        response_format = if (isCustomUrl || provider in listOf("OpenRouter", "Cerebras", "Nvidia", "Ollama", "vLLM", "G4F (OpenAI-compatible)", "OpenCode (Zen)", "Kilocode", "Custom (OpenAI-compatible)")) null else OpenAIResponseFormat("json_object"),
                         temperature = finalTemp,
                         top_p = finalTopP,
                         max_tokens = finalMaxTokens,
@@ -585,6 +512,7 @@ class GameAgent(
                 else -> { // Google Gemini (or Google customized service)
                     handleGeminiWithToolsLoop(modelName, apiKey, systemPrompt, chatHistory, customUrl)
                 }
+            }
             }
         }
     }
@@ -666,7 +594,7 @@ class GameAgent(
         if (customUrl.isNotBlank()) {
             val base = customUrl.trim()
             return when (provider) {
-                "Cerebras", "OpenAI", "Nvidia", "Ollama", "vLLM", "G4F (OpenAI-compatible)", "Custom (OpenAI-compatible)" -> {
+                "OpenRouter", "Cerebras", "OpenAI", "Nvidia", "Ollama", "vLLM", "G4F (OpenAI-compatible)", "OpenCode (Zen)", "Kilocode", "Custom (OpenAI-compatible)" -> {
                     if (base.contains("chat/completions")) base
                     else if (base.endsWith("/")) "${base}v1/chat/completions"
                     else if (base.endsWith("/v1")) "$base/chat/completions"
@@ -688,6 +616,7 @@ class GameAgent(
             }
         }
         return when (provider) {
+            "OpenRouter" -> "https://openrouter.ai/api/v1/chat/completions"
             "OpenAI" -> "https://api.openai.com/v1/chat/completions"
             "Cerebras" -> "https://api.cerebras.ai/v1/chat/completions"
             "Nvidia" -> "https://integrate.api.nvidia.com/v1/chat/completions"
@@ -695,8 +624,250 @@ class GameAgent(
             "Ollama" -> "http://10.0.2.2:11434/v1/chat/completions"
             "vLLM" -> "http://10.0.2.2:8000/v1/chat/completions"
             "G4F (OpenAI-compatible)" -> "http://10.0.2.2:1337/v1/chat/completions"
+            "OpenCode (Zen)" -> "https://api.opencode.ai/v1/chat/completions"
+            "Kilocode" -> "https://api.kilocode.xyz/v1/chat/completions"
             "Custom (OpenAI-compatible)" -> "http://10.0.2.2:8080/v1/chat/completions"
             else -> "https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$apiKey"
         }
+    }
+
+    private suspend fun executeRotatorSwapFlow(
+        systemPrompt: String,
+        chatHistory: List<ChatMessage>,
+        rotatorKeys: Map<String, String>,
+        enabledModels: Set<String> = emptySet()
+    ): String {
+        data class RotatorConfig(
+            val name: String,
+            val keyName: String,
+            val url: String,
+            val models: List<String>,
+            val isGemini: Boolean = false
+        )
+
+        val rotation = listOf(
+            RotatorConfig(
+                name = "Groq",
+                keyName = "groq",
+                url = "https://api.groq.com/openai/v1/chat/completions",
+                models = listOf("llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768")
+            ),
+            RotatorConfig(
+                name = "OpenRouter",
+                keyName = "openrouter",
+                url = "https://openrouter.ai/api/v1/chat/completions",
+                models = listOf("openrouter/auto", "google/gemini-2.5-flash:free", "meta-llama/llama-3.3-70b-instruct:free", "deepseek/deepseek-r1:free")
+            ),
+            RotatorConfig(
+                name = "Cerebras",
+                keyName = "cerebras",
+                url = "https://api.cerebras.ai/v1/chat/completions",
+                models = listOf("llama-3.3-70b", "llama-3.1-8b", "llama3.1-8b")
+            ),
+            RotatorConfig(
+                name = "Google AI Studio",
+                keyName = "google",
+                url = "",
+                models = listOf("gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash"),
+                isGemini = true
+            ),
+            RotatorConfig(
+                name = "Nvidia NIM",
+                keyName = "nvidia",
+                url = "https://integrate.api.nvidia.com/v1/chat/completions",
+                models = listOf(
+                    "meta/llama-3.3-70b-instruct",
+                    "nvidia/llama-3.1-nemotron-70b-instruct",
+                    "meta/llama-3.1-8b-instruct",
+                    "nvidia/nemotron-4-340b-instruct",
+                    "nvidia/nemotron-mini-4b-instruct",
+                    "nvidia/nemotron-3-nano-30b-a3b:free",
+                    "nvidia/nemotron-3-super-120b-a12b:free",
+                    "nvidia/nemotron-nano-12b-v2-vl:free",
+                    "nvidia/nemotron-nano-9b-v2:free"
+                )
+            ),
+            RotatorConfig(
+                name = "OpenCode (Zen)",
+                keyName = "opencode",
+                url = "https://api.opencode.ai/v1/chat/completions",
+                models = listOf(
+                    "deepseek-v4-pro",
+                    "glm-5.1",
+                    "kimi-k2.6",
+                    "qwen3.5-plus",
+                    "qwen3.6-plus",
+                    "qwen3.6-plus-free",
+                    "grok-build-0.1",
+                    "minimax-m2.7",
+                    "minimax-m3-free",
+                    "mimo-v2.5-free",
+                    "nemotron-3-ultra-free",
+                    "north-mini-code-free"
+                )
+            ),
+            RotatorConfig(
+                name = "Kilocode",
+                keyName = "kilocode",
+                url = "https://api.kilocode.xyz/v1/chat/completions",
+                models = listOf(
+                    "arcee-trinity-large-preview",
+                    "minimax-m2.5",
+                    "mistralai/devstral-2512",
+                    "grok-code-fast-1",
+                    "gemini-3-flash-preview",
+                    "claude-haiku-4.5"
+                )
+            ),
+            RotatorConfig(
+                name = "SambaNova",
+                keyName = "sambanova",
+                url = "https://api.sambanova.ai/v1/chat/completions",
+                models = listOf("Meta-Llama-3.3-70B-Instruct", "Meta-Llama-3.1-8B-Instruct", "Meta-Llama-3.1-405B-Instruct")
+            ),
+            RotatorConfig(
+                name = "Together AI",
+                keyName = "together",
+                url = "https://api.together.xyz/v1/chat/completions",
+                models = listOf("meta-llama/Llama-3.3-70B-Instruct-Turbo", "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo", "mistralai/Mixtral-8x7B-Instruct-v0.1")
+            ),
+            RotatorConfig(
+                name = "Fireworks AI",
+                keyName = "fireworks",
+                url = "https://api.fireworks.ai/inference/v1/chat/completions",
+                models = listOf("accounts/fireworks/models/llama-v3p3-70b-instruct", "accounts/fireworks/models/llama-v3p1-8b-instruct", "accounts/fireworks/models/mixtral-8x7b-instruct")
+            ),
+            RotatorConfig(
+                name = "Mistral AI",
+                keyName = "mistral",
+                url = "https://api.mistral.ai/v1/chat/completions",
+                models = listOf("open-mistral-7b", "mistral-small-latest", "mistral-large-latest")
+            ),
+            RotatorConfig(
+                name = "Cohere",
+                keyName = "cohere",
+                url = "https://api.cohere.com/v1/chat/completions",
+                models = listOf("command-r-plus", "command-r", "command-light")
+            ),
+            RotatorConfig(
+                name = "DeepSeek",
+                keyName = "deepseek",
+                url = "https://api.deepseek.com/chat/completions",
+                models = listOf("deepseek-chat", "deepseek-coder", "deepseek-reasoner")
+            ),
+            RotatorConfig(
+                name = "DeepInfra",
+                keyName = "deepinfra",
+                url = "https://api.deepinfra.com/v1/openai/chat/completions",
+                models = listOf("meta-llama/Llama-3.3-70B-Instruct", "meta-llama/Meta-Llama-3.1-8B-Instruct", "mistralai/Mixtral-8x22B-Instruct-v0.1")
+            ),
+            RotatorConfig(
+                name = "Novita AI",
+                keyName = "novita",
+                url = "https://api.novita.ai/v1/chat/completions",
+                models = listOf("meta-llama/llama-3.3-70b-instruct", "meta-llama/llama-3.1-8b-instruct", "mistralai/mistral-7b-instruct")
+            ),
+            RotatorConfig(
+                name = "Hyperbolic",
+                keyName = "hyperbolic",
+                url = "https://api.hyperbolic.xyz/v1/chat/completions",
+                models = listOf("meta-llama/Llama-3.3-70B-Instruct", "meta-llama/Meta-Llama-3.1-8B-Instruct", "deepseek-ai/DeepSeek-V3")
+            )
+        )
+
+        var lastErrorMsg = "No keys configured."
+        for (config in rotation) {
+            val key = rotatorKeys[config.keyName]?.trim() ?: ""
+            if (key.isBlank()) {
+                Log.d("GameAgent", "[ROTATOR] Skipping ${config.name} because key is empty/unconfigured.")
+                continue
+            }
+
+            val modelsToUse = if (enabledModels.isEmpty()) {
+                config.models
+            } else {
+                config.models.filter { enabledModels.contains(it) }
+            }
+            if (modelsToUse.isEmpty()) {
+                Log.d("GameAgent", "[ROTATOR] Skipping ${config.name} because no models under this provider are checked in settings.")
+                continue
+            }
+
+            Log.d("GameAgent", "[ROTATOR] Provider ${config.name} available. Starting cycling...")
+            for (activeModel in modelsToUse) {
+                Log.d("GameAgent", "[ROTATOR] Attempting model '$activeModel' on ${config.name}...")
+                try {
+                    if (config.isGemini) {
+                        val activeUrl = "https://generativelanguage.googleapis.com/v1beta/models/$activeModel:generateContent?key=$key"
+                        val contents = mutableListOf<GeminiContent>()
+                        val chatTurns = chatHistory.takeLast(20)
+                        chatTurns.forEach {
+                            val roleMapped = if (it.role == "doctor") "user" else "model"
+                            contents.add(GeminiContent(roleMapped, listOf(GeminiPart(text = it.text))))
+                        }
+                        if (contents.isEmpty()) {
+                            contents.add(GeminiContent("user", listOf(GeminiPart(text = "Initialize clinical encounter patient dialogue."))))
+                        }
+
+                        val request = GeminiRequest(
+                            contents = contents,
+                            systemInstruction = GeminiSystemInstruction(listOf(GeminiPart(text = systemPrompt))),
+                            generationConfig = GeminiGenerationConfig(
+                                maxOutputTokens = 8192,
+                                temperature = 0.7
+                            ),
+                            tools = null
+                        )
+
+                        val response = RetrofitClient.service.callGemini(activeUrl, request)
+                        val candidate = response.candidates?.firstOrNull()
+                        val textOutput = candidate?.content?.parts?.firstOrNull { !it.text.isNullOrBlank() }?.text
+                        if (!textOutput.isNullOrBlank()) {
+                            Log.d("GameAgent", "[ROTATOR] Got successful response from ${config.name} ($activeModel)!")
+                            return textOutput
+                        } else {
+                            throw Exception("Empty response returned from Google AI Studio")
+                        }
+                    } else {
+                        val messages = mutableListOf<OpenAIMessage>()
+                        messages.add(OpenAIMessage("system", systemPrompt))
+                        val chatTurns = chatHistory.takeLast(20)
+                        chatTurns.forEach {
+                            val roleMapped = if (it.role == "doctor") "user" else "assistant"
+                            messages.add(OpenAIMessage(roleMapped, it.text))
+                        }
+
+                        val request = OpenAIRequest(
+                            model = activeModel,
+                            messages = messages,
+                            response_format = null,
+                            temperature = 0.7,
+                            max_tokens = 4096,
+                            stream = false
+                        )
+
+                        val response = RetrofitClient.service.callOpenAI(
+                            url = config.url,
+                            authorization = "Bearer $key",
+                            accept = "application/json",
+                            body = request
+                        )
+                        val textOutput = response.choices.firstOrNull()?.message?.content
+                        if (!textOutput.isNullOrBlank()) {
+                            Log.d("GameAgent", "[ROTATOR] Got successful response from ${config.name} ($activeModel)!")
+                            return textOutput
+                        } else {
+                            throw Exception("Empty response returned from OpenAI endpoint")
+                        }
+                    }
+                } catch (e: Exception) {
+                    val errMsg = e.localizedMessage ?: "Unknown Error"
+                    Log.e("GameAgent", "[ROTATOR] ${config.name} (model: $activeModel) failed: $errMsg")
+                    lastErrorMsg = "${config.name} [$activeModel]: $errMsg"
+                }
+            }
+        }
+
+        return "Error: All daily free tiers and loaded providers in rotation are completely maxed out. Last error context: $lastErrorMsg"
     }
 }

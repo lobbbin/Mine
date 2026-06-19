@@ -9,12 +9,25 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
+data class Juror(
+    val name: String,
+    val role: String,
+    val inclination: String, // Favorable, Skeptical, Undecided, Hostile
+    val comment: String
+)
+
 class CourtroomViewModel(
     application: Application,
     private val settingsDataStore: SettingsDataStore
 ) : AndroidViewModel(application) {
 
     // --- LAW CASE & JUDICIAL PROCESS STATE ---
+    private val _lawsuitJurors = MutableStateFlow<List<Juror>>(emptyList())
+    val lawsuitJurors: StateFlow<List<Juror>> = _lawsuitJurors.asStateFlow()
+
+    private val _lawsuitJurySentiment = MutableStateFlow(50) // 0-100%
+    val lawsuitJurySentiment: StateFlow<Int> = _lawsuitJurySentiment.asStateFlow()
+
     private val _lawsuitPatientName = MutableStateFlow("")
     val lawsuitPatientName: StateFlow<String> = _lawsuitPatientName.asStateFlow()
 
@@ -68,6 +81,15 @@ class CourtroomViewModel(
         _lawsuitVerdict.value = null
         _lawsuitFine.value = 0.0
         _lawsuitSuspension.value = 0
+        _lawsuitJurySentiment.value = 50
+        _lawsuitJurors.value = listOf(
+            Juror("Evelyn Vance", "Foreperson - High School Principal", "Undecided", "Reviewing Dr. Tim's clinical record..."),
+            Juror("Kofi Mensah", "Aeronautical Engineer", "Undecided", "Awaiting physical evidence."),
+            Juror("Aunt Sarah", "Retired Ward Nurse", "Favorable", "Evaluating clinical pressure and timings."),
+            Juror("Dmitri Romanov", "Construction Contractor", "Skeptical", "Concerned about swift procedures."),
+            Juror("Thabo Dube", "Financial Auditor", "Undecided", "Tracking expenses and cost margins."),
+            Juror("Priya Patel", "Highschool Biology Teacher", "Undecided", "Analysing diagnostic choices.")
+        )
         
         val initialLogs = mutableListOf<String>()
         initialLogs.add("⚖️ INQUEST DOCKET OPENED: State Healthcare Regulatory Body vs Dr. Tim.")
@@ -264,7 +286,7 @@ class CourtroomViewModel(
             val currentHistoryLog = _lawsuitLog.value.joinToString("\n\n")
 
             val prompt = """
-                You are simulating an interactive clinical trial hearing in the Supreme Medical Court of the Republic of $countryName.
+                You are simulating an interactive clinical trial hearing in the Supreme Medical Court of the Republic of ${countryName}, before an impartial Presiding Judge and a 6-person Citizen Jury.
                 
                 SOVEREIGN COURT STATE INFO:
                 - Defendant: Dr. Tim, GP (JB Consultation Practice, PR# 1234567)
@@ -277,22 +299,38 @@ class CourtroomViewModel(
                 
                 $agentPowersPrompt
                 
+                JURY PANEL PEERS DETAILS & PERSPECTIVES:
+                1. Evelyn Vance (Foreperson - High School Principal): Strict, values administrative rigor and logical consistency.
+                2. Kofi Mensah (Aeronautical Engineer): Technical, unbiased, analyzes scientific data and objective clinical exhibits.
+                3. Aunt Sarah (Retired Ward Nurse): Empathetic to clinical stress, very caring, but hates poor diagnostic effort.
+                4. Dmitri Romanov (Construction Contractor): Pragmatic, prefers decisive emergency action, values swift interventions.
+                5. Thabo Dube (Financial Auditor): Analytical, weighs budgetary limits, scrutinizes clinic expenses and billing.
+                6. Priya Patel (Highschool Biology Teacher): High scientific interest, checks chemical accuracy, drug properties, and clear diagnostics.
+                
                 LEGAL DEFENSE DETAILS IN THIS PLEA ROUND:
                 - Defendant's Written Testimony / Pleading speech: "$pleaMsg"
                 - Submitted Physical Exhibits / Clinical evidence: ${if (selectedEvidence.isNotEmpty()) selectedEvidence.joinToString(", ") else "None"}
                 - Legal Representation: $lawyerContext
                 
                 YOUR JOB IN THIS INTERIM ROUND:
-                1. Roleplay the intense, sharp voice of the State Prosecutor and the impartial questioning of the Presiding Judge in Pretoria.
-                2. The state prosecutor must cross-examine the doctor's specific typed statement "$pleaMsg" and check the validity of their submitted evidence: "${selectedEvidence.joinToString("; ")}".
-                3. If the defense makes clinical sense (e.g. they dispensed adrenaline because the patient was in anaphylaxis, or ordered saline due to shock, backed by appropriate evidence), reduce the tension and aggression metrics. If the excuse is weak or contradicts standard health protocols, increase tension and aggression metrics.
-                4. Provide the prosecutor's aggressive response and the Judge's subsequent inquiry in 'courtDialogue'.
-                5. Return raw JSON matching this EXACT schema:
+                1. Roleplay the intense, sharp voice of the State Prosecutor and the impartial, formal guidance of the Presiding Judge Vance.
+                2. Evaluate how the Jury reactions shift. If physical evidence matches standard protocols, increase 'jurySentiment' and change juror positions to 'Favorable'. Weak, repetitive or unbacked claims lower sentiment and make jurors 'Skeptical' or 'Hostile'.
+                3. Provide the formal prosecutor dialogue and Judge inquiry in 'courtDialogue'.
+                4. Return raw JSON matching this EXACT schema:
                 {
-                   "courtDialogue": "Prosecutor's sharp rebuttal questioning the evidence, followed by the Presiding Judge's formal query on the record.",
+                   "courtDialogue": "Prosecutor's sharp rebuttal questioning the evidence, followed by Presiding Judge Vance's formal query on the record.",
                    "tensionAdjustment": -10,
                    "aggressionAdjustment": -15,
-                   "defenseInsightText": "A quick note of guidance or strategic legal advice from Dr. Tim's hired defense lawyer."
+                   "defenseInsightText": "A quick note of guidance or strategic legal advice from Dr. Tim's hired defense lawyer.",
+                   "jurySentiment": 60,
+                   "jurorReactions": [
+                      { "name": "Evelyn Vance", "inclination": "Favorable/Skeptical/Undecided/Hostile", "comment": "A 1-sentence reaction from her perspective." },
+                      { "name": "Kofi Mensah", "inclination": "Favorable/Skeptical/Undecided/Hostile", "comment": "A 1-sentence reaction..." },
+                      { "name": "Aunt Sarah", "inclination": "Favorable/Skeptical/Undecided/Hostile", "comment": "A 1-sentence reaction..." },
+                      { "name": "Dmitri Romanov", "inclination": "Favorable/Skeptical/Undecided/Hostile", "comment": "A 1-sentence reaction..." },
+                      { "name": "Thabo Dube", "inclination": "Favorable/Skeptical/Undecided/Hostile", "comment": "A 1-sentence reaction..." },
+                      { "name": "Priya Patel", "inclination": "Favorable/Skeptical/Undecided/Hostile", "comment": "A 1-sentence reaction..." }
+                   ]
                 }
             """.trimIndent()
 
@@ -306,6 +344,7 @@ class CourtroomViewModel(
                     val dAdj = json.optInt("tensionAdjustment", 5)
                     val aAdj = json.optInt("aggressionAdjustment", 5)
                     val insight = json.optString("defenseInsightText", "Ensure you back up your claims with physical vitals evidence.")
+                    val jSentiment = json.optInt("jurySentiment", _lawsuitJurySentiment.value)
                     
                     onActionExecuted(sanitized)
 
@@ -320,7 +359,31 @@ class CourtroomViewModel(
                     _lawsuitLog.value = logs
                     _lawsuitTension.value = (_lawsuitTension.value + dAdj).coerceIn(10, 100)
                     _lawsuitProsecutorAggression.value = (_lawsuitProsecutorAggression.value + aAdj).coerceIn(10, 100)
+                    _lawsuitJurySentiment.value = jSentiment.coerceIn(0, 100)
                     _lawsuitCurrentStage.value = "cross_exam"
+
+                    // Parse juror reactions and sync with existing profiles
+                    val jurorReactionsArray = json.optJSONArray("jurorReactions")
+                    if (jurorReactionsArray != null) {
+                        val updatedJurors = mutableListOf<Juror>()
+                        for (i in 0 until jurorReactionsArray.length()) {
+                            val obj = jurorReactionsArray.getJSONObject(i)
+                            val name = obj.optString("name", "")
+                            val inclination = obj.optString("inclination", "Undecided")
+                            val comment = obj.optString("comment", "")
+                            
+                            val originalJuror = _lawsuitJurors.value.getOrNull(i)
+                            if (originalJuror != null) {
+                                updatedJurors.add(originalJuror.copy(
+                                    inclination = inclination,
+                                    comment = comment
+                                ))
+                            }
+                        }
+                        if (updatedJurors.isNotEmpty()) {
+                            _lawsuitJurors.value = updatedJurors
+                        }
+                    }
                 }
             } catch (e: Exception) {
                 _errorFlow.emit("Court connecting line error: ${e.localizedMessage}")
@@ -360,8 +423,7 @@ class CourtroomViewModel(
             val activeSeledEvid = OrchidDeepStateManager.selectedEvidenceToPresent.value
 
             val prompt = """
-                You are the Presiding Judge and Supreme Justice of the High Court Medical Tribunal of $countryName.
-                You are delivering the final, legally-binding VERDICT and penalty decree for Dr. Tim (JB Consultation Practice).
+                You are Presiding Judge Vance, delivering the final, legally-binding VERDICT and penalty decree for Dr. Tim (JB Consultation Practice) in the High Court Medical Tribunal of $countryName, under a Judge and Jury regulatory system.
                 
                 CASE SPECIFICATION:
                 - Case: Treated "${_lawsuitPatientName.value}" for "${_lawsuitCaseDiag.value}".
@@ -373,6 +435,7 @@ class CourtroomViewModel(
                 - Defense Representation: ${lawyer?.displayName ?: "None (Self-represented)"}
                 - Court Tension Level: ${_lawsuitTension.value}%
                 - Prosecution Hostility/Aggression Level: ${_lawsuitProsecutorAggression.value}%
+                - CITIZEN JURY SUPPORT SENTIMENT INDEX: ${_lawsuitJurySentiment.value}% (Higher means the jury of peers is sympathetic to Dr. Tim, lower means they are hostile).
                 
                 HEALTH STATUTES IN SCOPE:
                 $policyDetailsStr
@@ -381,15 +444,16 @@ class CourtroomViewModel(
                 
                 YOUR DIRECTIVE:
                 1. Formulate a final, realistic sentencing judgment.
-                2. Verdict types allowed: "Exonerated" (if tension < 45% and appropriate evidence was provided), "Warning" (tension 45-60%), "Fined" (tension 60-80% or severe statutory breaches), "Suspension" (tension > 80% or repeated violations).
-                3. If Fined, define a numeric cash fine (e.g. R500.00 to R3000.00). Deduct this from the clinic's balance.
-                4. If Suspension, define the suspension weeks (e.g. 1 to 3 weeks).
-                5. Return raw JSON matching this schema:
+                2. Weigh the Jury's consensus: Since our system operates with a Judge AND Jury, high Jury support (${_lawsuitJurySentiment.value}%) should strongly push you toward leniency.
+                3. Verdict types allowed: "Exonerated" (if jury support > 65% and tension < 50%), "Warning" (jury support 50-65% or tension 50-65%), "Fined" (jury support 35-50% or tension 65-80%), "Suspension" (jury support < 35% or tension > 80%).
+                4. If Fined, define a numeric cash fine (e.g. R500.00 to R3000.00). Deduct this from the clinic's balance.
+                5. If Suspension, define the suspension weeks (e.g. 1 to 3 weeks).
+                6. Return raw JSON matching this schema:
                 {
                    "verdictType": "Fined",
                    "fineAmount": 1200.0,
                    "suspensionWeeks": 0,
-                   "finalVerdictText": "Chief Justice's Formal Judicial Verdict Decree. Outline the logical rationale, reference the defense's testimony and whether their submitted evidence was sufficient, and declare the legal sentence penalty."
+                   "finalVerdictText": "Chief Justice Vance's Formal Judicial Verdict Decree. Address both the Jury's findings and your own assessment, detail individual evidence failures/successes, and state the binding operational penalty."
                 }
             """.trimIndent()
 

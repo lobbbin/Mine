@@ -26,6 +26,7 @@ class SettingsDataStore(private val context: Context) {
         private val PROVIDER_KEY = stringPreferencesKey("provider")
         private val MODEL_KEY = stringPreferencesKey("model")
         private val CUSTOM_ENDPOINT_KEY = stringPreferencesKey("custom_endpoint")
+        private val ROTATOR_KEYS_JSON_KEY = stringPreferencesKey("rotator_keys_json")
         private val PREF_SPECIALTY_KEY = stringPreferencesKey("pref_specialty")
         private val PREF_SEVERITY_KEY = stringPreferencesKey("pref_severity")
         private val CLINIC_BALANCE_KEY = androidx.datastore.preferences.core.doublePreferencesKey("clinic_balance")
@@ -59,6 +60,8 @@ class SettingsDataStore(private val context: Context) {
         private val CURRENCY_SYMBOL_KEY = stringPreferencesKey("custom_currency_symbol")
         private val CURRENCY_CODE_KEY = stringPreferencesKey("custom_currency_code")
         private val UI_FONT_SCALE_KEY = androidx.datastore.preferences.core.floatPreferencesKey("ui_font_scale")
+        private val ROTATOR_ENABLED_MODELS_KEY = stringPreferencesKey("rotator_enabled_models_json")
+        private val ROTATOR_CUSTOM_MODELS_KEY = stringPreferencesKey("rotator_custom_models_json")
     }
 
     val uiFontScaleFlow: Flow<Float> = context.dataStore.data.map { it[UI_FONT_SCALE_KEY] ?: 1.0f }
@@ -193,6 +196,80 @@ class SettingsDataStore(private val context: Context) {
             preferences[PROVIDER_KEY] = provider
             preferences[MODEL_KEY] = model
             preferences[CUSTOM_ENDPOINT_KEY] = customEndpoint
+        }
+    }
+
+    val rotatorKeysFlow: Flow<Map<String, String>> = context.dataStore.data
+        .map { preferences ->
+            val json = preferences[ROTATOR_KEYS_JSON_KEY] ?: ""
+            if (json.isBlank()) {
+                emptyMap()
+            } else {
+                try {
+                    val type = Types.newParameterizedType(Map::class.java, String::class.java, String::class.java)
+                    val adapter = moshi.adapter<Map<String, String>>(type)
+                    adapter.fromJson(json) ?: emptyMap()
+                } catch (e: Exception) {
+                    emptyMap()
+                }
+            }
+        }
+
+    suspend fun saveRotatorKeys(keys: Map<String, String>) {
+        context.dataStore.edit { preferences ->
+            val type = Types.newParameterizedType(Map::class.java, String::class.java, String::class.java)
+            val adapter = moshi.adapter<Map<String, String>>(type)
+            preferences[ROTATOR_KEYS_JSON_KEY] = adapter.toJson(keys)
+        }
+    }
+
+    val rotatorEnabledModelsFlow: Flow<Set<String>> = context.dataStore.data
+        .map { preferences ->
+            val json = preferences[ROTATOR_ENABLED_MODELS_KEY] ?: ""
+            if (json.isBlank()) {
+                emptySet()
+            } else {
+                try {
+                    val type = Types.newParameterizedType(Set::class.java, String::class.java)
+                    val adapter = moshi.adapter<Set<String>>(type)
+                    adapter.fromJson(json) ?: emptySet()
+                } catch (e: Exception) {
+                    emptySet()
+                }
+            }
+        }
+
+    suspend fun saveRotatorEnabledModels(models: Set<String>) {
+        context.dataStore.edit { preferences ->
+            val type = Types.newParameterizedType(Set::class.java, String::class.java)
+            val adapter = moshi.adapter<Set<String>>(type)
+            preferences[ROTATOR_ENABLED_MODELS_KEY] = adapter.toJson(models)
+        }
+    }
+
+    val rotatorCustomModelsFlow: Flow<Map<String, List<String>>> = context.dataStore.data
+        .map { preferences ->
+            val json = preferences[ROTATOR_CUSTOM_MODELS_KEY] ?: ""
+            if (json.isBlank()) {
+                emptyMap()
+            } else {
+                try {
+                    val listType = Types.newParameterizedType(List::class.java, String::class.java)
+                    val mapType = Types.newParameterizedType(Map::class.java, String::class.java, listType)
+                    val adapter = moshi.adapter<Map<String, List<String>>>(mapType)
+                    adapter.fromJson(json) ?: emptyMap()
+                } catch (e: Exception) {
+                    emptyMap()
+                }
+            }
+        }
+
+    suspend fun saveRotatorCustomModels(customModels: Map<String, List<String>>) {
+        context.dataStore.edit { preferences ->
+            val listType = Types.newParameterizedType(List::class.java, String::class.java)
+            val mapType = Types.newParameterizedType(Map::class.java, String::class.java, listType)
+            val adapter = moshi.adapter<Map<String, List<String>>>(mapType)
+            preferences[ROTATOR_CUSTOM_MODELS_KEY] = adapter.toJson(customModels)
         }
     }
 
