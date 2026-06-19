@@ -4934,6 +4934,10 @@ $memoryLines
                         settingsDataStore.updateClinicStats(clinicBalance.value - fine, reputationStars.value)
                         registerDailyExpense(fine)
                     }
+                    if (weeks > 0 || vType.equals("Suspension", ignoreCase = true)) {
+                        val suspensionVal = if (weeks > 0) weeks else 1
+                        legalWorldAgent.updateMedicalLicense(com.example.data.LicenseStatus.SUSPENDED, text, suspensionVal)
+                    }
 
                     _lawsuitCurrentStage.value = "verdict"
                 }
@@ -5049,6 +5053,10 @@ $memoryLines
                     if (fine > 0.0) {
                         settingsDataStore.updateClinicStats(clinicBalance.value - fine, reputationStars.value)
                         registerDailyExpense(fine)
+                    }
+                    if (suspension > 0 || _lawsuitVerdict.value.equals("Suspension", ignoreCase = true)) {
+                        val suspensionVal = if (suspension > 0) suspension else 1
+                        legalWorldAgent.updateMedicalLicense(com.example.data.LicenseStatus.SUSPENDED, reply.finalVerdictText ?: "Suspended by court order", suspensionVal)
                     }
 
                     _lawsuitCurrentStage.value = "verdict"
