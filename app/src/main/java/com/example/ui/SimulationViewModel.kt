@@ -349,6 +349,9 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
     private val _currentVoteAbstain = MutableStateFlow(0)
     val currentVoteAbstain: StateFlow<Int> = _currentVoteAbstain.asStateFlow()
 
+    private val _currentSeatMap = MutableStateFlow(String(CharArray(200) { '_' }))
+    val currentSeatMap: StateFlow<String> = _currentSeatMap.asStateFlow()
+
     private val _votingLog = MutableStateFlow<List<String>>(emptyList())
     val votingLog: StateFlow<List<String>> = _votingLog.asStateFlow()
 
@@ -1476,6 +1479,9 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         }
         viewModelScope.launch {
             parliamentViewModel.currentVoteAbstain.collect { _currentVoteAbstain.value = it }
+        }
+        viewModelScope.launch {
+            parliamentViewModel.currentSeatMap.collect { _currentSeatMap.value = it }
         }
         viewModelScope.launch {
             parliamentViewModel.votingLog.collect { _votingLog.value = it }

@@ -57,6 +57,8 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalDrawerSheet
@@ -143,6 +145,72 @@ data class PrescriptionItem(
     val freq: String,
     val duration: String
 )
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun ParliamentSemicircleDiagram(
+    seatMap: String,
+    totalSeats: Int = 200,
+    modifier: Modifier = Modifier
+) {
+    // Map the string characters to colours as dictated by the AI ('Y', 'X', 'A', '_')
+    val seatColors = buildList {
+        for (i in 0 until totalSeats) {
+            val char = seatMap.getOrElse(i) { '_' }
+            val color = when (char) {
+                'Y' -> Color(0xFF2E7D32) // Yes
+                'X' -> Color(0xFFC62828) // No
+                'A' -> Color(0xFF757575) // Abstain
+                else -> Color(0xFFE0E0E0) // Unvoted
+            }
+            add(color)
+        }
+    }
+
+    BoxWithConstraints(modifier = modifier.fillMaxWidth().heightIn(min = 150.dp)) {
+        val width = maxWidth.value
+        val height = maxHeight.value
+        val centerX = width / 2f
+        val centerY = height - 10f // Bottom center
+        
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val rows = 8 // 8 concentric semicircles
+            val seatsPerRow = totalSeats / rows
+            var seatIndex = 0
+            
+            val maxRadius = (size.width / 2f) * 0.9f
+            val minRadius = maxRadius * 0.3f
+            val radiusStep = (maxRadius - minRadius) / rows
+            
+            for (r in 0 until rows) {
+                val currentRadius = minRadius + (r * radiusStep)
+                // How many seats in this row? (Approx distribute: outer rows have more)
+                // simplified: 
+                val rowSeats = if (r == rows - 1) totalSeats - seatIndex else (totalSeats / rows) + r * 2
+                
+                if (rowSeats <= 0) break
+                val angleStep = 180f / (rowSeats - 1).coerceAtLeast(1)
+                
+                for (s in 0 until rowSeats) {
+                    if (seatIndex >= totalSeats) break
+                    val angleDeg = 180f - (s * angleStep) // Left to right
+                    val angleRad = Math.toRadians(angleDeg.toDouble())
+                    
+                    val x = centerX + currentRadius * Math.cos(angleRad).toFloat()
+                    val y = centerY - currentRadius * Math.sin(angleRad).toFloat()
+                    
+                    val color = seatColors.getOrElse(seatIndex) { Color.LightGray }
+                    drawCircle(
+                        color = color,
+                        radius = 4.dp.toPx(),
+                        center = androidx.compose.ui.geometry.Offset(x.dp.toPx(), y.dp.toPx())
+                    )
+                    seatIndex++
+                }
+            }
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -4276,6 +4344,7 @@ fun VisualPatientOutcomeBanner(outcome: String, modifier: Modifier = Modifier) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun StateAndLegislationTab(
     viewModel: SimulationViewModel,
@@ -5055,23 +5124,52 @@ fun StateAndLegislationTab(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 if (draftMode == "AI") {
-                    Text(
-                        text = "Prompt the AI to draft a dynamic health code policy bill with extended clauses. Once voted by Parliament and signed by the President, this law is immediately live and enforced.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    
-                    Spacer(modifier = Modifier.height(12.dp))
-                    
-                    OutlinedTextField(
-                        value = draftFocusText,
-                        onValueChange = { draftFocusText = it },
-                        placeholder = { Text("e.g. Ensure all severe cases get ECG, mandate full blood count labs, reduce diagnostics cost, check clinical vitals before prescribing") },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 2,
-                        maxLines = 4,
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)),
                         shape = RoundedCornerShape(12.dp)
-                    )
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = "✨ AI LEGISLATIVE ENGINE",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Prompt the AI to draft a dynamic health code policy bill with extended clauses. Once voted by Parliament and signed by the President, this law is immediately live and enforced.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            
+                            OutlinedTextField(
+                                value = draftFocusText,
+                                onValueChange = { draftFocusText = it },
+                                placeholder = { Text("e.g. Ensure all severe cases get ECG, mandate full blood count labs...") },
+                                modifier = Modifier.fillMaxWidth(),
+                                minLines = 3,
+                                maxLines = 5,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text("💡 AI Quick Ideas:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf(
+                                    "Ban private clinic ECG fees", 
+                                    "Mandate blood tests for >60s", 
+                                    "Subsidise pediatric meds",
+                                    "Require rigid sick note verification"
+                                ).forEach { idea ->
+                                    AssistChip(
+                                        onClick = { draftFocusText = idea },
+                                        label = { Text(idea, fontSize = 10.sp) }
+                                    )
+                                }
+                            }
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(12.dp))
 
@@ -5570,14 +5668,15 @@ fun StateAndLegislationTab(
                             fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.tertiary
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
                         
-                        androidx.compose.material3.LinearProgressIndicator(
-                            progress = { voteProgress },
-                            modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp))
+                        ParliamentSemicircleDiagram(
+                            seatMap = viewModel.currentSeatMap.collectAsStateWithLifecycle().value,
+                            totalSeats = 200,
+                            modifier = Modifier.padding(vertical = 16.dp)
                         )
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween

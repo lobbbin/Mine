@@ -327,6 +327,9 @@ class ParliamentViewModel(
         return clean
     }
 
+    private val _currentSeatMap = MutableStateFlow(String(CharArray(200) { 'U' }))
+    val currentSeatMap: StateFlow<String> = _currentSeatMap.asStateFlow()
+
     fun runParliamentaryVote(
         policy: HealthPolicy,
         politicalPrestige: Int,
@@ -383,14 +386,17 @@ class ParliamentViewModel(
                     Provide a JSON response matching this exact schema:
                     {
                       "stages": [
-                        { "log": "Description of debate floor action", "yes": 15, "no": 5, "abs": 2 },
-                        { "log": "...", "yes": 45, "no": 30, "abs": 5 },
-                        { "log": "...", "yes": 80, "no": 60, "abs": 10 },
-                        { "log": "...", "yes": 110, "no": 70, "abs": 12 },
-                        { "log": "Final gavel sounds", "yes": 120, "no": 75, "abs": 5 }
+                        { "log": "Description of debate floor action", "yes": 15, "no": 5, "abs": 2, "seatMap": "YYYYYYYYYYYYYYYXXXXXAA______________________________________________________________________________________________________________________________________________________________________________" },
+                        { "log": "...", "yes": 45, "no": 30, "abs": 5, "seatMap": "..." },
+                        { "log": "...", "yes": 80, "no": 60, "abs": 10, "seatMap": "..." },
+                        { "log": "...", "yes": 110, "no": 70, "abs": 12, "seatMap": "..." },
+                        { "log": "Final gavel sounds", "yes": 120, "no": 75, "abs": 5, "seatMap": "..." }
                       ],
                       "agentActions": [ ... optional actions ... ]
                     }
+                    The seatMap MUST be exactly 200 characters representing the 200 canvas seats:
+                    'Y' = Yes, 'X' = No, 'A' = Abstain, '_' = Unvoted.
+                    The AI must organically cluster these characters so identical votes sit together like a real parliament block.
                     The last stage represents the final vote count (must sum to exactly 200).
                 """.trimIndent()
                 
@@ -417,12 +423,15 @@ class ParliamentViewModel(
                         val yes = stageObj.optInt("yes", 0)
                         val no = stageObj.optInt("no", 0)
                         val abs = stageObj.optInt("abs", 0)
+                        var seatMap = stageObj.optString("seatMap", String(CharArray(200) { '_' }))
+                        if (seatMap.length < 200) seatMap = seatMap.padEnd(200, '_')
                         
                         val fraction = (i + 1).toFloat() / steps
                         _voteProgress.value = fraction
                         _currentVoteYes.value = yes
                         _currentVoteNo.value = no
                         _currentVoteAbstain.value = abs
+                        _currentSeatMap.value = seatMap.take(200)
                         _votingLog.value = _votingLog.value + "🗣️ $logText"
                         
                         delay(2000)
@@ -436,6 +445,7 @@ class ParliamentViewModel(
                 _currentVoteYes.value = 110
                 _currentVoteNo.value = 80
                 _currentVoteAbstain.value = 10
+                _currentSeatMap.value = String(CharArray(110) { 'Y' }) + String(CharArray(80) { 'X' }) + String(CharArray(10) { 'A' })
             }
 
             val finalYes = _currentVoteYes.value
