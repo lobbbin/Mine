@@ -831,7 +831,7 @@ fun LedgerTabContent(viewModel: SimulationViewModel) {
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Note: Net bank balance includes fixed overheads per patient (R200/case) and dynamically ordered investigation expenses.",
+                    text = "Note: Net bank balance includes fixed overheads per patient ($200/case) and dynamically ordered investigation expenses.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 16.sp

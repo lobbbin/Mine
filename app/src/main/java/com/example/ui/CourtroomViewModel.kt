@@ -363,7 +363,14 @@ class CourtroomViewModel(
                 sb.append("\nACTLY ENACTED SOVEREIGN HEALTH LAWS:")
                 activePolList.forEachIndexed { idx, p ->
                     sb.append("\n[LAW ${idx+1}] TITLE: ${p.title}\n")
+                    sb.append("  - Summary: ${p.summary}\n")
                     sb.append("  - Requirements: ${p.clinicalRule}\n")
+                    sb.append("  - Extended Clauses:\n")
+                    if (p.extendedClauses.isNotEmpty()) {
+                        p.extendedClauses.forEach { c -> sb.append("    * $c\n") }
+                    } else {
+                        sb.append("    * (No detailed sub-clauses)\n")
+                    }
                 }
                 sb.toString()
             } else "No clinical laws enacted."
@@ -384,7 +391,7 @@ class CourtroomViewModel(
                 - Current Courtroom Transcript & History:
                 $currentHistoryLog
                 
-                ACTIVE LEGISLATION CODES:
+                ACTIVE LEGISLATION CODES (THESE BILLS/ACTS AND ALL INDIVIDUAL SUB-CLAUSES STRICTLY DICTATE THESE COURT PROCEEDINGS):
                 $policyDetailsStr
                 
                 $agentPowersPrompt
@@ -501,9 +508,17 @@ class CourtroomViewModel(
             val activePolList = activePolicies
             val policyDetailsStr = if (activePolList.isNotEmpty()) {
                 val sb = java.lang.StringBuilder()
-                sb.append("\nSOVEREIGN LAWS UNDER WHICH JUDGMENT IS RENDERED:")
+                sb.append("\nSOVEREIGN LAWS UNDER WHICH JUDGMENT IS RENDERED:\n")
                 activePolList.forEachIndexed { idx, p ->
-                    sb.append("\nLaw ${idx+1}: ${p.title} | Rule: ${p.clinicalRule}\n")
+                    sb.append("Law ${idx+1}: ${p.title}\n")
+                    sb.append("  - Summary: ${p.summary}\n")
+                    sb.append("  - Core Rule: ${p.clinicalRule}\n")
+                    sb.append("  - Extended Clauses:\n")
+                    if (p.extendedClauses.isNotEmpty()) {
+                        p.extendedClauses.forEach { c -> sb.append("    * $c\n") }
+                    } else {
+                        sb.append("    * (No sub-clauses)\n")
+                    }
                 }
                 sb.toString()
             } else "No formal laws active."
@@ -527,7 +542,7 @@ class CourtroomViewModel(
                 - Prosecution Hostility/Aggression Level: ${_lawsuitProsecutorAggression.value}%
                 - CITIZEN JURY SUPPORT SENTIMENT INDEX: ${_lawsuitJurySentiment.value}% (Higher means the jury of peers is sympathetic to Dr. Tim, lower means they are hostile).
                 
-                HEALTH STATUTES IN SCOPE:
+                HEALTH STATUTES AND DETAILED CLAUSES IN SCOPE (THESE SPECIFIC STATUTORY CLAUSES AND BILLS DICTATE YOUR BINDING SENTENCING AND OPERATION IN COURT):
                 $policyDetailsStr
                 
                 $agentPowersPrompt
@@ -606,8 +621,14 @@ class CourtroomViewModel(
             sb.append("\nACTLY ENACTED SOVEREIGN HEALTH LAWS OF THE COUNTRY:")
             activePolList.forEachIndexed { idx, p ->
                 sb.append("\n[LAW ${idx+1}] TITLE: ${p.title}\n")
+                sb.append("  - Summary: ${p.summary}\n")
                 sb.append("  - Requirements: ${p.clinicalRule}\n")
-                sb.append("  - Clauses: ${p.extendedClauses.joinToString("; ")}\n")
+                sb.append("  - Extended Clauses / Sub-Sections:\n")
+                if (p.extendedClauses.isNotEmpty()) {
+                    p.extendedClauses.forEach { c -> sb.append("    * $c\n") }
+                } else {
+                    sb.append("    * (No detailed sub-clauses)\n")
+                }
             }
             sb.toString()
         } else "No clinical laws are currently enacted."
@@ -624,13 +645,13 @@ class CourtroomViewModel(
         val prompt =    """
             We are simulating an interactive trial in the Supreme Medical Court / Sovereign Judiciary Department of the Republic of $countryName under President $presidentName ($presidentParty).
             
-            SOVEREIGN CONTEXT:
+            SOVEREIGN CONTEXT & INDICTMENT SHEET:
             - Accused: Dr. Tim, General Practitioner of JB Consultation Practice (PR# 1234567)
             - Patient Case: Treated patient "${_lawsuitPatientName.value}" for "${_lawsuitCaseDiag.value}" under active legislative jurisdiction.
             - Current Judiciary Trial Record:
             $currentHistoryLog
             
-            POLICIES & LEGAL STATUTES FOR JUDGMENT:
+            POLICIES, BILLS, STATUTES, AND ALL CLAUSES DICTATING THE COURT PROCEEDINGS:
             $policyDetailsStr
             $violatedPolStr
             
@@ -639,9 +660,10 @@ class CourtroomViewModel(
             
             INSTRUCTIONS FOR THE MODEL:
             1. Roleplay the intellectual, sharp dialogue of the Presiding Judge and the fast-talking State Prosecutor in the Supreme Court.
-            2. Analyze if the doctor's defense strategy addresses the active health policies (laws) of the nation, and their specific violations.
-            3. If they violated any of the enacted laws and presented an excuse, the prosecutor should dismantle their defense using law clauses and medical/legal terminology, referencing the specific enacted policies!
-            4. If the laws have rigid fines or suspension instructions, the Judge MUST sentence the doctor to pay those specific statutory fines + damages!
+            2. Analyze if the doctor's defense strategy addresses the active health policies (laws) of the nation, and their specific sub-clauses and details.
+            3. The active health policies/bills and their individual sub-clauses/extended clauses MUST strictly dictate the court proceeding, prosecutorial pressure, arguments, and final sentencing. Use specific terminology referencing these enacted policies!
+            4. If they violated any of the enacted laws and presented an excuse, the prosecutor should dismantle their defense using law clauses and medical/legal terminology, referencing the specific enacted policies and clauses!
+            5. If the laws have rigid fines or suspension instructions, the Judge MUST sentence the doctor to pay those specific statutory fines + damages!
             5. Determine the final verdict type ("Exonerated", "Warning", "Suspension", "Fined") based on compliance level. If they are standard compliant or have no registered violations, offer exoneration. Or if they had severe violations, enforce heavier fines (1000 to 5000 units) or license suspension (1 to 4 weeks).
             6. Return your response STRICTLY as a valid JSON object matching this schema. Write nothing else except this JSON:
             {

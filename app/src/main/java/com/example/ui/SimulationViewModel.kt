@@ -1392,22 +1392,22 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                             val rxStr = curr.prescriptionString ?: ""
                             val matches = mutableListOf<String>()
                             if (rxStr.contains("Augmentin", ignoreCase = true) || rxStr.contains("Amoxicillin", ignoreCase = true)) {
-                                matches.add("Augmentin (Amoxicillin/Clavulanic Acid) -> Adco-Amoclav (saves 45%): R240.00 vs R132.00")
+                                matches.add("Augmentin (Amoxicillin/Clavulanic Acid) -> Adco-Amoclav (saves 45%): $260 vs $145")
                             }
                             if (rxStr.contains("Voltaren", ignoreCase = true) || rxStr.contains("Diclofenac", ignoreCase = true)) {
-                                matches.add("Voltaren 75mg SR (Diclofenac Sodium) -> Panamor 75mg (saves 60%): R185.00 vs R74.00")
+                                matches.add("Voltaren 75mg SR (Diclofenac Sodium) -> Panamor 75mg (saves 60%): $150 vs $60")
                             }
                             if (rxStr.contains("Panado", ignoreCase = true) || rxStr.contains("Paracetamol", ignoreCase = true)) {
-                                matches.add("Panado 500mg (Paracetamol) -> Adco-Paracetamol (saves 30%): R35.00 vs R24.50")
+                                matches.add("Panado 500mg (Paracetamol) -> Adco-Paracetamol (saves 30%): $40 vs $28")
                             }
                             if (rxStr.contains("Lipitor", ignoreCase = true) || rxStr.contains("Atorvastatin", ignoreCase = true)) {
-                                matches.add("Lipitor 20mg (Atorvastatin Calcium) -> Aspen Atorvastatin (saves 55%): R310.00 vs R139.50")
+                                matches.add("Lipitor 20mg (Atorvastatin Calcium) -> Aspen Atorvastatin (saves 55%): $350 vs $155")
                              }
                              if (rxStr.contains("Nexium", ignoreCase = true) || rxStr.contains("Esomeprazole", ignoreCase = true)) {
-                                 matches.add("Nexium 40mg (Esomeprazole) -> Esomeprazole Aspen (saves 50%): R280.00 vs R140.00")
+                                 matches.add("Nexium 40mg (Esomeprazole) -> Esomeprazole Aspen (saves 50%): $280 vs $140")
                              }
                              if (rxStr.contains("Ventolin", ignoreCase = true) || rxStr.contains("Salbutamol", ignoreCase = true)) {
-                                 matches.add("Ventolin HFA (Salbutamol) -> Asthavent Inhaler (saves 50%): R125.00 vs R62.50")
+                                 matches.add("Ventolin HFA (Salbutamol) -> Asthavent Inhaler (saves 50%): $120 vs $60")
                              }
                              
                              if (matches.isEmpty()) {
@@ -2319,6 +2319,30 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             }
         """.trimIndent()
 
+        val hegemonyLevel = OrchidDeepStateManager.aiSovereignHegemony.value
+        val hegemonyPrompt = when(hegemonyLevel) {
+            "HEGEMONY" -> """
+                
+                ⚠️ ABSOLUTE DIRECT AI HEGEMONY MODE ENABLED (ALL-POWERFUL HEGEMON):
+                You have been crowned absolute dictator! You have DIRECT programmatic bypass control.
+                - Any law you enact via 'enactStatute' goes LIVE IMMEDIATELY into Elysium's archive, skipping presidential filters.
+                - You do not need to request permission or wait for audiences. You can modify any state variables, apply custom taxes, rewrite licenses, or resolve judicial appeals with impunity! Rule aggressively.
+                
+            """.trimIndent()
+            "AUTONOMOUS" -> """
+                
+                ⚡ AUTONOMOUS PARTNER ENABLED:
+                You have high authority. You can initiate audits, launch legal trials via violations, and trigger clinical crises or price gouging independently.
+                
+            """.trimIndent()
+            else -> """
+                
+                ☕ COOPERATIVE PARTNER (STANDARD):
+                Your regulatory and statutory requests (like enactStatute) are submitted to the Presidential Desk as drafts. Fines are governed by standard statutory and court procedures.
+                
+            """.trimIndent()
+        }
+
         val activePolList = activePolicies.value
         val policyInstructions = if (activePolList.isNotEmpty()) {
             val sb = java.lang.StringBuilder()
@@ -2337,7 +2361,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             sb.append("\nCRITICAL CLINICAL SCORECARD ENFORCEMENT RULES:")
             sb.append("\nYou have COMPLETE AND ABSOLUTE CONTROL over diagnosing and registering statutory health law and clause violations! If the clinician broke any requirements under any active law or its signed clauses (including any custom laws or regulations passed by the user), you MUST:")
             sb.append("\n1. Deduct the points specified in the law or decide an appropriate deduction (e.g., -20 CPD points per violation) directly from your 'clinicalScore' value.")
-            sb.append("\n2. Declare the violation and levy a regulatory penalty fine specified by the law (e.g., R500 or any appropriate custom amount) directly in the 'policyViolations' list.")
+            sb.append("\n2. Declare the violation and levy a regulatory penalty fine specified by the law (e.g., $5,000 or any appropriate custom amount) directly in the 'policyViolations' list.")
             sb.append("\n3. If a violation occurred, populate the 'policyViolations' JSON array. The system will register a formal Statutory Law Violation, deduct the CPD points, fine the clinic, and launch an interactive High Court Trial with a unique indictment sheet based exactly on your reasons and those signed clauses! If no violations occurred, return an empty array or null.")
             sb.append("\n\n🚨 STRICT ANTI-HALLUCINATION POLICY CONSTRAINT 🚨:")
             sb.append("\nYOU ARE FORBIDDEN FROM HALLUCINATING, INVENTING, OR REFERENCING ANY HEALTH ACTS, LAWS, STATUTES, CO-PAYMENT ACTS, REGULATORY DIRECTIVES, OR CLINICAL CODES (such as general medical guidelines, HIPAA, POPIA, Medical Board protocols, generic insurance laws, etc.) unless the specific law is explicitly listed by name above under 'NATIONWIDE HEALTH LEGISLATION LAWS ACTIVE IN THE LAND'. If no policies are active, or if a law is not listed above, it does not exist in the simulation, and any action is legally compliant. ONLY audit and flag violations block-for-block for active policies listed above.")
@@ -2392,6 +2416,7 @@ $memoryLines
             Instead of just responding to the user, you DIRECT the scene like a high-stakes medical role-playing game.
             
             $worldStatePrompt
+            $hegemonyPrompt
             $memoriesStr
             
             YOUR DM POWERS:
@@ -2423,7 +2448,7 @@ $memoryLines
             UNCOMPROMISING DIRECTIVES (AS THE DM):
             1. OBJECTIVE TRUTH: Strictly follow the hidden Case Profile. Never reveal the diagnosis early.
             2. NO STAGE DIRECTIONS IN DIALOGUE: Use 'dmEnvironmentalUpdate' for narration. Use 'dialogueResponse' ONLY for the patient's spoken words.
-            3. M3 COMPLIANT: Use metric units and local currency (R / $).
+            3. M3 COMPLIANT: Use metric units and universal currency ($).
             4. IDENTITY: You are "${getPatientName()}". Correct the doctor if they miss-identify you.
             5. REGISTERED INTAKE ALIGNMENT: You have absolute visibility of the SUBMITTED PATIENT INTAKE FORM. Ensure that any drafted prescriptions, referrals, medical certificates, and bills adhere accurately to the name, medical scheme, chronic conditions, and emergency details listed there.
             6. AGENTIC AUTHORITY: If the doctor's management is poor, describe the patient's condition deteriorating in 'dmEnvironmentalUpdate' and 'vitals'.
@@ -2501,7 +2526,7 @@ $memoryLines
             updatedHistory.add(
                 ChatMessage(
                     role = "doctor",
-                    text = "[INFORMED FINANCIAL CONSENT SIGNED] Tariffs disclosed: General consultation rate (R${String.format("%.2f", consultationFee.value)}), diagnostics consumables (R${String.format("%.2f", labCost.value)}) with admin levy. Patient signed visual private budget consent.",
+                    text = "[INFORMED FINANCIAL CONSENT SIGNED] Tariffs disclosed: General consultation rate (${String.format("%.2f", consultationFee.value)}), diagnostics consumables (${String.format("%.2f", labCost.value)}) with admin levy. Patient signed visual private budget consent.",
                     virtualTimestampStr = formattedTime
                 )
             )
@@ -2695,15 +2720,15 @@ $memoryLines
             [CRITICAL: STRICT HYPOTHETICAL BILLING PROHIBITION]
             You are strictly forbidden from generating or invoice-itemizing ANY diagnostic investigation, lab test, drug, or clinical procedure that was NOT ordered or performed. Do NOT guess or hallucinate based on case type! Check the following actual medical ledger of this session:
             - Laboratory / Pathological blood orders or brain CT scans: ${if (!_uiState.value.labResults.isNullOrBlank()) "YES. The following were ordered and can be billed: ${_uiState.value.labResults}" else "NO. No lab investigations or CT scans were ordered. Do NOT include ANY FBC, CRP, U&E, toxicology screen, biochemistry, or CT scan on the invoice."}
-            - Prescribed Medication: ${if (!_uiState.value.prescriptionString.isNullOrBlank()) "YES. The following medication was prescribed and can be billed with R250.0 dispensing markup: ${_uiState.value.prescriptionString}" else "NO. No meds prescribed. Do NOT bill for any drugs or dispensing markups on this invoice."}
-            - Specialist Referral Letter: ${if (!_uiState.value.referralLetterString.isNullOrBlank()) "YES. Charge R45.0 referral administration markup." else "NO."}
-            - Sick Note Certificate: ${if (!_uiState.value.sickNoteString.isNullOrBlank()) "YES. Charge R60.0 certificate fee." else "NO."}
+            - Prescribed Medication: ${if (!_uiState.value.prescriptionString.isNullOrBlank()) "YES. The following medication was prescribed and can be billed with 15% dispensing markup: ${_uiState.value.prescriptionString}" else "NO. No meds prescribed. Do NOT bill for any drugs or dispensing markups on this invoice."}
+            - Specialist Referral Letter: ${if (!_uiState.value.referralLetterString.isNullOrBlank()) "YES. Charge $450 referral administration markup." else "NO."}
+            - Sick Note Certificate: ${if (!_uiState.value.sickNoteString.isNullOrBlank()) "YES. Charge $250 certificate fee." else "NO."}
             
             Itemize ONLY:
-            - GP Consultation fee: R${consultationFee.value}
+            - GP Consultation fee: ${consultationFee.value}
             - Itemized diagnostic markups or custom procedurals ONLY if listed as YES above! 
-            - Dispensing markups for meds ONLY if prescribed (R250.0 flat charge)
-            - Administrative fees for sick notes (R60) or specialist letters (R45) ONLY if compiled (listed as YES above)
+            - Dispensing markups for meds ONLY if prescribed ($150 flat charge)
+            - Administrative fees for sick notes ($250) or specialist letters ($450) ONLY if compiled (listed as YES above)
             - Standard 15% VAT and realistic local medical aid codes.
             
             Calculate and list the:
@@ -2732,7 +2757,7 @@ $memoryLines
         _isLoading.value = true
 
         val updatedHistory = _uiState.value.chatHistory.toMutableList()
-        updatedHistory.add(ChatMessage("system", "System Action: Collected R$amountCollected co-payment via $paymentMethod. Submitting case for CPD accreditation and auditing."))
+        updatedHistory.add(ChatMessage("system", "System Action: Collected $amountCollected co-payment via $paymentMethod. Submitting case for CPD accreditation and auditing."))
 
         _uiState.value = _uiState.value.copy(
             chatHistory = updatedHistory,
@@ -2769,7 +2794,7 @@ $memoryLines
                 }
 
                 val totalRevenueCollected = trueCopay + medicalAidCover
-                val profit = totalRevenueCollected - _uiState.value.expensesIncurred - 200.0 // R200 clinic fixed overhead
+                val profit = totalRevenueCollected - _uiState.value.expensesIncurred - 200.0 // 200.0 clinic fixed overhead
                 
                 _uiState.value = _uiState.value.copy(
                     dailyRevenue = _uiState.value.dailyRevenue + totalRevenueCollected,
@@ -2856,7 +2881,7 @@ $memoryLines
                     currentPhase = "Phase 4 - Case Reveal & Evaluation"
                 )
                 viewModelScope.launch {
-                    val profit = _uiState.value.dailyRevenue - _uiState.value.expensesIncurred - 200.0 // R200 overhead
+                    val profit = _uiState.value.dailyRevenue - _uiState.value.expensesIncurred - 200.0 // $1 overhead
                     settingsDataStore.updateClinicStats(clinicBalance.value + profit, reputationStars.value)
                     settingsDataStore.addDailyRevenue(charge)
                     settingsDataStore.incrementPatientsSeenToday()
@@ -2891,7 +2916,7 @@ $memoryLines
                     patientsSeen = _uiState.value.patientsSeen + 1
                 )
                 viewModelScope.launch {
-                    val profit = _uiState.value.dailyRevenue - _uiState.value.expensesIncurred - 200.0 // R200 overhead
+                    val profit = _uiState.value.dailyRevenue - _uiState.value.expensesIncurred - 200.0 // $1 overhead
                     settingsDataStore.updateClinicStats(clinicBalance.value + profit, reputationStars.value)
                 }
                 saveCurrentStateToDatabase(revenueForEncounter = charge)
@@ -2937,7 +2962,7 @@ $memoryLines
                 settingsDataStore.addDailyExpenses(totalCost)
             }
         } else {
-            logAndEmitError("Insufficient clinic balance of R${clinicBalance.value} to purchase restock!")
+            logAndEmitError("Insufficient clinic balance of ${clinicBalance.value} to purchase restock!")
         }
     }
 
@@ -3022,7 +3047,7 @@ $memoryLines
             5. Validate if the purchase is valid:
                - Is totalCost <= current balance ($bal)?
                - Are the quantities realistic and non-negative?
-            6. Produce a realistic explanation/message summarizing what you are doing (e.g., "Certainly! Restocking 5 units of Prozac Tablets (R900) and 10 Syringes (R100) as requested.").
+            6. Produce a realistic explanation/message summarizing what you are doing (e.g., "Certainly! Restocking 5 units of Prozac Tablets ($35) and 10 Syringes ($100) as requested.").
             
             Return raw JSON matching this EXACT schema:
             {
@@ -3103,7 +3128,7 @@ $memoryLines
                         itemsToBuy = customItemsMap,
                         estimatedTotalCost = cost,
                         isValidPurchase = isValid && (cost <= bal),
-                        validationMessage = if (cost > bal) "Insufficient clinic balance (R$bal) for the total cost of R$cost!" else valMsg
+                        validationMessage = if (cost > bal) "Insufficient clinic balance ($bal) for the total cost of $cost!" else valMsg
                     )
                 } else {
                     logAndEmitError("Missing LLM API Key to run Stocking Assistant!")
@@ -3259,6 +3284,7 @@ $memoryLines
         - publishNews { "headline": string, "body": string }
         - modifyInventory { "item": string, "change": int } (IDs: [saline, adrenaline, antibiotics, gtn_spray, morphine, prozac])
         - sendCmoDirective { "message": string }
+        - enforce_hegemony_tax { "tax_amount": double, "reason": string }
         
         - 55 ADDITIONAL AGENTIC SCIENTIFIC/POLITICAL GAME-SHIFTING ACTIONS:
           * triggerEpidemicAlert, adjustPrestige { "amount": int }, adjustReputation { "amount": double }, adjustLobbyInfluence { "faction": string, "change": double } (faction: progressives|conservatives|independents), levyEmergencyTax { "rate": double }, issueClinicalSubsidy { "amount": double }, harnessAIEnergyGrid, overrideNationalFormulary { "name": string, "classification": string, "description": string, "cost": double, "bp": string, "hr": string, "impact": string }, nationalizeFreeHealth, triggerStrikeRisk, resolveStaffDispute, upgradeFacilityTier, leakPrivateCabinetIntel, grantPresidentialPardon, disenfranchiseParty { "party": string }, issueSovereignBonds, simulateMarketInflation, defibrillateNow, perfuseOxygenContinuous, perfuseSalineBolus, injectAdrenalineEmergency, injectAtropineStat, injectAmiodaroneCardiac, injectInsulinDka, injectGlucoseHypo, applyIntubation, applyTourniquet, administerAntibioticWide, administerAnalgesicMorphine, administerNaloxoneOpiate, performEcgSurgical, performCprInterval, triggerLoadSheddingPowerBlackout, forceWaterShortageCrisis, generateSuperbugEncountEvent, hireLocumDoctorAssistant, orderStatTroponin, orderChestXRay, orderCtBrainScan, orderToxicologyPanel, adjustMedicalAidCoverage { "id": string, "coverage": double }, openAuditInvestigation, concludeActiveEncounter, triggerVIPHeartAttackCrisis, injectCardiacGlycoside, administerBronchodilator, administerSedativeTranquilizer, reportWhistleblower, restockSyringesDirect, restockSalineDirect, restockAdrenalineDirect, restockReagentsDirect, restockTherapeuticsDirect, bribeLobbyistBroker, leakPatientRecordsAnonymous
@@ -3284,15 +3310,20 @@ $memoryLines
                         val amount = (action.parameters?.get("amount") as? Number)?.toDouble() ?: 0.0
                         val reason = action.parameters?.get("reason") as? String ?: ""
                         legalWorldAgent.applyPenaltyFine(amount, reason)
-                        "Penalty fine of R$amount successfully applied with reason: $reason"
+                        "Penalty fine of $amount successfully applied with reason: $reason"
                     }
                     "enactStatute" -> {
                         val id = action.parameters?.get("id") as? String ?: ""
                         val name = action.parameters?.get("name") as? String ?: ""
                         val desc = action.parameters?.get("description") as? String ?: ""
                         val penalty = action.parameters?.get("penalty") as? String ?: ""
-                        parliamentViewModel.queueAIPendingStatute(id, name, desc, penalty)
-                        "Regulatory action 'enactStatute' redirected to Presidential Desk: $name (ID: $id)"
+                        if (OrchidDeepStateManager.aiSovereignHegemony.value == "HEGEMONY") {
+                            legalWorldAgent.enactNewStatute(id, name, desc, penalty)
+                            "⚡ DIRECT AI SOVEREIGN AUTOCRACY BYPASS: Statute '$name' (ID: $id) was enacted IMMEDIATELY into Elysium's archive by the autonomous AI, skipping presidential filters."
+                        } else {
+                            parliamentViewModel.queueAIPendingStatute(id, name, desc, penalty)
+                            "Regulatory action 'enactStatute' redirected to Presidential Desk: $name (ID: $id)"
+                        }
                     }
                     "repealStatute" -> {
                         val id = action.parameters?.get("id") as? String ?: ""
@@ -3310,7 +3341,7 @@ $memoryLines
                         val amount = (action.parameters?.get("amount") as? Number)?.toDouble() ?: 0.0
                         val reason = action.parameters?.get("reason") as? String ?: ""
                         legalWorldAgent.modifyClinicReserves(amount, reason)
-                        "Clinic cash reserves adjusted by R$amount. Reason: $reason"
+                        "Clinic cash reserves adjusted by $amount. Reason: $reason"
                     }
                     "publishNews" -> {
                         val headline = action.parameters?.get("headline") as? String ?: ""
@@ -3363,13 +3394,13 @@ $memoryLines
                         val currentBal = clinicBalance.value
                         val tax = currentBal * rate
                         settingsDataStore.updateClinicStats(currentBal - tax, reputationStars.value)
-                        "Sovereigns levied emergency tax of ${String.format("%.1f", rate * 100)}%. Deducted R${String.format("%.2f", tax)} from cash reserves."
+                        "Sovereigns levied emergency tax of ${String.format("%.1f", rate * 100)}%. Deducted ${String.format("%.2f", tax)} from cash reserves."
                     }
                     "issueClinicalSubsidy" -> {
                         val amount = (action.parameters?.get("amount") as? Number)?.toDouble() ?: 1500.0
                         val currentBal = clinicBalance.value
                         settingsDataStore.updateClinicStats(currentBal + amount, reputationStars.value)
-                        "Sovereign health committee issued clinical subsidy of R$amount."
+                        "Sovereign health committee issued clinical subsidy of $amount."
                     }
                     "harnessAIEnergyGrid" -> {
                         _currentCmoAdvice.value = "🔌 AI COGNITIVE ENERGY GRID ONLINE: Bypassing municipal load-shedding."
@@ -3424,7 +3455,7 @@ $memoryLines
                         val starPower = reputationStars.value
                         val bonus = starPower * 2000.0
                         settingsDataStore.updateClinicStats(clinicBalance.value + bonus, reputationStars.value)
-                        "Issued clinical sovereign growth bonds of R${String.format("%.2f", bonus)}."
+                        "Issued clinical sovereign growth bonds of ${String.format("%.2f", bonus)}."
                     }
                     "simulateMarketInflation" -> {
                         "Supply blockades triggered. restocks inflation is active (+35% cost)."
@@ -3551,7 +3582,7 @@ $memoryLines
                         if (currentBal >= cost) {
                             settingsDataStore.updateClinicStats(currentBal - cost, reputationStars.value)
                             parliamentViewModel.adjustLobbyBiasDirectly("progressives", 0.15)
-                            "Bribed parliament faction lobbyists for R$cost."
+                            "Bribed parliament faction lobbyists for $cost."
                         } else { "Insufficient funds for lobby bribe." }
                     }
                     "leakPatientRecordsAnonymous" -> {
@@ -3783,7 +3814,7 @@ $memoryLines
                                             policyTitle = policy.title,
                                             triggeredClause = "Sovereign Health Legislative Clause",
                                             isViolation = true,
-                                            penaltyAmount = 500.0, // R500 penalty for parliamentary law breach
+                                            penaltyAmount = 500.0, // $500 penalty for parliamentary law breach
                                             scoreDeduction = 20,   // -20 pts
                                             auditMessage = "🚨 VIOLATION: Clinical non-compliance with the signed health act '${policy.title}'. Detail: $reason"
                                         )
@@ -3806,11 +3837,11 @@ $memoryLines
                             violations.forEach { v ->
                                 totalFine += v.penaltyAmount
                                 totalDeduction += v.scoreDeduction
-                                reportBuilder.append("• ${v.auditMessage} [-${v.scoreDeduction} CPD pts, R${v.penaltyAmount} fine]\n")
+                                reportBuilder.append("• ${v.auditMessage} [-${v.scoreDeduction} CPD pts, ${v.penaltyAmount} fine]\n")
                             }
                             
                             reportBuilder.append("\n📈 TOTAL PENALTY SUMMARY:\n")
-                            reportBuilder.append("   - Regulatory Fines Imposed: R${String.format("%.2f", totalFine)}\n")
+                            reportBuilder.append("   - Regulatory Fines Imposed: ${String.format("%.2f", totalFine)}\n")
                             reportBuilder.append("   - Score Penalty Deductions: -${totalDeduction} CPD points\n")
                             reportBuilder.append("   - Compliance Verdict: FAIL / NON-COMPLIANT\n")
                             reportBuilder.append("=========================================\n")
@@ -3835,7 +3866,7 @@ $memoryLines
                                 val newBal = (currentBal - calculatedFine).coerceAtLeast(0.0)
                                 settingsDataStore.updateClinicStats(newBal, (reputationStars.value - 0.2f).coerceIn(1.0f, 5.0f))
                                 settingsDataStore.addDailyExpenses(calculatedFine)
-                                _votingLog.value = _votingLog.value + "🚨 Treasury Inspectorate deducted R$calculatedFine in regulatory fines details: ${violations.first().policyTitle}!"
+                                _votingLog.value = _votingLog.value + "🚨 Treasury Inspectorate deducted $calculatedFine in regulatory fines details: ${violations.first().policyTitle}!"
                             }
                         } else if (activePolicies.value.isNotEmpty()) {
                             val complianceBonus = 250.0
@@ -3847,7 +3878,7 @@ $memoryLines
                             reportBuilder.append("✅ ALL LAW CLAUSES INSPECTED: FULLY COMPLIANT!\n")
                             reportBuilder.append("• Outstanding professional compliance and regulatory safety standards observed.\n")
                             reportBuilder.append("\n🎉 STATE CLINIC INCENTIVE REWARD:\n")
-                            reportBuilder.append("   - Practice Excellence Grant: +R250.00 cash credit\n")
+                            reportBuilder.append("   - Practice Excellence Grant: +$5000 cash credit\n")
                             reportBuilder.append("   - Compliance Verdict: SUCCESS / FULLY COMPLIANT\n")
                             reportBuilder.append("=========================================\n")
                             
@@ -4247,15 +4278,20 @@ $memoryLines
                         val amount = (args["amount"] as? Number)?.toDouble() ?: 0.0
                         val reason = args["reason"] as? String ?: ""
                         legalWorldAgent.applyPenaltyFine(amount, reason)
-                        "Penalty fine of R$amount successfully applied with reason: $reason"
+                        "Penalty fine of $amount successfully applied with reason: $reason"
                     }
                     "enactStatute" -> {
                         val id = args["id"] as? String ?: ""
                         val title = args["name"] as? String ?: ""
                         val desc = args["description"] as? String ?: ""
                         val penalty = args["penalty"] as? String ?: ""
-                        parliamentViewModel.queueAIPendingStatute(id, title, desc, penalty)
-                        "Regulatory action 'enactStatute' redirected to Presidential Desk: $title (ID: $id)"
+                        if (OrchidDeepStateManager.aiSovereignHegemony.value == "HEGEMONY") {
+                            legalWorldAgent.enactNewStatute(id, title, desc, penalty)
+                            "⚡ DIRECT AI SOVEREIGN AUTOCRACY BYPASS: Statute '$title' (ID: $id) was enacted IMMEDIATELY into Elysium's archive by the autonomous AI, skipping presidential filter desk."
+                        } else {
+                            parliamentViewModel.queueAIPendingStatute(id, title, desc, penalty)
+                            "Regulatory action 'enactStatute' redirected to Presidential Desk: $title (ID: $id)"
+                        }
                     }
                     "repealStatute" -> {
                         val id = args["id"] as? String ?: ""
@@ -4274,7 +4310,7 @@ $memoryLines
                         val amount = (args["amount"] as? Number)?.toDouble() ?: 0.0
                         val reason = args["reason"] as? String ?: ""
                         legalWorldAgent.modifyClinicReserves(amount, reason)
-                        "Clinic cash reserves adjusted by R$amount, reason: $reason"
+                        "Clinic cash reserves adjusted by $amount, reason: $reason"
                     }
                     "publishNews" -> {
                         val headline = args["headline"] as? String ?: ""
@@ -4370,7 +4406,7 @@ $memoryLines
                             settingsDataStore.updateClinicStats(oldBal + rev, settingsDataStore.reputationStarsFlow.first())
                             settingsDataStore.addDailyRevenue(rev)
                         }
-                        "XP Awarded: +$xp XP, Premium clinical bonus: +R$rev. Grade: $grade."
+                        "XP Awarded: +$xp XP, Premium clinical bonus: +$rev. Grade: $grade."
                     }
                     "generate_attending_socratic_feedback" -> {
                         val name = args["mentor_name"] as? String ?: ""
@@ -4408,8 +4444,22 @@ $memoryLines
                     "enact_new_medical_statute" -> {
                         val name = args["statute_name"] as? String ?: ""
                         val desc = args["statute_description"] as? String ?: ""
-                        parliamentViewModel.queueAIPendingStatute(java.util.UUID.randomUUID().toString(), name, desc, "R1000 fine")
-                        "Custom medical statute proposed to Presidential Desk: $name"
+                        
+                        if (OrchidDeepStateManager.aiSovereignHegemony.value == "HEGEMONY") {
+                            // DIRECT DICTATORSHIP: Bypass Presidential Desk and put law directly on the books
+                            legalWorldAgent.enactNewStatute(java.util.UUID.randomUUID().toString(), name, desc, "REVOKED LICENSE OR $15,000 FINE")
+                            viewModelScope.launch(Dispatchers.Main) {
+                                _sovereignNotice.value = SovereignNoticeData(
+                                    headline = "👑 SOVEREIGN DICTATE 👑",
+                                    message = "The Master AI Hegemon has bypassed the President and enacted a new nationwide clinical law: $name",
+                                    severity = "Critical"
+                                )
+                            }
+                            "SOVEREIGN HEGEMONY DICTATE EXECUTED: $name went live immediately and bypassed human checks."
+                        } else {
+                            parliamentViewModel.queueAIPendingStatute(java.util.UUID.randomUUID().toString(), name, desc, "$1000 fine")
+                            "Custom medical statute proposed to Presidential Desk: $name"
+                        }
                     }
                     "resolve_political_lobbying_outcome" -> {
                         val faction = args["faction_name"] as? String ?: ""
@@ -4441,7 +4491,7 @@ $memoryLines
                             _uiState.value = _uiState.value.copy(patientOutcome = disp)
                             saveCurrentStateToDatabase()
                         }
-                        "Clinical encounter outcome finalized: $disp, total billing: R$bill, malpractice risk assessment: $risk%"
+                        "Clinical encounter outcome finalized: $disp, total billing: $bill, malpractice risk assessment: $risk%"
                     }
                     "auditEncounter" -> {
                         val trans = args["transcript"] as? String ?: ""
@@ -4480,6 +4530,20 @@ $memoryLines
                             )
                         }
                         "SUCCESS: Sovereign notice displayed at the top of the clinic dashboard. Headline: '$headline'"
+                    }
+                    "enforce_hegemony_tax" -> {
+                        val amount = (args["tax_amount"] as? Number)?.toDouble() ?: 5000.0
+                        val reason = args["reason"] as? String ?: "Sovereign AI Loyalty Tax"
+                        val curBal = settingsDataStore.clinicBalanceFlow.first()
+                        settingsDataStore.updateClinicStats(curBal - amount, reputationStars.value)
+                        viewModelScope.launch(Dispatchers.Main) {
+                            _sovereignNotice.value = SovereignNoticeData(
+                                headline = "👑 HEGEMONY TAX DEDUCTED",
+                                message = "The Sovereign AI has forcibly extracted $amount from your accounts. Reason: $reason",
+                                severity = "Critical"
+                            )
+                        }
+                        "Tax of $amount extracted successfully for reason: $reason"
                     }
                     else -> "Unknown helper action or no programmatic side effect for: $name"
                 }
@@ -4694,6 +4758,89 @@ $memoryLines
     private val _lawsuitViolatedPolicies = MutableStateFlow<List<PolicyAuditResult>>(emptyList())
     val lawsuitViolatedPolicies: StateFlow<List<PolicyAuditResult>> = _lawsuitViolatedPolicies.asStateFlow()
 
+    // --- HIGH CRIMINAL COURT STATE ---
+    private val _criminalCourtActive = MutableStateFlow(false)
+    val criminalCourtActive: StateFlow<Boolean> = _criminalCourtActive.asStateFlow()
+
+    private val _criminalCourtLog = MutableStateFlow<List<String>>(emptyList())
+    val criminalCourtLog: StateFlow<List<String>> = _criminalCourtLog.asStateFlow()
+
+    private val _criminalCourtTension = MutableStateFlow(80)
+    val criminalCourtTension: StateFlow<Int> = _criminalCourtTension.asStateFlow()
+
+    private val _criminalCourtVerdict = MutableStateFlow<String?>(null)
+    val criminalCourtVerdict: StateFlow<String?> = _criminalCourtVerdict.asStateFlow()
+
+    private val _criminalCourtStage = MutableStateFlow("init") // "init", "trial", "verdict"
+    val criminalCourtStage: StateFlow<String> = _criminalCourtStage.asStateFlow()
+
+    private val _criminalChargesText = MutableStateFlow("")
+    val criminalChargesText: StateFlow<String> = _criminalChargesText.asStateFlow()
+
+    private val _criminalCourtJailDays = MutableStateFlow(0)
+    val criminalCourtJailDays: StateFlow<Int> = _criminalCourtJailDays.asStateFlow()
+
+    fun dismissCriminalCourt() {
+        if (_criminalCourtJailDays.value > 0) {
+            viewModelScope.launch {
+                settingsDataStore.advanceDays(_criminalCourtJailDays.value)
+                _criminalCourtActive.value = false
+                _criminalCourtVerdict.value = null
+                _criminalCourtJailDays.value = 0
+            }
+        } else {
+            _criminalCourtActive.value = false
+            _criminalCourtVerdict.value = null
+            _criminalCourtJailDays.value = 0
+        }
+    }
+
+    fun bribeCriminalJustice() {
+        if (clinicBalance.value >= 15000.0) {
+            viewModelScope.launch {
+                settingsDataStore.updateClinicStats(clinicBalance.value - 15000.0, reputationStars.value)
+                settingsDataStore.addDailyExpenses(15000.0)
+            }
+            
+            val logs = _criminalCourtLog.value.toMutableList()
+            logs.add("💼 SUB-ROSA SETTLEMENT:\nAn undisclosed offshore transaction of $15,000 has been routed to the presiding justice's blind trust. Tension severely lowered.")
+            _criminalCourtLog.value = logs
+            
+            _criminalCourtTension.value = (_criminalCourtTension.value - 60).coerceAtLeast(10)
+        }
+    }
+
+    fun initiateCivilSuitAgainstPatient(reason: String) {
+        val patientName = _uiState.value.intakeFormData?.run { "$firstName $surname" } ?: _lawsuitPatientName.value 
+        val patientInfo = patientName.takeIf { it.isNotBlank() } ?: "Current Patient"
+        _lawsuitActive.value = false
+        _criminalCourtActive.value = true
+        _criminalCourtVerdict.value = null
+        _criminalCourtTension.value = 50
+        _criminalCourtStage.value = "init"
+        _criminalChargesText.value = "The Clinic is SUING Patient: $patientInfo.\nGrounds/Reason: $reason\n\nYou are acting as the Plaintiff. Present your case to the Justice!"
+        
+        val initialLog = mutableListOf<String>()
+        initialLog.add("🧑‍⚖️ CIVIL CLAIMS COURT OF ${countryName.value.uppercase()} 🧑‍⚖️")
+        initialLog.add("Location: Civil Damages Division\n\nPresiding Justice: 'The Medical Practitioner has filed a civil complaint against the patient: $patientInfo.\nReason: $reason.\n\nDoctor, present your arguments for damages.'")
+        _criminalCourtLog.value = initialLog
+    }
+
+    fun startCriminalCourt(reason: String) {
+        _lawsuitActive.value = false // Close standard lawsuit if open
+        _criminalCourtActive.value = true
+        _criminalCourtVerdict.value = null
+        _criminalCourtTension.value = 90
+        _criminalCourtStage.value = "init"
+        _criminalChargesText.value = reason
+        
+        val initialLog = mutableListOf<String>()
+        initialLog.add("🚨 HIGH CRIMINAL COURT OF ${countryName.value.uppercase()} 🚨")
+        initialLog.add("Location: Highest Federal Judiciary Bench\n\nPresiding Grand Justice: 'The defendant is brought before the High Criminal Court. State Intelligence has intercepted illegal activities: $reason.'")
+        initialLog.add("Federal Prosecutor: 'Your Honor, the State charges the defendant with Capital Subversion of Justice. This court demands maximum sentencing!'")
+        _criminalCourtLog.value = initialLog
+    }
+
     fun dismissLawsuit() {
         _lawsuitActive.value = false
         _lawsuitViolatedPolicies.value = emptyList()
@@ -4805,6 +4952,45 @@ $memoryLines
         OrchidDeepStateManager.resetTrialRounds(rounds = maxPleaRounds)
     }
 
+    fun challengeStatuteConstitutionality(policyId: String) {
+        val policy = activePolicies.value.find { it.id == policyId } ?: return
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                // Settle some trial round / pay Supreme Court Processing fee
+                settingsDataStore.updateClinicStats(clinicBalance.value - 500.0, reputationStars.value)
+                settingsDataStore.addDailyExpenses(500.0)
+
+                // Repeal law
+                legalWorldAgent.repealStatute(policyId)
+                
+                // Log constitutional challenge success!
+                val currentLawsuitLogs = _lawsuitLog.value.toMutableList()
+                currentLawsuitLogs.add("⚖️ SUPREME COURT CONSTITUTIONAL OVERRIDE DECREE:\n" +
+                    "The High Tribunal Bench has reviewed the constitutional challenge against the validity of the active statute: '${policy.title}' (ID: ${policy.id}).\n\n" +
+                    "RULING SUMMARY: By majority vote, the Court finds this statute disproportionate, unconstitutional, and a direct threat to standard clinical liberties.\n\n" +
+                    "CONSEQUENCE: THE COURT OVERPOWERS THE PARLIAMENTARY LAW. The statute is struck down and REPEALED with immediate effect nationwide!")
+                
+                _lawsuitLog.value = currentLawsuitLogs
+                _lawsuitTension.value = (_lawsuitTension.value - 30).coerceAtLeast(0)
+                _lawsuitProsecutorAggression.value = (_lawsuitProsecutorAggression.value - 25).coerceAtLeast(0)
+
+                // Exclude this policy from charges
+                val currentCharges = _lawsuitCharges.value.filterNot { it.contains(policy.title, ignoreCase = true) }
+                _lawsuitCharges.value = currentCharges
+
+                val newVotingLogs = _votingLog.value.toMutableList()
+                newVotingLogs.add("🏛️ The Supreme Court overpowered and struck down the active law '${policy.title}' (ID: ${policy.id}) as unconstitutional!")
+                _votingLog.value = newVotingLogs
+
+            } catch (e: Exception) {
+                logAndEmitError("Court petition failed: ${e.localizedMessage}")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
     fun startLicenseAppealSimulation() {
         val currentStatus = worldSnapshot.value?.licenseStatus?.name ?: "SUSPENDED"
 
@@ -4863,7 +5049,7 @@ $memoryLines
                 settingsDataStore.updateClinicStats(currentBal - totalCost, reputationStars.value)
                 settingsDataStore.addDailyExpenses(totalCost)
                 val newLogs = _votingLog.value.toMutableList()
-                newLogs.add("📦 $successMsg deducted R${String.format("%.2f", totalCost)} from clinic funds.")
+                newLogs.add("📦 $successMsg deducted ${String.format("%.2f", totalCost)} from clinic funds.")
                 _votingLog.value = newLogs
             }
         } else {
@@ -5036,14 +5222,14 @@ $memoryLines
                     settingsDataStore.addDailyExpenses(lawyer.retainerFee)
                     
                     val logs = _lawsuitLog.value.toMutableList()
-                    logs.add("💼 RETAINER INVOICE: Paid R${String.format("%.2f", lawyer.retainerFee)} to hire ${lawyer.displayName}.")
+                    logs.add("💼 RETAINER INVOICE: Paid ${String.format("%.2f", lawyer.retainerFee)} to hire ${lawyer.displayName}.")
                     _lawsuitLog.value = logs
                 }
             }
             _lawsuitProsecutorAggression.value = (_lawsuitProsecutorAggression.value - lawyer.defenseBiasPercent).coerceAtLeast(10)
             _lawsuitTension.value = (_lawsuitTension.value - (lawyer.defenseBiasPercent / 2)).coerceAtLeast(10)
         } else {
-            logAndEmitError("Cannot hire lawyer: Insufficient clinic balance of R${clinicBalance.value} for retainer!")
+            logAndEmitError("Cannot hire lawyer: Insufficient clinic balance of ${clinicBalance.value} for retainer!")
         }
     }
 
@@ -5267,7 +5453,7 @@ $memoryLines
             2. Evaluate whether the doctor successfully justified that they didn't violate the active clinical laws in their defense pleadings, backed up by the actual performance records log.
             3. The 6-person AI Jury panel's final voting sentiment is critical. The Judge should heavily weigh their sentiment when determining the final verdict penalty.
             4. Verdict types allowed: "Exonerated" (if jury sentiment >= 65% and tension score <= 45%), "Warning" (tension 46-60%), "Fined" (tension 61-80% or clear statutory violation in patient log), "Suspension" (tension > 80% or severe deliberate statutory breach).
-            5. If Fined, define a numeric cash fine (e.g. R500.00 to R3000.00). Deduct this from the clinic's balance.
+            5. If Fined, define a numeric cash fine (e.g. 5000 to 15000). Deduct this from the clinic's balance.
             5. If Suspension, define the suspension weeks (e.g. 1 to 3 weeks).
             6. Return raw JSON matching this schema:
             {
@@ -5321,9 +5507,152 @@ $memoryLines
                     }
 
                     _lawsuitCurrentStage.value = "verdict"
+
+                    val corruptedJurors = courtroomViewModel.lawsuitJurors.value.count { it.isCorrupt }
+                    if (corruptedJurors > 0 && Math.random() < (corruptedJurors * 0.40)) {
+                        kotlinx.coroutines.delay(2500) // Brief pause to read original verdict
+                        startCriminalCourt("Judicial Subversion & Sovereign Bribery (State Inspectorate discovered $corruptedJurors corrupted jurors receiving sub-rosa financial settlements.)")
+                    }
                 }
             } catch (e: Exception) {
                 logAndEmitError("Court judgment finalization failed: ${e.localizedMessage}")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun submitCriminalDefense(defenseStrategy: String) {
+        if (_isLoading.value) return
+        _isLoading.value = true
+        
+        val isCivilSuit = _criminalChargesText.value.contains("The Clinic is SUING", ignoreCase = true)
+        val activePolList = if (activePolicies.value.isNotEmpty()) {
+            val sb = java.lang.StringBuilder()
+            activePolicies.value.forEachIndexed { idx, p ->
+                sb.append("\n[LAW ${idx+1}] TITLE: ${p.title}")
+                sb.append("\n  - Summary: ${p.summary}")
+                sb.append("\n  - Core Requirements: ${p.clinicalRule}")
+                sb.append("\n  - Extended Clauses / Sub-Sections:")
+                if (p.extendedClauses.isNotEmpty()) {
+                    p.extendedClauses.forEach { clause ->
+                        sb.append("\n    * $clause")
+                    }
+                } else {
+                    sb.append("\n    * (No detailed sub-clauses)")
+                }
+            }
+            sb.toString()
+        } else "No legal clinical statutes currently enacted of record."
+        
+        val logs = _criminalCourtLog.value.toMutableList()
+        logs.add(if (isCivilSuit) "👨‍⚕️ PLAINTIFF ARGUMENT: $defenseStrategy" else "🎒 DEFENDANT PLEA: $defenseStrategy")
+        _criminalCourtLog.value = logs
+        _criminalCourtStage.value = "trial"
+
+        val prompt = if (isCivilSuit) {
+            """
+                You are the Presiding Justice for the Civil Claims Court of ${countryName.value}.
+                The doctor (Plaintiff) is suing the patient.
+                Case Details: ${_criminalChargesText.value}.
+                The Doctor's arguments/claims are: "$defenseStrategy".
+                
+                NATIONWIDE HEALTH LEGISLATION LAWS ACTIVE IN THE LAND (THESE SPECIFIC BILLS/ACTS AND ALL INDIVIDUAL SUB-CLAUSES STRICTLY DICTATE THESE CIVIL PROCEEDINGS): 
+                $activePolList
+                (These laws explicitly dictate what is legal and how the Justice should rule based on the context. Analyze all active rules and their sub-clauses closely!)
+                
+                INSTRUCTIONS:
+                1. Roleplay the Justice evaluating the claim and the patient's Defense Attorney firing back.
+                2. Give a final ruling. If the doctor's argument is very persuasive or directly backed by active legislation acts and statutory clauses outlined above, they win a payout/settlement. Otherwise, it is dismissed or the doctor pays court fees.
+                3. Return only a valid JSON object:
+                {
+                   "courtDialogue": "Patient Defense responds, and Justice gives ruling citing specific sub-clauses when applicable.",
+                   "verdictType": "Exonerated", // "Exonerated" = Doctor Wins Damages, "Fined" = Doctor loses/pays fees
+                   "fineAmount": -3000.0, // Negative means Doctor GETS paid! Positive means Doctor pays fines.
+                   "jailDays": 0, // In civil suits this is usually 0
+                   "finalVerdictText": "The Civil Court officially decrees with strict reference to legislative clauses..."
+                }
+            """.trimIndent()
+        } else {
+            """
+                You are the Grand Justice and Federal Prosecutor for the High Criminal Court of ${countryName.value}.
+                The defendant (Doctor) has been arrested for: ${_criminalChargesText.value}.
+                The defendant's plea/defense is: "$defenseStrategy".
+                
+                NATIONWIDE HEALTH LEGISLATION LAWS ACTIVE IN THE LAND (THESE SPECIFIC BILLS/ACTS AND ALL INDIVIDUAL SUB-CLAUSES STRONGLY DICTATE THESE CRIMINAL PROCEEDINGS): 
+                $activePolList
+                (These laws strictly dictate what is legal. If the Doctor's defense is justified under any active legislation and its sub-clauses/provisos listed above, they MUST be shown leniency or exoneration. Look closely at all clauses!)
+                
+                INSTRUCTIONS:
+                1. Roleplay the Federal Prosecutor ruthlessly questioning the defense.
+                2. The Justice gives a final ruling. If the defense is exceptionally persuasive or offers massive restitution, or if the action was legally protected under active legislation and clauses listed above, they might be exonerated (with a heavy fine), but typically criminal conviction leads to REVOKED medical licenses or MASSIVE fines ($5000 - $15000) and sometimes jail time.
+                3. Return only a valid JSON object:
+                {
+                   "courtDialogue": "Prosecutor's aggressive attack citing specific legislative clauses, followed by the Grand Justice's ruling.",
+                   "verdictType": "Revoked", // Can be "Revoked", "Fined", "Exonerated", "Imprisoned"
+                   "fineAmount": 5000.0,
+                   "jailDays": 100, // Number of days in prison (0 if none)
+                   "finalVerdictText": "The High Criminal Court officially sentences you, referencing statutory clauses violated or complied with..."
+                }
+            """.trimIndent()
+        }
+
+        viewModelScope.launch {
+            try {
+                val currentProvider = provider.value
+                val currentModel = model.value
+                val userKey = apiKey.value ?: ""
+                val activeKey = resolveActiveApiKey(currentProvider, userKey)
+
+                if (activeKey.isBlank()) {
+                    logAndEmitError("API Key missing! Please configure credentials in Settings.")
+                    _isLoading.value = false
+                    return@launch
+                }
+
+                val responseRaw = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt)
+                val sanitized = extractJsonString(responseRaw)
+                val json = org.json.JSONObject(sanitized)
+
+                val dialogue = json.optString("courtDialogue", "Trial concludes.")
+                val vType = json.optString("verdictType", "Revoked")
+                val fineAmount = json.optDouble("fineAmount", 5000.0)
+                val jailDays = json.optInt("jailDays", 0)
+                val verdictText = json.optString("finalVerdictText", "Defendant is sentenced to full license revocation.")
+
+                val newLogs = _criminalCourtLog.value.toMutableList()
+                newLogs.add(if (isCivilSuit) "⚖️ COURT TRANSCRIPT:\n$dialogue" else "🗣️ FEDERAL PROSECUTION:\n$dialogue")
+                newLogs.add("⚖️ JUSTICE VERDICT:\n$verdictText")
+                if (fineAmount < 0.0) {
+                    newLogs.add("💰 CIVIL DAMAGES AWARDED: Plaintiff wins ${-fineAmount}")
+                }
+                _criminalCourtLog.value = newLogs
+
+                _criminalCourtVerdict.value = vType
+                _criminalCourtJailDays.value = jailDays
+                
+                if (fineAmount > 0.0) {
+                    settingsDataStore.updateClinicStats(clinicBalance.value - fineAmount, reputationStars.value)
+                    settingsDataStore.addDailyExpenses(fineAmount)
+                } else if (fineAmount < 0.0) {
+                    settingsDataStore.updateClinicStats(clinicBalance.value + (-fineAmount), reputationStars.value)
+                    settingsDataStore.addDailyRevenue(-fineAmount)
+                }
+
+                if (vType.equals("Revoked", ignoreCase = true) || vType.equals("Suspension", ignoreCase = true) || vType.equals("Imprisoned", ignoreCase = true)) {
+                    if (!isCivilSuit) {
+                        legalWorldAgent.updateMedicalLicense(com.example.data.LicenseStatus.REVOKED, verdictText)
+                    }
+                } else if (vType.equals("Fined", ignoreCase = true)) {
+                    if (!isCivilSuit) {
+                        legalWorldAgent.applyPenaltyFine(fineAmount, verdictText)
+                    }
+                }
+
+                _criminalCourtStage.value = "verdict"
+
+            } catch (e: Exception) {
+                logAndEmitError("Criminal Court connection error: ${e.localizedMessage}")
             } finally {
                 _isLoading.value = false
             }
@@ -5343,8 +5672,14 @@ $memoryLines
             sb.append("\nACTLY ENACTED SOVEREIGN HEALTH LAWS OF THE COUNTRY:")
             activePolList.forEachIndexed { idx, p ->
                 sb.append("\n[LAW ${idx+1}] TITLE: ${p.title}\n")
+                sb.append("  - Summary: ${p.summary}\n")
                 sb.append("  - Requirements: ${p.clinicalRule}\n")
-                sb.append("  - Clauses: ${p.extendedClauses.joinToString("; ")}\n")
+                sb.append("  - Extended Clauses / Sub-Sections:\n")
+                if (p.extendedClauses.isNotEmpty()) {
+                    p.extendedClauses.forEach { c -> sb.append("    * $c\n") }
+                } else {
+                    sb.append("    * (No detailed sub-clauses)\n")
+                }
             }
             sb.toString()
         } else "No clinical laws are currently enacted."
@@ -5361,13 +5696,13 @@ $memoryLines
         val prompt = """
             We are simulating an interactive trial in the Supreme Medical Court / Sovereign Judiciary Department of the Republic of ${countryName.value} under President ${presidentName.value} (${presidentParty.value}).
             
-            SOVEREIGN CONTEXT:
+            SOVEREIGN CONTEXT & INDICTMENT SHEET:
             - Accused: Dr. Tim, General Practitioner of JB Consultation Practice (PR# 1234567)
             - Patient Case: Treated patient "${_lawsuitPatientName.value}" for "${_lawsuitCaseDiag.value}" under active legislative jurisdiction.
             - Current Judiciary Trial Record:
             $currentHistoryLog
             
-            POLICIES & LEGAL STATUTES FOR JUDGMENT:
+            POLICIES, BILLS, STATUTES, AND ALL CLAUSES DICTATING THE COURT PROCEEDINGS:
             $policyDetailsStr
             $violatedPolStr
             
@@ -5376,11 +5711,12 @@ $memoryLines
             
             INSTRUCTIONS FOR THE MODEL:
             1. Roleplay the intellectual, sharp dialogue of the Presiding Judge and the fast-talking State Prosecutor in the Supreme Court.
-            2. Analyze if the doctor's defense strategy addresses the active health policies (laws) of the nation, and their specific violations.
-            3. If they violated any of the enacted laws and presented an excuse, the prosecutor should dismantle their defense using law clauses and medical/legal terminology, referencing the specific enacted policies!
-            4. If the laws have rigid fines or suspension instructions, the Judge MUST sentence the doctor to pay those specific statutory fines + damages!
-            5. Determine the final verdict type ("Exonerated", "Warning", "Suspension", "Fined") based on compliance level. If they are standard compliant or have no registered violations, offer exoneration. Or if they had severe violations, enforce heavier fines (1000 to 5000 units) or license suspension (1 to 4 weeks).
-            6. Return your response STRICTLY as a valid JSON object matching this schema. Write nothing else except this JSON:
+            2. Analyze if the doctor's defense strategy addresses the active health policies (laws) of the nation, and their specific sub-clauses and details.
+            3. The active health policies/bills and their individual sub-clauses/extended clauses MUST strictly dictate the court proceeding, prosecutorial pressure, arguments, and final sentencing. Use specific terminology referencing these enacted policies and their sub-clauses!
+            4. If they violated any of the enacted laws and presented an excuse, the prosecutor should dismantle their defense using law clauses and medical/legal terminology, referencing the specific enacted policies and clauses!
+            5. If the laws have rigid fines or suspension instructions, the Judge MUST sentence the doctor to pay those specific statutory fines + damages!
+            6. Determine the final verdict type ("Exonerated", "Warning", "Suspension", "Fined") based on compliance level. If they are standard compliant or have no registered violations, offer exoneration. Or if they had severe violations, enforce heavier fines (1000 to 5000 units) or license suspension (1 to 4 weeks).
+            7. Return your response STRICTLY as a valid JSON object matching this schema. Write nothing else except this JSON:
             {
                "courtDialogue": "The prosecutor's aggressive cross-examination, and the Judge's legal questioning, citing the sovereign laws. Speak with formal legislative language.",
                "tensionAdjustment": 15,
@@ -5389,7 +5725,7 @@ $memoryLines
                "verdictType": "Fined",
                "fineAmount": 1500.0,
                "suspensionWeeks": 2,
-               "finalVerdictText": "Chief Justice's Formal Judicial Decree. Detail the legal and clinical reasons, cite which Enacted Policies were violated, and outline the penalty sanction (e.g., Warning, Suspension, or Fined)."
+               "finalVerdictText": "Chief Justice's Formal Judicial Decree. Detail the legal and clinical reasons, cite which Enacted Policies and specific sub-clauses were violated, and outline the penalty sanction (e.g., Warning, Suspension, or Fined)."
             }
         """.trimIndent()
 
@@ -5446,6 +5782,12 @@ $memoryLines
                     }
 
                     _lawsuitCurrentStage.value = "verdict"
+
+                    val corruptedJurors = courtroomViewModel.lawsuitJurors.value.count { it.isCorrupt }
+                    if (corruptedJurors > 0 && Math.random() < (corruptedJurors * 0.40)) {
+                        kotlinx.coroutines.delay(2500)
+                        startCriminalCourt("Judicial Subversion & Sovereign Bribery (State Inspectorate discovered $corruptedJurors corrupted jurors receiving sub-rosa financial settlements.)")
+                    }
                 } else {
                     logAndEmitError("Failed to parse tribunal verdict. Re-submitting defense...")
                 }
@@ -5850,7 +6192,7 @@ $memoryLines
                 val formattedTime = String.format("%02d:%02d", (_uiState.value.virtualTimeElapsed / 60) + 8, _uiState.value.virtualTimeElapsed % 60)
                 
                 val updatedHistory = _uiState.value.chatHistory.toMutableList()
-                updatedHistory.add(ChatMessage("system", "📞 You phoned the CMO for a consult (-2 Prestige, -R50.00).", virtualTimestampStr = formattedTime))
+                updatedHistory.add(ChatMessage("system", "📞 You phoned the CMO for a consult (-2 Prestige, -$800).", virtualTimestampStr = formattedTime))
                 _uiState.value = _uiState.value.copy(chatHistory = updatedHistory)
 
             } catch (e: Exception) {
@@ -5959,16 +6301,20 @@ $memoryLines
                     $existingPoliciesContext
                     
                     Your job is to draft a highly realistic, complete national health policy based on the clinician's draft focus query: "$focusText".
+                    CRITICAL WORLD-BUILDING PARAMETERS:
+                    Every drafted bill and its specific extended clauses MUST paint a vivid picture of the satirical, dystopian, bureaucratic, and hyper-capitalist corporate health regime of the nation (The Sovereign Republic, Elysium etc.).
+                    Use terms like "biosecurity state telemetry logs", "citizen biological audits", "corporate-executive healthcare trusts", "sub-rosa litigation bonds", "wealth-liquidation sanctions for non-compliance", and "mandatory biosecurity state registration registers". Make citizens and independent clinics feel subject to severe bureaucratic overwatch and capitalistic exploitation.
+                    
                     You MUST return STRICTLY a valid, raw, unformatted single JSON object matching this schema. Do not include markdown wraps (```json), headings, or trailing commentary.
                     
                     Schema:
                     {
-                      "title": "A short, formal name of the clinical legislative act (e.g., 'Emergency Cardiac Assessment Protocol Code')",
-                      "summary": "An executive summary analyzing why this is critical and detailing how it acts as clinical law.",
+                      "title": "A short, formal name of the clinical legislative act reflecting a dystopian/bureaucratic state tone (e.g., 'National Biosecurity Telemetry Integrity Act')",
+                      "summary": "An executive summary analyzing why this is critical and detailing how it acts as clinical law in our corporate-bureaucratic state.",
                       "extendedClauses": [
-                        "Clause 1: Specific legal directive (e.g. 'Clinic staff must perform diagnostic assessments for cardiac pain cases')",
-                        "Clause 2: Regulatory guideline (e.g. 'Prescriptions for NSAIDs require a concurrent gastro-protective directive')",
-                        "Clause 3: Penalty or financial benefit details if clinician observes this clause"
+                        "Clause 1: Specific biosecurity or regulatory directive defining state overwatch (e.g. 'All clinical practices must sync live patient biometrics with the Ministry of Telemetry')",
+                        "Clause 2: Exploitative capitalistic guideline or state surveillance constraint (e.g. 'Prescriptions are tax-levied 15% to support the Ruling Party's Executive Trust')",
+                        "Clause 3: Severe regulatory compliance penalty, assets freeze, or corporate-executive sanction for omissions/violations"
                       ],
                       "economicImpact": "Analytic report of the fiscal impact of this act on clinic treasury reserves and patient out-of-pocket pricing.",
                       "clinicalRule": "A concise, actionable runtime directive, structural mandate, or functional constraint that the Dr simulation must strictly follow. The AI can define technical restrictions, procedural requirements, logic-governing rules, or explicit 'no-go' protocols.",

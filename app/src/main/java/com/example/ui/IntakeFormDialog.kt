@@ -145,7 +145,7 @@ fun IntakeFormDialog(
                                     value = rawMemoText,
                                     onValueChange = { rawMemoText = it },
                                     label = { Text("EHR Dictation Memo / Quick Notes") },
-                                    placeholder = { Text("Example: Patient Gidley Thompson, male born in 1961. Living in Randburg. On GEMS Comprehensive medical aid scheme, allergic to NSAIDs.") },
+                                    placeholder = { Text("Example: Patient Gidley Thompson, male born in 1961. Living in Sector 4. On Elysium Elite medical aid scheme, allergic to NSAIDs.") },
                                     modifier = Modifier.fillMaxWidth(),
                                     textStyle = MaterialTheme.typography.bodyMedium,
                                     maxLines = 4,

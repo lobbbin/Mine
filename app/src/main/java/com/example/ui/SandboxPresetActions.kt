@@ -259,7 +259,7 @@ object SandboxPresetActions {
             id = "court_1",
             category = "Malpractice & Courts",
             label = "PR Defense Campaign",
-            description = "Hire PR Firm: Spend R5,000 to lower lawsuit friction",
+            description = "Hire PR Firm: Spend $1 to lower lawsuit friction",
             promptText = "[(SYSTEM ACTION)]: The clinic hired a reputation manager to publish clinical safety reports. Courtroom defense bias increases.",
             hexColor = "#E64A19",
             kotlinLogic = "clinicBalance -= 5000\nreputationStars += 1"
@@ -268,7 +268,7 @@ object SandboxPresetActions {
             id = "court_2",
             category = "Malpractice & Courts",
             label = "Settle Claim Out-Of-Court",
-            description = "Pay patient R15,000 to drop active legal charge instantly",
+            description = "Pay patient $1 to drop active legal charge instantly",
             promptText = "[(SYSTEM ACTION)]: The clinic pays compensation to the plaintiff. All active civil disputes are dismissed.",
             hexColor = "#E64A19",
             kotlinLogic = "clinicBalance -= 15000\nreputationStars += 0.5"
@@ -277,7 +277,7 @@ object SandboxPresetActions {
             id = "court_3",
             category = "Malpractice & Courts",
             label = "Influence Prosecutor",
-            description = "Contribute R10,000 to legal guild to lessen state aggression",
+            description = "Contribute $1 to legal guild to lessen state aggression",
             promptText = "[(SYSTEM ACTION)]: Paid clinical compliance fees to the medical union. The prosecutorial pressure decreases.",
             hexColor = "#E64A19",
             kotlinLogic = "clinicBalance -= 10000"
@@ -286,7 +286,7 @@ object SandboxPresetActions {
             id = "court_4",
             category = "Malpractice & Courts",
             label = "Senior Elite Retainer",
-            description = "Deploy top-tier legal advisors (R8,000 retainer fee)",
+            description = "Deploy top-tier legal advisors ($1 retainer fee)",
             promptText = "[(SYSTEM ACTION)]: Contracted senior clinical litigator to represent the practice, boosting reputation.",
             hexColor = "#E64A19",
             kotlinLogic = "clinicBalance -= 8000\nreputationStars += 1.2"
@@ -295,7 +295,7 @@ object SandboxPresetActions {
             id = "court_5",
             category = "Malpractice & Courts",
             label = "Conduct Mock Jury Trial",
-            description = "Practice courtroom defense strategies (Spend R2,000, gain XP)",
+            description = "Practice courtroom defense strategies (Spend $1 gain XP)",
             promptText = "[(SYSTEM ACTION)]: Staff rehearses legal malpractice defense under mock prosecution.",
             hexColor = "#E64A19",
             kotlinLogic = "clinicBalance -= 2000"
@@ -313,7 +313,7 @@ object SandboxPresetActions {
             id = "court_7",
             category = "Malpractice & Courts",
             label = "Judicial Loophole Audit",
-            description = "Analyze licensing codes for bypass vectors (Spend R1,500)",
+            description = "Analyze licensing codes for bypass vectors (Spend $1)",
             promptText = "[(SYSTEM ACTION)]: Legal consultants map out statutory bypass methods.",
             hexColor = "#E64A19",
             kotlinLogic = "clinicBalance -= 1500\npoliticalPrestige += 5"
@@ -340,7 +340,7 @@ object SandboxPresetActions {
             id = "court_10",
             category = "Malpractice & Courts",
             label = "Sanitize Charting Logs",
-            description = "Re-format prior electronic records (Spend R2,500, avoid scrutiny)",
+            description = "Re-format prior electronic records (Spend $1 avoid scrutiny)",
             promptText = "[(SYSTEM ACTION)]: Clinical records double-audited against formatting slips.",
             hexColor = "#E64A19",
             kotlinLogic = "clinicBalance -= 2500"
@@ -349,7 +349,7 @@ object SandboxPresetActions {
             id = "court_11",
             category = "Malpractice & Courts",
             label = "Subpoena Plaintiff Record",
-            description = "Demand prior history discovery (Spend R1,000)",
+            description = "Demand prior history discovery (Spend $1)",
             promptText = "[(SYSTEM ACTION)]: Court-ordered discovery of claimant's external histories.",
             hexColor = "#E64A19",
             kotlinLogic = "clinicBalance -= 1000"
@@ -358,7 +358,7 @@ object SandboxPresetActions {
             id = "court_12",
             category = "Malpractice & Courts",
             label = "Deframe Prosecution Claim",
-            description = "Slander prosector methodology (Decrease legal tension, lose R3,000)",
+            description = "Slander prosector methodology (Decrease legal tension, lose $1)",
             promptText = "[(SYSTEM ACTION)]: Defense leaks prosecuting procedural oversight files.",
             hexColor = "#E64A19",
             kotlinLogic = "clinicBalance -= 3000\npoliticalPrestige -= 5"
@@ -367,7 +367,7 @@ object SandboxPresetActions {
             id = "court_13",
             category = "Malpractice & Courts",
             label = "Compromise Settlement",
-            description = "Offer R8,000 compromise to close ongoing board audits",
+            description = "Offer $1 compromise to close ongoing board audits",
             promptText = "[(SYSTEM ACTION)]: Paid compromised administrative penalties to medical board.",
             hexColor = "#E64A19",
             kotlinLogic = "clinicBalance -= 8000\nreputationStars += 0.4"
@@ -376,7 +376,7 @@ object SandboxPresetActions {
             id = "court_14",
             category = "Malpractice & Courts",
             label = "Retain Medical Professor",
-            description = "Hire expert clinical witness to support therapy (Cost R5,000)",
+            description = "Hire expert clinical witness to support therapy (Cost $1)",
             promptText = "[(SYSTEM ACTION)]: Independent specialist issues letter of clinical reasonability.",
             hexColor = "#E64A19",
             kotlinLogic = "clinicBalance -= 5000\nreputationStars += 0.6"
@@ -385,7 +385,7 @@ object SandboxPresetActions {
             id = "court_15",
             category = "Malpractice & Courts",
             label = "Plea Trial Postponement",
-            description = "Delay lawsuit hearing due to clinical workload (Cost R3,000)",
+            description = "Delay lawsuit hearing due to clinical workload (Cost $1)",
             promptText = "[(SYSTEM ACTION)]: Court registers formal request for continuance.",
             hexColor = "#E64A19",
             kotlinLogic = "clinicBalance -= 3000"
@@ -403,7 +403,7 @@ object SandboxPresetActions {
             id = "court_17",
             category = "Malpractice & Courts",
             label = "Premium Malpractice Tax",
-            description = "Mandatory professional insurance surcharge (Loss of R5,000)",
+            description = "Mandatory professional insurance surcharge (Loss of $1)",
             promptText = "[(SYSTEM ACTION)]: Local treasury levies emergency risk operational fee on private licenses.",
             hexColor = "#E64A19",
             kotlinLogic = "clinicBalance -= 5000"
@@ -412,7 +412,7 @@ object SandboxPresetActions {
             id = "court_18",
             category = "Malpractice & Courts",
             label = "Sovereign Board Penalty",
-            description = "Pay disciplinary board admin penalty of R4,000",
+            description = "Pay disciplinary board admin penalty of $1",
             promptText = "[(SYSTEM ACTION)]: Board sanctions practitioner for administrative non-conformity.",
             hexColor = "#E64A19",
             kotlinLogic = "clinicBalance -= 4000\npoliticalPrestige -= 5"
@@ -421,7 +421,7 @@ object SandboxPresetActions {
             id = "court_19",
             category = "Malpractice & Courts",
             label = "National Board Assistance",
-            description = "Claim sovereign legal premium defense funding (+R6,000, -10 Prestige)",
+            description = "Claim sovereign legal premium defense funding (+$1 -10 Prestige)",
             promptText = "[(SYSTEM ACTION)]: Clinic collects national safety protection subsidies.",
             hexColor = "#E64A19",
             kotlinLogic = "clinicBalance += 6000\npoliticalPrestige -= 10"
@@ -430,7 +430,7 @@ object SandboxPresetActions {
             id = "court_20",
             category = "Malpractice & Courts",
             label = "Amnesty Clearance",
-            description = "Full legal pardon from National Council (+0.8 stars, -R1,000 fees)",
+            description = "Full legal pardon from National Council (+0.8 stars, -$1 fees)",
             promptText = "[(SYSTEM ACTION)]: Minister of Health signed blanket liability clearance for community clinicians.",
             hexColor = "#E64A19",
             kotlinLogic = "clinicBalance -= 1000\nreputationStars += 0.8\npoliticalPrestige += 10"
@@ -441,7 +441,7 @@ object SandboxPresetActions {
             id = "supply_1",
             category = "Clinic & Supplies",
             label = "Emergency Bulk Buy",
-            description = "Directly buy 10 Syringes & 5 Saline (Cost R2,000)",
+            description = "Directly buy 10 Syringes & 5 Saline (Cost $1)",
             promptText = "[(SYSTEM ACTION)]: Clinic purchases standard safety inventory pack. Restock completed.",
             hexColor = "#0D47A1",
             kotlinLogic = "clinicBalance -= 2000"
@@ -450,7 +450,7 @@ object SandboxPresetActions {
             id = "supply_2",
             category = "Clinic & Supplies",
             label = "Syndicate Stock Pack",
-            description = "Procure generic clinical medications bundle for R4,000",
+            description = "Procure generic clinical medications bundle for $1",
             promptText = "[(SYSTEM ACTION)]: Bypassed regulatory wholesale channels to restock bulk GP therapies.",
             hexColor = "#0D47A1",
             kotlinLogic = "clinicBalance -= 4000"
@@ -459,7 +459,7 @@ object SandboxPresetActions {
             id = "supply_3",
             category = "Clinic & Supplies",
             label = "Filing Audit Recovery",
-            description = "Reprocess backlogged insurance claims (Collect R8,000)",
+            description = "Reprocess backlogged insurance claims (Collect $1)",
             promptText = "[(SYSTEM ACTION)]: Accounting successfully reconciled and cleared contested medical aid payments.",
             hexColor = "#0D47A1",
             kotlinLogic = "clinicBalance += 8000"
@@ -468,7 +468,7 @@ object SandboxPresetActions {
             id = "supply_4",
             category = "Clinic & Supplies",
             label = "Sovereign Health Grant",
-            description = "Receive direct parliamentary clinic support subsidy of R12,000",
+            description = "Receive direct parliamentary clinic support subsidy of $1",
             promptText = "[(SYSTEM ACTION)]: Received federal health grant for maintaining high community access.",
             hexColor = "#0D47A1",
             kotlinLogic = "clinicBalance += 12000\npoliticalPrestige += 8"
@@ -477,7 +477,7 @@ object SandboxPresetActions {
             id = "supply_5",
             category = "Clinic & Supplies",
             label = "Hyperinflation Shock",
-            description = "Emergency overhead cost adjustment (Lose R3,000 overhead)",
+            description = "Emergency overhead cost adjustment (Lose $1 overhead)",
             promptText = "[(SYSTEM ACTION)]: Global logistics bottlenecks spiked local wholesale prices.",
             hexColor = "#0D47A1",
             kotlinLogic = "clinicBalance -= 3000"
@@ -486,7 +486,7 @@ object SandboxPresetActions {
             id = "supply_6",
             category = "Clinic & Supplies",
             label = "Free Community Aid Day",
-            description = "Serve local neighborhood completely free (Spend R3,500, gain prestige)",
+            description = "Serve local neighborhood completely free (Spend $1 gain prestige)",
             promptText = "[(SYSTEM ACTION)]: Dr. Tim's clinic suspends co-payments for charity care. Prestige spikes.",
             hexColor = "#0D47A1",
             kotlinLogic = "clinicBalance -= 3500\npoliticalPrestige += 20\nreputationStars += 0.6"
@@ -495,7 +495,7 @@ object SandboxPresetActions {
             id = "supply_7",
             category = "Clinic & Supplies",
             label = "Corporate Rate Premium",
-            description = "Adjust base consultation rate to R1,200 (+R400 hike)",
+            description = "Adjust base consultation rate to $1 (+$1 hike)",
             promptText = "[(SYSTEM ACTION)]: Clinic consultation tariff schedule adjusted to high-income thresholds.",
             hexColor = "#0D47A1",
             kotlinLogic = "consultationFee = 1200"
@@ -504,7 +504,7 @@ object SandboxPresetActions {
             id = "supply_8",
             category = "Clinic & Supplies",
             label = "Affordable Price Cuts",
-            description = "Decrease consultation tariff to R450 for sliding scale",
+            description = "Decrease consultation tariff to $1 for sliding scale",
             promptText = "[(SYSTEM ACTION)]: Basic outpatient consult price capped at low subsidy rates.",
             hexColor = "#0D47A1",
             kotlinLogic = "consultationFee = 450"
@@ -513,7 +513,7 @@ object SandboxPresetActions {
             id = "supply_9",
             category = "Clinic & Supplies",
             label = "Liquidate Surplus Saline",
-            description = "Sell excess storage supplies back to guild (+R1,500)",
+            description = "Sell excess storage supplies back to guild (+$1)",
             promptText = "[(SYSTEM ACTION)]: Clinic sold clinical surplus inventory packages back to local public hospital.",
             hexColor = "#0D47A1",
             kotlinLogic = "clinicBalance += 1500"
@@ -522,7 +522,7 @@ object SandboxPresetActions {
             id = "supply_10",
             category = "Clinic & Supplies",
             label = "Purchase Syringe Restock",
-            description = "Buy massive crate of standard luer lock syringes (Cost R1,000)",
+            description = "Buy massive crate of standard luer lock syringes (Cost $1)",
             promptText = "[(SYSTEM ACTION)]: Bulk clinical supplies delivered to dispensary shelves.",
             hexColor = "#0D47A1",
             kotlinLogic = "clinicBalance -= 1000"
@@ -531,7 +531,7 @@ object SandboxPresetActions {
             id = "supply_11",
             category = "Clinic & Supplies",
             label = "Reagent Bulk Cashback",
-            description = "Reconcile lab contracts with chemical depot (+R2,000)",
+            description = "Reconcile lab contracts with chemical depot (+$1)",
             promptText = "[(SYSTEM ACTION)]: Received chemical supplier volume rebate.",
             hexColor = "#0D47A1",
             kotlinLogic = "clinicBalance += 2000"
@@ -540,7 +540,7 @@ object SandboxPresetActions {
             id = "supply_12",
             category = "Clinic & Supplies",
             label = "Critical Sepsis Bailout",
-            description = "Receive sovereign health threat response grant (+R20,000)",
+            description = "Receive sovereign health threat response grant (+$1)",
             promptText = "[(SYSTEM ACTION)]: Disaster relief committee approves emergency operational funding.",
             hexColor = "#0D47A1",
             kotlinLogic = "clinicBalance += 20000\npoliticalPrestige += 10"
@@ -549,7 +549,7 @@ object SandboxPresetActions {
             id = "supply_13",
             category = "Clinic & Supplies",
             label = "Vitals Machine Modernizer",
-            description = "Procure next-gen touch vitals monitoring device (Cost R8,000)",
+            description = "Procure next-gen touch vitals monitoring device (Cost $8000)",
             promptText = "[(SYSTEM ACTION)]: Tech deployment: installed high-precision multi-parameter patient monitor.",
             hexColor = "#0D47A1",
             kotlinLogic = "clinicBalance -= 8000\nreputationStars += 0.8"
@@ -558,7 +558,7 @@ object SandboxPresetActions {
             id = "supply_14",
             category = "Clinic & Supplies",
             label = "Elysium Generator Lease",
-            description = "Deploy backup solar generator for vaccine fridge (Cost R5,000)",
+            description = "Deploy backup solar generator for vaccine fridge (Cost $5000)",
             promptText = "[(SYSTEM ACTION)]: Off-grid deployment complete. Power safety guaranteed.",
             hexColor = "#0D47A1",
             kotlinLogic = "clinicBalance -= 5000\nreputationStars += 0.4"
@@ -567,7 +567,7 @@ object SandboxPresetActions {
             id = "supply_15",
             category = "Clinic & Supplies",
             label = "Pharmacy Pilferage Deduct",
-            description = "Audit discrepancy: lose R2,000 inventory baseline",
+            description = "Audit discrepancy: lose $2000 inventory baseline",
             promptText = "[(SYSTEM ACTION)]: Quarterly audit identified inventory leakage/spoilage. Deduction executed.",
             hexColor = "#0D47A1",
             kotlinLogic = "clinicBalance -= 2000"
@@ -578,7 +578,7 @@ object SandboxPresetActions {
             id = "parl_1",
             category = "Parliament Laws",
             label = "Patient Bill Of Rights",
-            description = "Enforced clinical safety laws (+15 prestige, -R2,000 regulatory tariff)",
+            description = "Enforced clinical safety laws (+15 prestige, -$2000 regulatory tariff)",
             promptText = "[(SYSTEM ACTION)]: Enacted Statutory Charter on Healthcare Standards. Private aids must pay co-insurances rapidly.",
             hexColor = "#311B92",
             kotlinLogic = "clinicBalance -= 2000\npoliticalPrestige += 15"
@@ -587,7 +587,7 @@ object SandboxPresetActions {
             id = "parl_2",
             category = "Parliament Laws",
             label = "Sovereign Lab Subsidy",
-            description = "State funds laboratory chemical assets (-R1,000, Prestige += 10)",
+            description = "State funds laboratory chemical assets (-$1000 Prestige += 10)",
             promptText = "[(SYSTEM ACTION)]: Passed Decree on Basic Laboratory Tariffs. Reagents funded.",
             hexColor = "#311B92",
             kotlinLogic = "clinicBalance -= 1000\npoliticalPrestige += 10"
@@ -596,7 +596,7 @@ object SandboxPresetActions {
             id = "parl_3",
             category = "Parliament Laws",
             label = "Repeal General Ordinances",
-            description = "Deregulate state medicine rules (Prestige -= 10, refund R4,000 bonds)",
+            description = "Deregulate state medicine rules (Prestige -= 10, refund $4000 bonds)",
             promptText = "[(SYSTEM ACTION)]: Parliaments repeals all ongoing medical oversight codes. Freedom increased.",
             hexColor = "#311B92",
             kotlinLogic = "clinicBalance += 4000\npoliticalPrestige -= 10"
@@ -605,7 +605,7 @@ object SandboxPresetActions {
             id = "parl_4",
             category = "Parliament Laws",
             label = "Malpractice Excise Tax",
-            description = "Increase legal litigation levy on independent practitioners (-R3,000)",
+            description = "Increase legal litigation levy on independent practitioners (-$3000)",
             promptText = "[(SYSTEM ACTION)]: Assembly passes National Malpractice Levies. Increased auditing focus.",
             hexColor = "#311B92",
             kotlinLogic = "clinicBalance -= 3000\npoliticalPrestige += 10"
@@ -614,7 +614,7 @@ object SandboxPresetActions {
             id = "parl_5",
             category = "Parliament Laws",
             label = "Ministry Support Fund",
-            description = "Unlock sovereign health care reserve support of R8,000 (+5 Prestige)",
+            description = "Unlock sovereign health care reserve support of $8000 (+5 Prestige)",
             promptText = "[(SYSTEM ACTION)]: Minister Vance releases emergency financial aid for clinical centers.",
             hexColor = "#311B92",
             kotlinLogic = "clinicBalance += 8000\npoliticalPrestige += 5"
@@ -632,7 +632,7 @@ object SandboxPresetActions {
             id = "parl_7",
             category = "Parliament Laws",
             label = "Sovereign VIP Admission Code",
-            description = "Parliament VIP preference law (+R10,000, Prestige += 5)",
+            description = "Parliament VIP preference law (+$10000 Prestige += 5)",
             promptText = "[(SYSTEM ACTION)]: Enacted priority healthcare dispatch protocols for members of assembly.",
             hexColor = "#311B92",
             kotlinLogic = "clinicBalance += 10000\npoliticalPrestige += 5"
@@ -641,7 +641,7 @@ object SandboxPresetActions {
             id = "parl_8",
             category = "Parliament Laws",
             label = "Universal Health Service Act",
-            description = "Abolish co-payments. Clinic funding adjusts (-R12,000, +30 Prestige)",
+            description = "Abolish co-payments. Clinic funding adjusts (-$12000 +30 Prestige)",
             promptText = "[(SYSTEM ACTION)]: Pass historic Universal Healthcare Service Act. Basic clinics receive state guarantees.",
             hexColor = "#311B92",
             kotlinLogic = "clinicBalance -= 12000\npoliticalPrestige += 30"
@@ -650,7 +650,7 @@ object SandboxPresetActions {
             id = "parl_9",
             category = "Parliament Laws",
             label = "Private Luxury Surcharge",
-            description = "Allow double consult pricing for elite card holders (+R200 base rate)",
+            description = "Allow double consult pricing for elite card holders (+$200 base rate)",
             promptText = "[(SYSTEM ACTION)]: Approved VIP Surcharge Act allowing high margin private care billing.",
             hexColor = "#311B92",
             kotlinLogic = "consultationFee = 1050"
@@ -659,7 +659,7 @@ object SandboxPresetActions {
             id = "parl_10",
             category = "Parliament Laws",
             label = "Deregulate Clinical Vitals",
-            description = "Cancel mandatory check policies (-10 prestige, refund R3,000 compliance bond)",
+            description = "Cancel mandatory check policies (-10 prestige, refund $3000 compliance bond)",
             promptText = "[(SYSTEM ACTION)]: Assembly suspends regulatory baseline vital inspections.",
             hexColor = "#311B92",
             kotlinLogic = "clinicBalance += 3000\npoliticalPrestige -= 10"
@@ -668,7 +668,7 @@ object SandboxPresetActions {
             id = "parl_11",
             category = "Parliament Laws",
             label = "National Aid Subsidy Up",
-            description = "Parliament forces insurance aid rate bump (+R5,000, +5 Prestige)",
+            description = "Parliament forces insurance aid rate bump (+$5000 +5 Prestige)",
             promptText = "[(SYSTEM ACTION)]: Medical aid reimbursement floors increased by 15% across district.",
             hexColor = "#311B92",
             kotlinLogic = "clinicBalance += 5000\npoliticalPrestige += 5"
@@ -677,7 +677,7 @@ object SandboxPresetActions {
             id = "parl_12",
             category = "Parliament Laws",
             label = "Antibiotics Reporting Mandate",
-            description = "Mandatory registry entry for amoxicillin (Prestige += 5, Balance -= R500)",
+            description = "Mandatory registry entry for amoxicillin (Prestige += 5, Balance -= $500)",
             promptText = "[(SYSTEM ACTION)]: Enacted Antimicrobial Stewardship Law. Infection logging required.",
             hexColor = "#311B92",
             kotlinLogic = "clinicBalance -= 500\npoliticalPrestige += 5"
@@ -686,7 +686,7 @@ object SandboxPresetActions {
             id = "parl_13",
             category = "Parliament Laws",
             label = "Cancel Medical Licensing Fee",
-            description = "Waive annual council registration dues (+R3,500, Prestige += 5)",
+            description = "Waive annual council registration dues (+$3500 Prestige += 5)",
             promptText = "[(SYSTEM ACTION)]: Elysium Medical Council clears practitioner registration fees for current year.",
             hexColor = "#311B92",
             kotlinLogic = "clinicBalance += 3500\npoliticalPrestige += 5"
@@ -695,7 +695,7 @@ object SandboxPresetActions {
             id = "parl_14",
             category = "Parliament Laws",
             label = "Foreign Chemical Tariff",
-            description = "Excise tax on imported lab test kits (-R2,500 penalty)",
+            description = "Excise tax on imported lab test kits (-$2500 penalty)",
             promptText = "[(SYSTEM ACTION)]: Trade administration levies import tariffs on diagnostic chemicals.",
             hexColor = "#311B92",
             kotlinLogic = "clinicBalance -= 2500"
@@ -704,7 +704,7 @@ object SandboxPresetActions {
             id = "parl_15",
             category = "Parliament Laws",
             label = "National Sepsis Campaign",
-            description = "Parliamentary support for shock diagnosis (+R7,000 clinical promotion)",
+            description = "Parliamentary support for shock diagnosis (+$7000 clinical promotion)",
             promptText = "[(SYSTEM ACTION)]: Direct allocation of Sepsis Defense funds to primary aid centers.",
             hexColor = "#311B92",
             kotlinLogic = "clinicBalance += 7000\npoliticalPrestige += 5"
@@ -713,7 +713,7 @@ object SandboxPresetActions {
             id = "parl_16",
             category = "Parliament Laws",
             label = "Direct Executive Pension Levy",
-            description = "Compulsory clinic taxation for statesman pension pool (-R4,500)",
+            description = "Compulsory clinic taxation for statesman pension pool (-$4500)",
             promptText = "[(SYSTEM ACTION)]: Executive council mandates social security tax from independent doctors.",
             hexColor = "#311B92",
             kotlinLogic = "clinicBalance -= 4500\npoliticalPrestige -= 5"
@@ -722,7 +722,7 @@ object SandboxPresetActions {
             id = "parl_17",
             category = "Parliament Laws",
             label = "Clinical Staff Minimum Wage",
-            description = "Emergency staff employment adjustment (-R6,000 overhead, +10 Prestige)",
+            description = "Emergency staff employment adjustment (-$6000 overhead, +10 Prestige)",
             promptText = "[(SYSTEM ACTION)]: Senate approves Fair Wages in Healthcare Statute. Staff morale up.",
             hexColor = "#311B92",
             kotlinLogic = "clinicBalance -= 6000\npoliticalPrestige += 10\nreputationStars += 0.5"
@@ -731,7 +731,7 @@ object SandboxPresetActions {
             id = "parl_18",
             category = "Parliament Laws",
             label = "Repeal Medicare Security Act",
-            description = "Abolish sovereign healthcare support bonds (refund R8,000, -15 Prestige)",
+            description = "Abolish sovereign healthcare support bonds (refund $8000 -15 Prestige)",
             promptText = "[(SYSTEM ACTION)]: Assembly votes down medicare protective laws.",
             hexColor = "#311B92",
             kotlinLogic = "clinicBalance += 8000\npoliticalPrestige -= 15"
@@ -749,7 +749,7 @@ object SandboxPresetActions {
             id = "parl_20",
             category = "Parliament Laws",
             label = "Telehealth sovereign clearance",
-            description = "Unlock remote consultation channels (+R5,000, +8 Prestige)",
+            description = "Unlock remote consultation channels (+$1 +8 Prestige)",
             promptText = "[(SYSTEM ACTION)]: Assembly passes digital healthcare outreach funding clearances.",
             hexColor = "#311B92",
             kotlinLogic = "clinicBalance += 5000\npoliticalPrestige += 8"
@@ -784,7 +784,7 @@ object SandboxPresetActions {
             id = "chaos_4",
             category = "Chaotic AI Events",
             label = "Cybernetic Hand Upgrade",
-            description = "Patient demands mechanical wrist install (Spend R12,000 clinic funds for tech)",
+            description = "Patient demands mechanical wrist install (Spend $1 clinic funds for tech)",
             promptText = "[(SYSTEM PRESET CLINICAL CASE)]: Outpatient presents with a completely non-biological, hyper-functional titanium bionic prosthetic arm requiring clinical telemetry calibration. True diagnosis is Synthetic Nerve Friction. Severity is routine. Specialty is General Practice.",
             hexColor = "#D50000",
             kotlinLogic = "clinicBalance -= 12000"
@@ -793,8 +793,8 @@ object SandboxPresetActions {
             id = "chaos_5",
             category = "Chaotic AI Events",
             label = "Sovereign Bailout Order",
-            description = "Presidential decree injects R30,000 cash into clinic immediately",
-            promptText = "[(SYSTEM ACTION)]: Executive Decree: In recognition of Dr. Tim's elite community preservation, the President awards a R30,000 sovereign operational injection.",
+            description = "Presidential decree injects $1 cash into clinic immediately",
+            promptText = "[(SYSTEM ACTION)]: Executive Decree: In recognition of Dr. Tim's elite community preservation, the President awards a $1 sovereign operational injection.",
             hexColor = "#D50000",
             kotlinLogic = "clinicBalance += 30000\npoliticalPrestige += 20"
         ),
@@ -802,7 +802,7 @@ object SandboxPresetActions {
             id = "chaos_6",
             category = "Chaotic AI Events",
             label = "Syndicate Turf Extortion",
-            description = "Local shadow ring demands pay-off (Lose R10,000 or lose 2.5 stars)",
+            description = "Local shadow ring demands pay-off (Lose $1 or lose 2.5 stars)",
             promptText = "[(SYSTEM ACTION)]: Shadow figures demand clinical pharmacy tax. Pay or face public smear campaign.",
             hexColor = "#D50000",
             kotlinLogic = "clinicBalance -= 10000"
@@ -819,7 +819,7 @@ object SandboxPresetActions {
             id = "chaos_8",
             category = "Chaotic AI Events",
             label = "Configure Placebo Therapy",
-            description = "Exchange standard active meds with flavored glucose capsules (+R3,000)",
+            description = "Exchange standard active meds with flavored glucose capsules (+$1)",
             promptText = "[(SYSTEM ACTION)]: Clinic replaces standard pharmacotherapy with clinical placebo starch pellets. Immediate profit.",
             hexColor = "#D50000",
             kotlinLogic = "clinicBalance += 3000\nreputationStars -= 1.0"
@@ -836,7 +836,7 @@ object SandboxPresetActions {
             id = "chaos_10",
             category = "Chaotic AI Events",
             label = "Decryption Key Hack",
-            description = "Uncover patient medical aid pre-authorization codes (Spend R2,000)",
+            description = "Uncover patient medical aid pre-authorization codes (Spend $1)",
             promptText = "[(SYSTEM ACTION)]: Decrypted medical insurance portal databases to instantly override pending authorizations.",
             hexColor = "#D50000",
             kotlinLogic = "clinicBalance -= 2000"
@@ -845,7 +845,7 @@ object SandboxPresetActions {
             id = "chaos_11",
             category = "Chaotic AI Events",
             label = "Royal Sultan Dignitary",
-            description = "Sultan of a neighboring state admits privately (+R50,000 reward!)",
+            description = "Sultan of a neighboring state admits privately (+$1 reward!)",
             promptText = "[(SYSTEM PRESET CLINICAL CASE)]: His Royal Highness Sultan Ibrahim check in secretly with severe jet lag, rich appetite, and mild gout. He is accompanied by 4 security guards. True diagnosis is Acute Fatigue Syndrome. Severity is routine. Specialty is General Practice.",
             hexColor = "#D50000",
             kotlinLogic = "clinicBalance += 50000\nreputationStars += 1.0"
@@ -854,7 +854,7 @@ object SandboxPresetActions {
             id = "chaos_12",
             category = "Chaotic AI Events",
             label = "Hypnotic Suggester Spell",
-            description = "Cast hypnose to cure psychosomatic discomfort (Cost R4,000 custom crystal)",
+            description = "Cast hypnose to cure psychosomatic discomfort (Cost $1 custom crystal)",
             promptText = "[(SYSTEM ACTION)]: Practitioner hypnotizes active patient to believe chest and shoulder pains have cleared. Patient exits completely happy.",
             hexColor = "#D50000",
             kotlinLogic = "clinicBalance -= 4000\nreputationStars += 0.5"
@@ -871,7 +871,7 @@ object SandboxPresetActions {
             id = "chaos_14",
             category = "Chaotic AI Events",
             label = "Contraband Medicine Chest",
-            description = "Smuggle restricted pharmacopoeia substances behind clinic counter (+R10,000 shadow cash, -20 prestige)",
+            description = "Smuggle restricted pharmacopoeia substances behind clinic counter (+$1 shadow cash, -20 prestige)",
             promptText = "[(SYSTEM ACTION)]: Stored unverified foreign medical crates in dispensary shelves. Financials received.",
             hexColor = "#D50000",
             kotlinLogic = "clinicBalance += 10000\npoliticalPrestige -= 20"
@@ -880,7 +880,7 @@ object SandboxPresetActions {
             id = "chaos_15",
             category = "Chaotic AI Events",
             label = "Paradoxical Time Leap",
-            description = "Skip forward 5 operational simulation days (+R7,500 interest, -R3,000 rent)",
+            description = "Skip forward 5 operational simulation days (+$1 interest, -$1 rent)",
             promptText = "[(SYSTEM ACTION)]: Outpatient simulator leaps forward in time. Accrued daily operations balance.",
             hexColor = "#D50000",
             kotlinLogic = "clinicBalance += 4500"

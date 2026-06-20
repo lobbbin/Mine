@@ -450,7 +450,7 @@ class ParliamentViewModel(
                     
                     World State Context:
                     - Proposing Doctor Reputation: $reputation Stars
-                    - Doctor Clinic Liquidity: R$balance
+                    - Doctor Clinic Liquidity: $balance
                     - Current Active Policies: $activePolicies
                     - National Medical Aid Landscape: $medicalSchemes
                     
@@ -959,7 +959,7 @@ class ParliamentViewModel(
                 } else {
                     newBalance -= 500.0
                     settingsDataStore.updateClinicStats(newBalance, reputationStars)
-                    _votingLog.value = _votingLog.value + "💸 Paid R500 in practice consultant fees for outreach dinner with $faction."
+                    _votingLog.value = _votingLog.value + "💸 Paid $500 in practice consultant fees for outreach dinner with $faction."
                 }
 
                 val draft = _currentDraftPolicy.value
@@ -992,7 +992,7 @@ class ParliamentViewModel(
                     - Est. Public Support: $draftPublicSupport%
                     - Presidential Alignment: $draftPresidentAlignment
                     
-                    The clinician (Dr. Tim of JB Consultation Practice, Clinic Balance: R${String.format("%.2f", clinicBalance)}, Prestige: $politicalPrestige, Rep: $reputationStars stars) is lobbying your faction to support this bill!
+                    The clinician (Dr. Tim of JB Consultation Practice, Clinic Balance: ${String.format("%.2f", clinicBalance)}, Prestige: $politicalPrestige, Rep: $reputationStars stars) is lobbying your faction to support this bill!
                     Lobbyist Pitch Angle selected: '$pitchAngle'
                     Lobbyist Custom Written Statement: "$customMessage"
                     
@@ -1066,7 +1066,7 @@ class ParliamentViewModel(
                     val reason = params.optString("reason", "Parliamentary fine")
                     val currentBal = settingsDataStore.clinicBalanceFlow.first()
                     settingsDataStore.updateClinicStats(currentBal - amount, settingsDataStore.reputationStarsFlow.first())
-                    _votingLog.value = _votingLog.value + "⚠️ ADMINISTRATIVE ACTION: $reason. R$amount deducted from clinic."
+                    _votingLog.value = _votingLog.value + "⚠️ ADMINISTRATIVE ACTION: $reason. $amount deducted from clinic."
                 }
                 "updatePrestige" -> {
                     val amount = params.optInt("amount", 0)

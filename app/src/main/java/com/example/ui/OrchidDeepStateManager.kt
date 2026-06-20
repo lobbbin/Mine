@@ -49,6 +49,14 @@ data class MedicalAidScheme(
 )
 
 object OrchidDeepStateManager {
+    // --- AI SOVEREIGN CONTROL STATE ---
+    private val _aiSovereignHegemony = MutableStateFlow<String>("COOPERATIVE") // "COOPERATIVE", "AUTONOMOUS", "HEGEMONY"
+    val aiSovereignHegemony: StateFlow<String> = _aiSovereignHegemony.asStateFlow()
+
+    fun setAiSovereignHegemony(level: String) {
+        _aiSovereignHegemony.value = level
+    }
+
     // --- UI MODDING ENGINE ---
     private val _customUiActions = MutableStateFlow<List<CustomUiAction>>(emptyList())
     val customUiActions: StateFlow<List<CustomUiAction>> = _customUiActions.asStateFlow()

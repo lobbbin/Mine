@@ -21,7 +21,7 @@ object CompoundArchitectHandler {
             Return a JSON object with the following string fields matching the requirements of the directory:
             - "name": Fictional but realistic Drug Name (e.g. Synthetix-500)
             - "scheduleCategory": e.g. "Schedule 4 (Prescription Medication)", "Schedule 5", or "Schedule 2 (OTC)"
-            - "costZar": e.g. "350" (just the number)
+            - "costPrice": e.g. "350" (just the number)
             - "bpDelta": e.g. "Raises (+10 mmHg)" or "Neutral"
             - "hrDelta": e.g. "Stabilizes (-5 bpm)" or "Increases (+20 bpm)"
             - "therapeuticEffect": Clinical indication effect (e.g. Rapidly combats acute respiratory infections while avoiding antibiotic resistance)
@@ -38,7 +38,7 @@ object CompoundArchitectHandler {
             ParsedDrugCompound(
                 name = json.optString("name", "Novocaine-Ultra"),
                 category = json.optString("scheduleCategory", "Schedule 4 (Prescription Medication)"),
-                cost = json.optString("costZar", "150.0"),
+                cost = json.optString("costPrice", "150.0"),
                 bp = json.optString("bpDelta", "Neutral"),
                 hr = json.optString("hrDelta", "Neutral"),
                 effect = json.optString("therapeuticEffect", "Provides immediate relief."),

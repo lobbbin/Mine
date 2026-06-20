@@ -106,7 +106,7 @@ class SettingsDataStore(private val context: Context) {
 
     val clinicBalanceFlow: Flow<Double> = context.dataStore.data
         .map { preferences ->
-            preferences[CLINIC_BALANCE_KEY] ?: 50000.0 // Starting balance of R50,000
+            preferences[CLINIC_BALANCE_KEY] ?: 50000.0 // Starting balance of $50,000
         }
 
     val reputationStarsFlow: Flow<Float> = context.dataStore.data
@@ -116,17 +116,17 @@ class SettingsDataStore(private val context: Context) {
 
     val consultationFeeFlow: Flow<Double> = context.dataStore.data
         .map { preferences ->
-            preferences[CONSULTATION_FEE_KEY] ?: 850.0 // Default R850
+            preferences[CONSULTATION_FEE_KEY] ?: 850.0 // Default $850
         }
 
     val labCostFlow: Flow<Double> = context.dataStore.data
         .map { preferences ->
-            preferences[LAB_COST_KEY] ?: 150.0 // Default R150
+            preferences[LAB_COST_KEY] ?: 150.0 // Default $150
         }
 
     val specialistCostFlow: Flow<Double> = context.dataStore.data
         .map { preferences ->
-            preferences[SPECIALIST_COST_KEY] ?: 800.0 // Default R800
+            preferences[SPECIALIST_COST_KEY] ?: 800.0 // Default $800
         }
 
     suspend fun savePricing(consultFee: Double, labCost: Double, specialistCost: Double) {
@@ -318,6 +318,17 @@ class SettingsDataStore(private val context: Context) {
         }
     }
 
+    suspend fun advanceDays(days: Int) {
+        if (days <= 0) return
+        context.dataStore.edit { preferences ->
+            val prevDay = preferences[CURRENT_DAY_KEY] ?: 1
+            preferences[CURRENT_DAY_KEY] = prevDay + days
+            preferences[PATIENTS_SEEN_TODAY_KEY] = 0
+            preferences[DAILY_REVENUE_KEY] = 0.0
+            preferences[DAILY_EXPENSES_KEY] = 0.0
+        }
+    }
+
     suspend fun setCurrentDay(day: Int) {
         context.dataStore.edit { preferences ->
             preferences[CURRENT_DAY_KEY] = day
@@ -337,13 +348,13 @@ class SettingsDataStore(private val context: Context) {
             listOf(
                 HealthPolicy(
                     id = "starter_1",
-                    title = "Standard Diagnostic Vitals Directive",
-                    summary = "Requires essential clinical check of baseline parameters (vitals assessment) to prevent medical malpractice and clinical error in community settings.",
+                    title = "Sovereign Biasecurity Telemetry Directive (Act 1)",
+                    summary = "Mandates proactive biological auditing and citizen telemetry registration at all independent clinical consultation units inside the sovereign territory to feed the Central Bio-Risk Security databases.",
                     extendedClauses = listOf(
-                        "Clause 1: Initial clinician interaction must measure core baseline vitals (blood pressure, temperature).",
-                        "Clause 2: Issuing medication prescriptions without active diagnostic examination triggers local safety warnings."
+                        "Clause 1.1: Every certified clinician operating within the sovereign territory MUST audit and register a complete biometric vitals telemetry set (blood pressure and temperature) for every registered diagnostic encounter.",
+                        "Clause 1.2: Failing to log requisite biological telemetry prior to issuing professional pharmaceutical prescriptions constitutes High Regulatory Malfeasance, rendering the clinician subject to primary Supreme Judiciary subpoenaes and heavy liquid assets confiscation."
                     ),
-                    economicImpact = "Stabilizes patient base safety, minimal fiscal friction.",
+                    economicImpact = "Imposes minor equipment and compliance overhead. Powers state databases, stabilizing the national bio-security risk index.",
                     clinicalRule = "Order vitals assessment.",
                     status = "Approved"
                 )

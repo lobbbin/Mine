@@ -290,7 +290,15 @@ When a clinical case evaluation finishes with verified statutory policy violatio
    - **The State Prosecutor:** Dismantles defenses, cites sovereign health statutes, demands medical registry deletions, and presses for maximum fines.
    - **The Presiding Judge:** Delivers formal rulings, warnings, and commands judicial financial sanctions.
 
-### C. Financial Sanctions & Penalties
+### C. Sub-Rosa Settlements & Covert Influence
+If the courtroom tension is high, practitioners can optionally attempt a **"Sub-Rosa Settlement"**. This involves wiring a large, undisclosed offshore transfer (e.g., $15,000) directly to the presiding justice's blind trust, immediately lowering courtroom tension and prosecution aggression, though carrying severe reputational risk if audited.
+
+### D. Plaintiff Civil Suits (Suing Your Patients)
+Clinicians hold the right to initiate civil action against their own patients. This is triggered directly from the medical ledger/patient card for reasons such as gross non-compliance, financial default, or adversarial clinical damages. The engine flips the courtroom dynamic, roleplaying the Presiding Civil Justice evaluating your claim against the patient's defense attorney.
+- **Winning damages:** If your legal argument is structurally sound based on health acts, the civil court awards you a positive cash influx.
+- **Losing:** Frivolous lawsuits result in you paying the civil court fees.
+
+### E. Financial Sanctions & Penalties
 If the tribunal decrees a physical financial fine, the penalty is adjusted directly out of your global **clinic operating balance**:
 ```kotlin
 if (fine > 0.0) {
@@ -331,7 +339,7 @@ The **Health Politics & Laws Hub** is a separate, sophisticated administrative s
                                          ▼
 ┌──────────────────────────────────────────────────────────────────────────────────┐
 │                      4. EXECUTIVE ACCORD (PRESIDENT SIGN/VETO)                   │
-│   • The President (e.g., President of Pretoria) signs or vetos the act           │
+│   • The President (e.g., President of the Republic) signs or vetos the act           │
 │   • Generates a professional Presidential Executive Memo justifying the action   │
 └────────────────────────────────────────┬─────────────────────────────────────────┘
                                          │ Signed into Active Law
