@@ -555,7 +555,7 @@ class CourtroomViewModel(
             
             SOVEREIGN CONTEXT:
             - Accused: Dr. Tim, General Practitioner of JB Consultation Practice (PR# 1234567)
-            - Patient Case: Treated patient "${_lawsuitPatientName.value}" for "${_lawsuitCaseDiag.value}" under Pretoria Jurisdiction.
+            - Patient Case: Treated patient "${_lawsuitPatientName.value}" for "${_lawsuitCaseDiag.value}" under active legislative jurisdiction.
             - Current Judiciary Trial Record:
             $currentHistoryLog
             
@@ -567,11 +567,11 @@ class CourtroomViewModel(
             "$strategy"
             
             INSTRUCTIONS FOR THE MODEL:
-            1. Roleplay the intellectual, sharp dialogue of the Presiding Judge and the fast-talking State Prosecutor in Pretoria Court.
+            1. Roleplay the intellectual, sharp dialogue of the Presiding Judge and the fast-talking State Prosecutor in the Supreme Court.
             2. Analyze if the doctor's defense strategy addresses the active health policies (laws) of the nation, and their specific violations.
             3. If they violated any of the enacted laws and presented an excuse, the prosecutor should dismantle their defense using law clauses and medical/legal terminology, referencing the specific enacted policies!
-            4. If the laws have rigid fines or suspension instructions (e.g. R500 fine, R1000 fine, or license suspension mentioned in the policy clauses), the Judge MUST sentence the doctor to pay those specific statutory fines + damages!
-            5. Determine the final verdict type ("Exonerated", "Warning", "Suspension", "Fined") based on compliance level. If they are standard compliant or have no registered violations, offer exoneration. Or if they had severe violations, enforce heavier fines (R1000 - R5000) or license suspension (1 to 4 weeks).
+            4. If the laws have rigid fines or suspension instructions, the Judge MUST sentence the doctor to pay those specific statutory fines + damages!
+            5. Determine the final verdict type ("Exonerated", "Warning", "Suspension", "Fined") based on compliance level. If they are standard compliant or have no registered violations, offer exoneration. Or if they had severe violations, enforce heavier fines (1000 to 5000 units) or license suspension (1 to 4 weeks).
             6. Return your response STRICTLY as a valid JSON object matching this schema. Write nothing else except this JSON:
             {
                "courtDialogue": "The prosecutor's aggressive cross-examination, and the Judge's legal questioning, citing the sovereign laws. Speak with formal legislative language.",

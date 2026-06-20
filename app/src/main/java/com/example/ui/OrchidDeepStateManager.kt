@@ -360,7 +360,7 @@ object OrchidDeepStateManager {
     val defenseLawyersCatalog = listOf(
         DefenseLawyer(
             id = "public",
-            displayName = "Adv. Sipho Khumalo (State Public Defender)",
+            displayName = "Advocate David Miller (State Public Defender)",
             specialty = "Constitutional Regulatory Representation",
             retainerFee = 0.0,
             defenseBiasPercent = 10,
@@ -368,11 +368,11 @@ object OrchidDeepStateManager {
         ),
         DefenseLawyer(
             id = "senior",
-            displayName = "Senior Counsel Gerhard de Klerk (Pretoria Bar Advocate)",
+            displayName = "Senior Counsel Alexander Vance (Federal Elysium Bar Advocate)",
             specialty = "Constitutional Medical Malpractice & Regulatory Defense",
             retainerFee = 1500.0,
             defenseBiasPercent = 35,
-            lawyerPitch = "Cons: Costs R1,500 retainer paid immediately. Pros: Massive -35% reduction in regulatory prosecution hostility, provides high-grade policy advice and evidence validation."
+            lawyerPitch = "Cons: Costs 1,500 retainer paid immediately. Pros: Massive -35% reduction in regulatory prosecution hostility, provides high-grade policy advice and evidence validation."
         )
     )
 

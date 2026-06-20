@@ -519,17 +519,17 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 }
 
                 // 5. Phone & Email
-                val phonePrefixes = listOf("071", "072", "082", "083", "084", "061")
-                phoneVal = "${phonePrefixes.random()} ${ (100..999).random() } ${ (1000..9999).random() }"
-                emailVal = "${fName.lowercase().filter { it.isLetter() }}.${sName.lowercase().filter { it.isLetter() }}@medical-mail.co.za"
+                val phonePrefixes = listOf("+1 202", "+1 312", "+1 415", "+1 617", "+1 206")
+                phoneVal = "${phonePrefixes.random()}-${ (100..999).random() }-${ (1000..9999).random() }"
+                emailVal = "${fName.lowercase().filter { it.isLetter() }}.${sName.lowercase().filter { it.isLetter() }}@elysium-health.org"
 
                 // 6. Address
-                val suburbs = listOf("Randburg, Johannesburg", "Sandton, Johannesburg", "Soweto, Johannesburg", "Rosebank, Johannesburg", "Pretoria East, Tshwane", "Hatfield, Pretoria", "Midrand, Johannesburg", "Melville, Johannesburg")
-                addrVal = "${(10..150).random()} ${(listOf("Main Rd", "William Nicol Dr", "Jan Smuts Ave", "Rissik St", "Beyers Naude Dr")).random()}, ${suburbs.random()}"
+                val suburbs = listOf("Elysium Central", "Vance Hills", "Silver Lake", "South Ridge", "Oak Ridge", "Metro Heights", "Pine District", "Parkside")
+                addrVal = "${(10..999).random()} ${(listOf("Grand Ave", "Broadway", "Spruce Street", "Oak Street", "Pine Lane", "Maple Boulevard", "Washington St")).random()}, ${suburbs.random()}"
 
                 // 7. Emergency Contact
-                val emergencyNames = listOf("Sipho", "Thandi", "Aletta", "Johan", "Lerato", "Sarah", "Kabelo")
-                emergContact = "${emergencyNames.random()} $sName (Spouse, ${phonePrefixes.random()} ${ (100..999).random() } ${ (1000..9999).random() })"
+                val emergencyNames = listOf("Michael", "Sarah", "Emily", "David", "John", "Jessica", "Daniel")
+                emergContact = "${emergencyNames.random()} $sName (Spouse, ${phonePrefixes.random()}-${ (100..999).random() }-${ (1000..9999).random() })"
 
                 // 8. Medical Aid Option
                 medAidVal = when (activeCase.insuranceStatus) {
@@ -1468,11 +1468,11 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         rawDemographics.contains(" 4 ", ignoreCase = true) || 
                         rawDemographics.contains(" 5 ", ignoreCase = true)))
 
-        val firstNamesMale = listOf("Sipho", "Thabo", "Lwazi", "Johan", "Pieter", "Kabelo", "Andile", "Jabulani", "Nkosana", "Moeneeb", "Bongani", "Lungelo", "Tshepo")
-        val firstNamesFemale = listOf("Lerato", "Zinhle", "Sarah", "Aletta", "Nomvula", "Chantel", "Fatima", "Thandi", "Siphokazi", "Liezel", "Theresa", "Precious", "Buhle", "Zola")
-        val firstNamesChild = listOf("Junior", "Karabo", "Lethabo", "Siyabonga", "Zoe", "Gabriella", "Mia", "Leo", "Kaelo", "Thabiso")
+        val firstNamesMale = listOf("James", "John", "Robert", "Michael", "William", "David", "Richard", "Joseph", "Thomas", "Charles", "Christopher", "Daniel", "Matthew")
+        val firstNamesFemale = listOf("Mary", "Patricia", "Jennifer", "Linda", "Elizabeth", "Barbara", "Susan", "Jessica", "Sarah", "Karen", "Lisa", "Nancy", "Sandra")
+        val firstNamesChild = listOf("Liam", "Olivia", "Noah", "Emma", "Oliver", "Ava", "Elijah", "Charlotte", "Sophia", "Jacob")
         
-        val lastNames = listOf("Mokoena", "Dlamini", "Nkosi", "Botha", "du Plessis", "Naidoo", "Govender", "Molefe", "Smit", "van der Merwe", "Kumalo", "Ndlovu", "Bester", "Patel")
+        val lastNames = listOf("Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson")
 
         val firstName = if (isChild) firstNamesChild.random() else if (isFemale) firstNamesFemale.random() else firstNamesMale.random()
         val lastName = lastNames.random()
@@ -4836,9 +4836,9 @@ $memoryLines
             - Legal Representation: $lawyerContext
             
             YOUR JOB IN THIS INTERIM ROUND:
-            1. Roleplay the intense, sharp voice of the State Prosecutor and the impartial questioning of the Presiding Judge in Pretoria.
+            1. Roleplay the intense, sharp voice of the State Prosecutor and the impartial questioning of the Presiding Judge in Court.
             2. The state prosecutor must cross-examine the doctor's specific typed statement "$pleaMsg" and check the validity of their submitted evidence: "${selectedEvidence.joinToString("; ")}".
-            3. CRITICAL AUDIT: Compare the defendant's justification claims ($justificationContext) with the actual performance record log of what happened at the bedside. Verify if they are telling the truth or if they are offering a bogus distraction! For example, if they claim they complied with the Single-Payer ENHS Act by billing R0, verify if they did; if they claim compliance with diagnostics, check if they checked vitals/labs etc. Aggressively call them out in court if their excuses columns mismatch the raw patient log!
+            3. CRITICAL AUDIT: Compare the defendant's justification claims ($justificationContext) with the actual performance record log of what happened at the bedside. Verify if they are telling the truth or if they are offering a bogus distraction! For example, if they claim they complied with active legal acts by offering free care, verify if they did; if they claim compliance with diagnostics, check if they checked vitals/labs etc. Aggressively call them out in court if their excuses columns mismatch the raw patient log!
             4. If the defense makes true clinical and legal sense (it complies with the laws and standard medical protocols based on the logs), reduce the tension and aggression metrics. If they claim compliance but the logs show they clearly broke the law or acted carelessly, aggressively call them out on it, and increase the tension and aggression metrics.
             5. Evaluate the current 6 jurors' reactions. You must update each of the 6 jurors' inclination and write a 1-sentence thought from them.
             6. Provide the prosecutor's aggressive response and the Judge's subsequent inquiry in 'courtDialogue'.
@@ -5076,7 +5076,7 @@ $memoryLines
             
             SOVEREIGN CONTEXT:
             - Accused: Dr. Tim, General Practitioner of JB Consultation Practice (PR# 1234567)
-            - Patient Case: Treated patient "${_lawsuitPatientName.value}" for "${_lawsuitCaseDiag.value}" under Pretoria Jurisdiction.
+            - Patient Case: Treated patient "${_lawsuitPatientName.value}" for "${_lawsuitCaseDiag.value}" under active legislative jurisdiction.
             - Current Judiciary Trial Record:
             $currentHistoryLog
             
@@ -5088,11 +5088,11 @@ $memoryLines
             "$strategy"
             
             INSTRUCTIONS FOR THE MODEL:
-            1. Roleplay the intellectual, sharp dialogue of the Presiding Judge and the fast-talking State Prosecutor in Pretoria Court.
+            1. Roleplay the intellectual, sharp dialogue of the Presiding Judge and the fast-talking State Prosecutor in the Supreme Court.
             2. Analyze if the doctor's defense strategy addresses the active health policies (laws) of the nation, and their specific violations.
             3. If they violated any of the enacted laws and presented an excuse, the prosecutor should dismantle their defense using law clauses and medical/legal terminology, referencing the specific enacted policies!
-            4. If the laws have rigid fines or suspension instructions (e.g. R500 fine, R1000 fine, or license suspension mentioned in the policy clauses), the Judge MUST sentence the doctor to pay those specific statutory fines + damages!
-            5. Determine the final verdict type ("Exonerated", "Warning", "Suspension", "Fined") based on compliance level. If they are standard compliant or have no registered violations, offer exoneration. Or if they had severe violations, enforce heavier fines (R1000 - R5000) or license suspension (1 to 4 weeks).
+            4. If the laws have rigid fines or suspension instructions, the Judge MUST sentence the doctor to pay those specific statutory fines + damages!
+            5. Determine the final verdict type ("Exonerated", "Warning", "Suspension", "Fined") based on compliance level. If they are standard compliant or have no registered violations, offer exoneration. Or if they had severe violations, enforce heavier fines (1000 to 5000 units) or license suspension (1 to 4 weeks).
             6. Return your response STRICTLY as a valid JSON object matching this schema. Write nothing else except this JSON:
             {
                "courtDialogue": "The prosecutor's aggressive cross-examination, and the Judge's legal questioning, citing the sovereign laws. Speak with formal legislative language.",
