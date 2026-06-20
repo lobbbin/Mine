@@ -60,6 +60,11 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
     private val appDatabase = AppDatabase.getDatabase(application)
     private val encounterRepository = EncounterRepository(appDatabase.encounterDao())
     private val settingsDataStore = SettingsDataStore(application)
+    val aiMemoryManager = com.example.data.AIMemoryManager(
+        appDatabase.agentMemoryDao(),
+        appDatabase.worldStateDao(),
+        settingsDataStore
+    )
     private val legalWorldAgent = LegalWorldAgent(appDatabase.worldStateDao(), settingsDataStore, viewModelScope)
     val parliamentViewModel = ParliamentViewModel(application, settingsDataStore, legalWorldAgent)
     val courtroomViewModel = CourtroomViewModel(application, settingsDataStore)
@@ -1142,7 +1147,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
 
                 val uri = resolver.insert(android.provider.MediaStore.Files.getContentUri("external"), contentValues)
                 if (uri != null) {
-                    resolver.openOutputStream(uri)?.use { os ->
+                    resolver.openOutputStream(uri)?.use { os: java.io.OutputStream ->
                         val document = com.itextpdf.text.Document()
                         com.itextpdf.text.pdf.PdfWriter.getInstance(document, os)
                         document.open()
@@ -1507,6 +1512,26 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                             }
                             document.add(com.itextpdf.text.Paragraph(" "))
                         }
+
+                        // Sovereign Geoclinical Sandbox Metrics & Advanced Simulations Registry
+                        document.newPage()
+                        document.add(com.itextpdf.text.Paragraph("SOVEREIGN EXPERIMENTAL CLINICAL REGISTRY REGISTER", titleFont))
+                        document.add(com.itextpdf.text.Paragraph(" "))
+                        val sandboxReport = com.example.data.DeepClinicalSimulationEngine.compilePdfSandboxRegistrySummary()
+                        document.add(createPdfShadedBox(sandboxReport, "📊 HIGH-FIDELITY SIMULATION ANALYTICAL METRICS:", normalFont, boldFont))
+                        document.add(com.itextpdf.text.Paragraph(" "))
+
+                        document.newPage()
+                        document.add(com.itextpdf.text.Paragraph("SOVEREIGN CABINET SUB-DRAWER REGISTRIES", titleFont))
+                        document.add(com.itextpdf.text.Paragraph(" "))
+                        val subDrawersReport = com.example.data.DeepStateCascadeCoordinator.compileUnifiedPdfSummary()
+                        document.add(createPdfShadedBox(subDrawersReport, "📂 GEOPOLITICAL, PHARMACEUTICAL AND JUDICIARY SUB-DRAWERS SUMMARY:", normalFont, boldFont))
+                        document.add(com.itextpdf.text.Paragraph(" "))
+
+                        val sandboxLogs = com.example.data.SovereignSandboxGameplayHandler.getLedgerEntries().joinToString("\n")
+                        val ledgerHeader = if (sandboxLogs.isNotBlank()) sandboxLogs else "No cascading interactions occurred in this simulation."
+                        document.add(createPdfShadedBox(ledgerHeader, "📝 INTERACTIVE GEOPOLITICAL & CLINICAL CASCADING LOGS:", normalFont, boldFont))
+                        document.add(com.itextpdf.text.Paragraph(" "))
 
                         document.add(com.itextpdf.text.Paragraph("App Error Log", headerFont))
                         if (sessionErrorLog.isEmpty()) {
@@ -2160,6 +2185,12 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
             if (activeEncounterId == 0L) {
                 activeEncounterId = id
             }
+            com.example.data.DeepClinicalSimulationEngine.tickGameStateSandbox(
+                patientsSeen = _uiState.value.patientsSeen,
+                lastReputationDelta = if (_uiState.value.isEncounterComplete) 1 else 0,
+                lastIncomeDelta = entity.revenueEarned,
+                activeLawsCount = worldSnapshot.value?.activeLaws?.size ?: 0
+            )
         }
     }
 
@@ -2305,7 +2336,9 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         return null
     }
 
-    private fun getSystemPrompt(): String {
+    private suspend fun getSystemPrompt(): String {
+        val memoryContext = aiMemoryManager.getRecentContext(limit = 10)
+        
         val profileJson = """
             {
                 "specialty": "${_hiddenCase.value?.specialty}",
@@ -2383,6 +2416,8 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
         } else ""
 
         val world = worldSnapshot.value
+        val sandboxPrompt = com.example.data.DeepClinicalSimulationEngine.compileAiSystemPromptDirective()
+        val drawersPrompt = com.example.data.DeepStateCascadeCoordinator.compileUnifiedDrawerStateDirective()
         val worldStatePrompt = if (world != null) {
             """
                 
@@ -2392,6 +2427,10 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 - Medical License Status: ${world.licenseStatus}
                 - Active Statutes: ${world.activeLaws.joinToString(", ") { it.name }}
                 - Active Unpaid Fines: ${world.activeFines.size}
+                
+                $sandboxPrompt
+                
+                $drawersPrompt
                 
                 $AGENT_POWERS_PROMPT
                 
@@ -2490,11 +2529,16 @@ $memoryLines
                 }
               ]
             }
+            
+            🧠 RECENT AI MEMORIES (PREVIOUS CLINICAL ENCOUNTERS FOR CONTINUITY):
+            $memoryContext
         """.trimIndent()
     }
 
     fun sendMessage(text: String) {
         if (text.isBlank() || _isLoading.value) return
+
+        com.example.data.SovereignSandboxGameplayHandler.processClinicalDialogueCascades(text)
 
         val updatedHistory = _uiState.value.chatHistory.toMutableList()
         val formattedTime = String.format("%02d:%02d", (_uiState.value.virtualTimeElapsed / 60) + 8, _uiState.value.virtualTimeElapsed % 60)
@@ -3684,13 +3728,11 @@ $memoryLines
 
                     update.lessonLearned?.let { ll ->
                         if (ll.isNotBlank() && ll.trim() != "null") {
-                            val memory = com.example.data.AgentMemory(
+                            aiMemoryManager.logSimulationEvent(
                                 encounterId = activeEncounterId,
-                                timestamp = System.currentTimeMillis(),
-                                memoryTag = _hiddenCase.value?.trueDiagnosis ?: "General",
-                                lessonLearned = ll
+                                tag = _hiddenCase.value?.trueDiagnosis ?: "General",
+                                lesson = ll
                             )
-                            appDatabase.agentMemoryDao().insertMemory(memory)
                         }
                     }
 
@@ -4237,6 +4279,7 @@ $memoryLines
     }
 
     private suspend fun executeToolCallFromAgent(name: String, args: Map<String, Any>): String {
+        com.example.data.SovereignSandboxGameplayHandler.processToolInvocationCascades(name, args)
         return withContext(Dispatchers.IO) {
             try {
                 when (name) {
@@ -4810,6 +4853,217 @@ $memoryLines
         }
     }
 
+    // --- 🏛️ ON-DEMAND CONSTITUTIONAL REVIEW STATE ---
+    private val _onDemandCourtActive = MutableStateFlow(false)
+    val onDemandCourtActive: StateFlow<Boolean> = _onDemandCourtActive.asStateFlow()
+
+    private val _onDemandCourtLawId = MutableStateFlow("")
+    val onDemandCourtLawId: StateFlow<String> = _onDemandCourtLawId.asStateFlow()
+
+    private val _onDemandCourtLog = MutableStateFlow<List<String>>(emptyList())
+    val onDemandCourtLog: StateFlow<List<String>> = _onDemandCourtLog.asStateFlow()
+
+    private val _onDemandCourtJurySentiment = MutableStateFlow(40) // 0-100%
+    val onDemandCourtJurySentiment: StateFlow<Int> = _onDemandCourtJurySentiment.asStateFlow()
+
+    private val _onDemandCourtTension = MutableStateFlow(40) // 0-100%
+    val onDemandCourtTension: StateFlow<Int> = _onDemandCourtTension.asStateFlow()
+
+    private val _onDemandCourtStage = MutableStateFlow("init") // "init", "cross", "verdict"
+    val onDemandCourtStage: StateFlow<String> = _onDemandCourtStage.asStateFlow()
+
+    private val _onDemandCourtVerdictText = MutableStateFlow("")
+    val onDemandCourtVerdictText: StateFlow<String> = _onDemandCourtVerdictText.asStateFlow()
+
+    private val _onDemandCourtR0Text = MutableStateFlow("")
+    val onDemandCourtR0Text: StateFlow<String> = _onDemandCourtR0Text.asStateFlow()
+
+    fun startOnDemandConstitutionalCourt(lawId: String) {
+        val policy = activePolicies.value.find { it.id == lawId } ?: return
+        _onDemandCourtActive.value = true
+        _onDemandCourtLawId.value = lawId
+        _onDemandCourtJurySentiment.value = 45
+        _onDemandCourtTension.value = 50
+        _onDemandCourtStage.value = "init"
+        _onDemandCourtVerdictText.value = ""
+        SovereignHearingDocketHandler.resetOnDemandDocket()
+        
+        val details = """
+            TITLE: ${policy.title}
+            SUMMARY: ${policy.summary}
+            CLINICAL CONSTRAINT: ${policy.clinicalRule}
+            ECONOMIC IMPACT: ${policy.economicImpact}
+            EXTENDED CLAUSES: ${policy.extendedClauses.joinToString("; ")}
+        """.trimIndent()
+        _onDemandCourtR0Text.value = details
+
+        val initialLog = mutableListOf<String>()
+        initialLog.add("🏛️ CONSTITUTIONAL PETITION FILED: Dr. Tim vs. The Parliamentary Statute '${policy.title}'.\n" +
+                "Location: High Constitutional Tribunal Chamber, Sovereign Capital.\n\n" +
+                "Chief Justice Vance: 'The High Tribunal Bench is now in session to hear the constitutional challenge against Parliamentary Bill '${policy.title}' (ID: ${policy.id}). The petitioner, Dr. Tim, claims that this statutory constraint unlawfully infringes standard healthcare delivery and requests a nationwide judicial strike-down.'\n\n" +
+                "State Prosecuting Advocate: 'Your Honor, this law is a vital pillar of the public safeties of ${countryName.value}! We request the Bench dismiss this petition out-of-hand. Petitioner, state your primary constitutional and clinical grievances!'")
+        
+        _onDemandCourtLog.value = initialLog
+    }
+
+    fun argueOnDemandConstitutionalCourt(pleaMsg: String) {
+        if (pleaMsg.isBlank()) return
+        val lawId = _onDemandCourtLawId.value
+        val policy = activePolicies.value.find { it.id == lawId } ?: return
+
+        val hearingDetails = SovereignHearingDocketHandler.getOnDemandHearingDetails()
+        val hearingContext = """
+            - CURRENT COURT STAGE: ${hearingDetails.title} (Step ${hearingDetails.index})
+            - STEP FOCUS: ${hearingDetails.subtitle}
+            - STANDING REQUIREMENT: ${hearingDetails.requirementsHint}
+        """.trimIndent()
+
+        _isLoading.value = true
+        viewModelScope.launch {
+            try {
+                val currentProvider = provider.value
+                val currentModel = model.value
+                val userKey = apiKey.value ?: ""
+                val activeKey = resolveActiveApiKey(currentProvider, userKey)
+                val currentLogText = _onDemandCourtLog.value.joinToString("\n\n")
+
+                val prompt = """
+                    You are simulating an intense constitutional statutory challenge hearing in the Supreme Court of ${countryName.value}, before Chief Justice Vance and a 6-person tribunal.
+                    
+                    THE LAW BEING CHALLENGED:
+                    - ID: ${policy.id}
+                    - Title: ${policy.title}
+                    - Clinical Constraint: ${policy.clinicalRule}
+                    - Economic Impact: ${policy.economicImpact}
+                    - Extended Clauses: ${policy.extendedClauses.joinToString("; ")}
+                    
+                    COURT SN SNAPSHOTS:
+                    $hearingContext
+                    - Current Log History (dialogue thus far):
+                    ${'$'}currentLogText
+                    
+                    DEFENDANT'S CORE SPEECH / PLEA:
+                    "${'$'}pleaMsg"
+                    
+                    YOUR JOB:
+                    1. Roleplay the intellectual, sharp voice of the State Prosecuting Advocate defending the law, and the strict, high-standing guidance of Chief Justice Vance.
+                    2. Evaluate how the Tribunal and Jury sentiment shifts. If Dr. Tim presents compelling clinical reasons, increase 'jurySentiment' and decrease 'courtTension'. If their defense is weak, irrelevant or purely financial, decrease sentiment and spike tension.
+                    3. Return raw JSON matching this schema:
+                    {
+                       "courtDialogue": "Chief Justice Vance's questioning of the record, or prosecuting attorney's rebuttal.",
+                       "sentimentAdjustment": 12,
+                       "tensionAdjustment": -8,
+                       "isVerdictReady": false,
+                       "guidanceTip": "Tip from your clerk or representation on how to advance your pleading."
+                    }
+                """.trimIndent()
+
+                val rawResponse = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt, customEndpoint.value)
+                val sanitized = extractJsonString(rawResponse)
+                val json = JSONObject(sanitized)
+
+                val dialogue = json.optString("courtDialogue", "Prosecution objects to the petitioner's assertions.")
+                val sAdj = json.optInt("sentimentAdjustment", 0)
+                val tAdj = json.optInt("tensionAdjustment", 5)
+                val tip = json.optString("guidanceTip", "Attach high-quality retraining proof or cite clinical guidelines to win support.")
+
+                val logs = _onDemandCourtLog.value.toMutableList()
+                logs.add("🗣️ PETITIONER'S GRIEVANCE:\n\"${'$'}pleaMsg\"")
+                logs.add("👨‍⚖️ TRIBUNAL RECORD:\n${'$'}dialogue\n\n📌 CLERK NOTE: ${'$'}tip")
+                _onDemandCourtLog.value = logs
+
+                _onDemandCourtJurySentiment.value = (_onDemandCourtJurySentiment.value + sAdj).coerceIn(10, 100)
+                _onDemandCourtTension.value = (_onDemandCourtTension.value + tAdj).coerceIn(10, 100)
+                _onDemandCourtStage.value = "cross"
+
+            } catch (e: Exception) {
+                logAndEmitError("Court argument failed: ${e.localizedMessage}")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun concludeOnDemandConstitutionalCourt() {
+        val lawId = _onDemandCourtLawId.value
+        val policy = activePolicies.value.find { it.id == lawId } ?: return
+
+        _isLoading.value = true
+        viewModelScope.launch {
+            try {
+                val currentProvider = provider.value
+                val currentModel = model.value
+                val userKey = apiKey.value ?: ""
+                val activeKey = resolveActiveApiKey(currentProvider, userKey)
+                val currentLogText = _onDemandCourtLog.value.joinToString("\n\n")
+
+                val prompt = """
+                    You are Chief Justice Vance rendering the final binding CONSTITUTIONAL DECREE of the High Tribunal in the case of Dr. Tim vs. Statutory Law '${policy.title}'.
+                    
+                    HEARING SUMMARY:
+                    ${'$'}currentLogText
+                    
+                    COURT METRICS:
+                    - Bench/Jury Sympathy Sentiment: ${_onDemandCourtJurySentiment.value}%
+                    - Accusation Tension: ${_onDemandCourtTension.value}%
+                    
+                    DECISION MECHANICS:
+                    - If Sympathy Sentiment is >= 65%, the Tribunal agrees that the law is unconstitutional and will REPEAL/STRIKE DOWN the law completely.
+                    - If Sympathy Sentiment is < 65%, the Tribunal rejects the challenge. The law remains enacted, and Dr. Tim is fined a $1,000 court processing fee for frivolous litigation.
+                    
+                    YOUR JOB:
+                    1. Deliver a grand, authoritative final judicial statement (minimum 2 detailed paragraphs). Discuss the balance of public safety vs clinical liberties, citing specific comments from your earlier hearings.
+                    2. Clearly state whether the petition is GRANTED (repealed) or DENIED.
+                    3. Return raw JSON matching this schema:
+                    {
+                       "success": true, // true if sympathy >= 65% else false
+                       "decreeText": "The formal historical decree read by Chief Justice Vance..."
+                    }
+                """.trimIndent()
+
+                val rawResponse = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt, customEndpoint.value)
+                val sanitized = extractJsonString(rawResponse)
+                val json = JSONObject(sanitized)
+
+                val success = json.optBoolean("success", _onDemandCourtJurySentiment.value >= 65)
+                val decree = json.optString("decreeText", "The Judicial Bench has concluded hearings under statutory protocols.")
+
+                val logs = _onDemandCourtLog.value.toMutableList()
+                logs.add("⚖️ SUPREME COURT OF RULING - CONSTITUTIONAL DECREE ISSUED:\n${'$'}decree")
+                _onDemandCourtLog.value = logs
+
+                _onDemandCourtVerdictText.value = decree
+                _onDemandCourtStage.value = "verdict"
+
+                if (success) {
+                    legalWorldAgent.repealStatute(lawId)
+                    val newVotingLogs = _votingLog.value.toMutableList()
+                    newVotingLogs.add("🏛️ [CONSTITUTIONAL REVIEW] The Supreme Court ruled in favor of Dr. Tim! The law '${policy.title}' is struck down nationwide!")
+                    _votingLog.value = newVotingLogs
+                    settingsDataStore.addXp(1200L) // Gain major XP for striking down a law!
+                } else {
+                    settingsDataStore.updateClinicStats(clinicBalance.value - 1000.0, reputationStars.value)
+                    settingsDataStore.addDailyExpenses(1000.0)
+                    val newVotingLogs = _votingLog.value.toMutableList()
+                    newVotingLogs.add("🏛️ [CONSTITUTIONAL REVIEW] Dr. Tim's challenge against '${policy.title}' was struck down. Paid a $1,000 legal fee.")
+                    _votingLog.value = newVotingLogs
+                }
+
+            } catch (e: Exception) {
+                logAndEmitError("Court finalization failed: ${e.localizedMessage}")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun dismissOnDemandConstitutionalCourt() {
+        _onDemandCourtActive.value = false
+        _onDemandCourtLawId.value = ""
+        _onDemandCourtLog.value = emptyList()
+        _onDemandCourtVerdictText.value = ""
+    }
+
     fun initiateCivilSuitAgainstPatient(reason: String) {
         val patientName = _uiState.value.intakeFormData?.run { "$firstName $surname" } ?: _lawsuitPatientName.value 
         val patientInfo = patientName.takeIf { it.isNotBlank() } ?: "Current Patient"
@@ -4859,6 +5113,7 @@ $memoryLines
         _lawsuitTension.value = 65
         _lawsuitProsecutorAggression.value = 70
         _lawsuitCurrentStage.value = "charges"
+        SovereignHearingDocketHandler.resetDocket()
 
         _selectedJustificationLaws.value = emptyList()
 
@@ -5001,6 +5256,7 @@ $memoryLines
         _lawsuitTension.value = 50
         _lawsuitProsecutorAggression.value = 50
         _lawsuitCurrentStage.value = "charges"
+        SovereignHearingDocketHandler.resetDocket()
 
         _selectedJustificationLaws.value = emptyList()
 
@@ -5279,12 +5535,21 @@ $memoryLines
             }
         } else "None attached."
 
+        val hearingDetails = SovereignHearingDocketHandler.getMalpracticeHearingDetails()
+        val hearingContext = """
+            - CURRENT COURT HEARING DOCKET STAGE: ${hearingDetails.title} (Step ${hearingDetails.index})
+            - HEARING DESCRIPTION: ${hearingDetails.subtitle}
+            - HEARING FOCUS REQUIREMENT: ${hearingDetails.requirementsHint}
+            - STATE PROSECUTORY TIMBRE: ${hearingDetails.prosecutorTemperament}
+        """.trimIndent()
+
         val prompt = """
             You are simulating an interactive clinical trial hearing in the Supreme Medical Court of the Republic of ${countryName.value}.
             
             SOVEREIGN COURT STATE INFO:
             - Defendant: Dr. Tim, GP (JB Consultation Practice, PR# 1234567)
             - Patient Case: Treated patient "${_lawsuitPatientName.value}" for condition "${_lawsuitCaseDiag.value}".
+            $hearingContext
             - Current Courtroom Transcript & History:
             $currentHistoryLog
             
@@ -5509,9 +5774,13 @@ $memoryLines
                     _lawsuitCurrentStage.value = "verdict"
 
                     val corruptedJurors = courtroomViewModel.lawsuitJurors.value.count { it.isCorrupt }
-                    if (corruptedJurors > 0 && Math.random() < (corruptedJurors * 0.40)) {
-                        kotlinx.coroutines.delay(2500) // Brief pause to read original verdict
+                    if (corruptedJurors > 0 && Math.random() < 0.60) {
+                        kotlinx.coroutines.delay(1000) // Brief pause
                         startCriminalCourt("Judicial Subversion & Sovereign Bribery (State Inspectorate discovered $corruptedJurors corrupted jurors receiving sub-rosa financial settlements.)")
+                    } else if (vType.equals("Suspension", ignoreCase = true) && Math.random() < 0.4) {
+                        // 40% chance of escalating to criminal court for gross malpractice!
+                        kotlinx.coroutines.delay(1000)
+                        startCriminalCourt("Gross Criminal Clinical Malpractice & Patient Endangerment (Reckless Conduct).")
                     }
                 }
             } catch (e: Exception) {
@@ -5519,6 +5788,77 @@ $memoryLines
             } finally {
                 _isLoading.value = false
             }
+        }
+    }
+
+    fun advanceToNextScheduledHearing() {
+        val currentStage = SovereignHearingDocketHandler.getMalpracticeHearingDetails()
+        val hasMore = SovereignHearingDocketHandler.advanceHearing()
+        if (hasMore) {
+            val nextStage = SovereignHearingDocketHandler.getMalpracticeHearingDetails()
+            val logs = _lawsuitLog.value.toMutableList()
+            logs.add("🔔 TRANSCRIPT RECORD: ${currentStage.title} has concluded.\n" +
+                    "Proceeding now to: ${nextStage.title}\n" +
+                    "Focus Assignment: ${nextStage.subtitle}")
+            _lawsuitLog.value = logs
+            _lawsuitCurrentStage.value = "charges" // Reset stage back to charges/plead state and allow input
+            OrchidDeepStateManager.resetTrialRounds(rounds = 1) // Give 1 fresh round per hearing step
+        } else {
+            logAndEmitError("No additional scheduled standard hearings remaining! Request final Supreme Bench Verdict.")
+        }
+    }
+
+    fun lodgeHighAppellateAppeal() {
+        if (_isLoading.value) return
+        val price = 2000.0
+        if (clinicBalance.value < price) {
+            logAndEmitError("Appellate filing fee rejected: Insufficient clinic funds ($price required)!")
+            return
+        }
+        _isLoading.value = true
+        viewModelScope.launch {
+            try {
+                settingsDataStore.updateClinicStats(clinicBalance.value - price, reputationStars.value)
+                settingsDataStore.addDailyExpenses(price)
+                
+                SovereignHearingDocketHandler.triggerAppellateAppeal()
+                
+                // Set up the courtroom for Appellate Mode
+                _lawsuitTension.value = (_lawsuitTension.value - 20).coerceAtLeast(10)
+                _lawsuitProsecutorAggression.value = (_lawsuitProsecutorAggression.value - 20).coerceAtLeast(10)
+                _lawsuitVerdict.value = null
+                _lawsuitFine.value = 0.0
+                _lawsuitSuspension.value = 0
+                _lawsuitCurrentStage.value = "charges"
+                
+                val logs = _lawsuitLog.value.toMutableList()
+                logs.add("⚖️ [SOVEREIGN APPELLATE BENCH] APPELLATE PETITION SUCCESSFULLY ENROLLED.\n" +
+                        "Paid $2,000 supreme appellate court fee.\n" +
+                        "The case will now proceed to Hearing IV: Supreme Appellate Review.")
+                _lawsuitLog.value = logs
+                
+                OrchidDeepStateManager.resetTrialRounds(rounds = 1)
+            } catch (e: Exception) {
+                logAndEmitError("Appellate enrollment failed: ${e.localizedMessage}")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun advanceOnDemandConstitutionalHearing() {
+        val currentStage = SovereignHearingDocketHandler.getOnDemandHearingDetails()
+        val hasMore = SovereignHearingDocketHandler.advanceOnDemandHearing()
+        if (hasMore) {
+            val nextStage = SovereignHearingDocketHandler.getOnDemandHearingDetails()
+            val logs = _onDemandCourtLog.value.toMutableList()
+            logs.add("🔔 HISTORIC RECORD: ${currentStage.title} concluded.\n" +
+                    "Proceeding to: ${nextStage.title}\n" +
+                    "Objective: ${nextStage.subtitle}")
+            _onDemandCourtLog.value = logs
+            _onDemandCourtStage.value = "init" // Reset back to input available
+        } else {
+            logAndEmitError("Constitutional review has fully advanced. Request final Bench Verdict Decree.")
         }
     }
 
@@ -5784,9 +6124,12 @@ $memoryLines
                     _lawsuitCurrentStage.value = "verdict"
 
                     val corruptedJurors = courtroomViewModel.lawsuitJurors.value.count { it.isCorrupt }
-                    if (corruptedJurors > 0 && Math.random() < (corruptedJurors * 0.40)) {
-                        kotlinx.coroutines.delay(2500)
+                    if (corruptedJurors > 0 && Math.random() < 0.60) {
+                        kotlinx.coroutines.delay(1000)
                         startCriminalCourt("Judicial Subversion & Sovereign Bribery (State Inspectorate discovered $corruptedJurors corrupted jurors receiving sub-rosa financial settlements.)")
+                    } else if (_lawsuitVerdict.value.equals("Suspension", ignoreCase = true) && Math.random() < 0.4) {
+                        kotlinx.coroutines.delay(1000)
+                        startCriminalCourt("Gross Criminal Clinical Malpractice & Patient Endangerment (Reckless Conduct).")
                     }
                 } else {
                     logAndEmitError("Failed to parse tribunal verdict. Re-submitting defense...")

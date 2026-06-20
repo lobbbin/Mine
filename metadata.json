@@ -1,8 +1,6 @@
 {
-  "name": "Clinical Sim Engine",
-  "description": "An interactive clinical OSCE and practice operations simulation engine for medical clinical teaching.",
+  "name": "Elysium Sim Engine",
+  "description": "High-fidelity satirical geopolitical clinical simulation sandbox engine with regulatory intelligence stress-tests.",
   "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

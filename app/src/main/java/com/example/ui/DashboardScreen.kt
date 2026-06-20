@@ -48,6 +48,7 @@ import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Air
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Flag
@@ -67,6 +68,7 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.rememberDrawerState
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.animation.animateContentSize
 import androidx.compose.runtime.rememberCoroutineScope
@@ -146,6 +148,10 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.ui.text.font.FontFamily
 
 data class PrescriptionItem(
@@ -283,6 +289,9 @@ fun DashboardScreen(
 
     var showBottomSheet by remember { mutableStateOf(false) }
     var selectedSheetTab by remember { mutableStateOf(0) }
+    
+    var activeTab by remember { mutableStateOf(0) }
+    var isExpanded by remember { mutableStateOf(false) }
 
     // Dialog form inputs
     var showDiagnosisDialog by remember { mutableStateOf(false) }
@@ -295,6 +304,9 @@ fun DashboardScreen(
     var showLabsDialog by remember { mutableStateOf(false) }
     var labsInput by remember { mutableStateOf("") }
     var financialConsentSigned by remember { mutableStateOf(false) }
+
+    var showFinancialLedger by remember { mutableStateOf(false) }
+    var showAiMemories by remember { mutableStateOf(false) }
     
     var showNotesDialog by remember { mutableStateOf(false) }
     var ddxNotesInput by remember { mutableStateOf(uiState.ddxNotes) }
@@ -381,9 +393,42 @@ fun DashboardScreen(
     }
 
     // Scroll chat stream to bottom when a new entry is detected
-    LaunchedEffect(uiState.chatHistory.size) {
+    LaunchedEffect(uiState.chatHistory.size, isLoading) {
         if (uiState.chatHistory.isNotEmpty()) {
-            lazyListState.animateScrollToItem(uiState.chatHistory.size - 1)
+            val currentCase = hiddenCase
+            val isUninsuredCase = currentCase != null && (
+                currentCase.insuranceStatus.contains("Uninsured", ignoreCase = true) ||
+                currentCase.insuranceStatus.contains("State Funded", ignoreCase = true) ||
+                currentCase.insuranceStatus.contains("Cash", ignoreCase = true) ||
+                currentCase.insuranceStatus.contains("Out-of-Pocket", ignoreCase = true)
+            )
+            val headerCount = 4 + 
+                (if (sovereignNotice != null) 1 else 0) + 
+                (if (sickPoliticianAlert != null) 1 else 0) + 
+                (if (isUninsuredCase) 1 else 0) +
+                (if (!uiState.dmEnvironmentalUpdate.isNullOrBlank()) 1 else 0)
+            
+            val lastMsgIndex = headerCount + uiState.chatHistory.size - 1
+            val targetIndex = if (isLoading) lastMsgIndex + 1 else lastMsgIndex
+            try {
+                lazyListState.animateScrollToItem(targetIndex)
+            } catch (e: Exception) {
+                // Ignore scroll cancellation
+            }
+        }
+    }
+
+    // Smoothly align scroll to focus on the Bedside Clinical Hub when expanded or tab switched
+    LaunchedEffect(activeTab, isExpanded) {
+        if (isExpanded) {
+            val noticeCount = if (sovereignNotice != null) 1 else 0
+            val sickCount = if (sickPoliticianAlert != null) 1 else 0
+            val clinicalHubIndex = noticeCount + sickCount + 1
+            try {
+                lazyListState.animateScrollToItem(clinicalHubIndex)
+            } catch (e: Exception) {
+                // Ignore
+            }
         }
     }
 
@@ -590,6 +635,28 @@ fun DashboardScreen(
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
                 
+                NavigationDrawerItem(
+                    label = { Text("💰 FINANCIAL LEDGER", fontWeight = FontWeight.Bold) },
+                    selected = false,
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        showFinancialLedger = true
+                    },
+                    icon = { Icon(Icons.Default.RequestQuote, null) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
+
+                NavigationDrawerItem(
+                    label = { Text("🧠 AI MEMORIES", fontWeight = FontWeight.Bold) },
+                    selected = false,
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        showAiMemories = true
+                    },
+                    icon = { Icon(Icons.Default.Visibility, null) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
+                
                 Spacer(Modifier.weight(1f))
                 HorizontalDivider()
                 
@@ -618,6 +685,18 @@ fun DashboardScreen(
                         viewModel.referPatient()
                     },
                     icon = { Icon(Icons.AutoMirrored.Filled.Send, null) },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
+
+                NavigationDrawerItem(
+                    label = { Text("⚖️ SUE PATIENT (LITIGATE)", fontWeight = FontWeight.Bold, color = Color(0xFFC62828)) },
+                    selected = false,
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        activeTab = 5
+                        isExpanded = true
+                    },
+                    icon = { Icon(Icons.Default.Gavel, null, tint = Color(0xFFC62828)) },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
                 )
                 
@@ -757,6 +836,33 @@ fun DashboardScreen(
                         titleContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 )
+
+                // EXPERIMENTAL AI SIMULATION DISCLAIMER CARD
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.45f)),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.25f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = "Disclaimer Information",
+                            tint = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "⚠️ STRESS-TEST DISCLAIMER: This is a fun, satirical clinical simulation project meant strictly to stress-test AI capability on complex medical decisions and legal courtroom roleplay.",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                    }
+                }
                 
                 AnimatedVisibility(visible = isStatutoryBlockadeActive) {
                     Card(
@@ -1481,272 +1587,296 @@ fun DashboardScreen(
                         }
                     }
                 } else {
-                    // --- Ambient Sovereign Alert Notices (Dynamic Executive-Created UI Elements) ---
-                if (sovereignNotice != null) {
-                    val notice = sovereignNotice!!
-                    val containerColor = when (notice.severity) {
-                        "Critical" -> MaterialTheme.colorScheme.errorContainer
-                        "High" -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f)
-                        "Medium" -> MaterialTheme.colorScheme.tertiaryContainer
-                        else -> MaterialTheme.colorScheme.surfaceVariant
-                    }
-                    val contentColor = when (notice.severity) {
-                        "Critical" -> MaterialTheme.colorScheme.onErrorContainer
-                        "High" -> MaterialTheme.colorScheme.onErrorContainer
-                        "Medium" -> MaterialTheme.colorScheme.onTertiaryContainer
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    }
-                    val icon = when (notice.severity) {
-                        "Critical" -> Icons.Default.Gavel
-                        "High" -> Icons.Default.Warning
-                        "Medium" -> Icons.Default.Info
-                        else -> Icons.Default.Campaign
-                    }
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = containerColor, contentColor = contentColor),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                            .border(1.dp, contentColor.copy(alpha = 0.25f), RoundedCornerShape(12.dp)),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                    Icon(imageVector = icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(24.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = notice.headline.uppercase(),
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Black,
-                                        color = contentColor
-                                    )
-                                }
-                                IconButton(
-                                    onClick = { viewModel.dismissSovereignNotice() },
-                                    modifier = Modifier.size(24.dp)
-                                ) {
-                                    Icon(Icons.Default.Close, contentDescription = "Dismiss Notice", tint = contentColor.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = notice.message,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = contentColor.copy(alpha = 0.9f)
-                            )
-                        }
-                    }
-                }
-
-                    // --- Ambient Sick Politician Banner inside Clinical Hub ---
-                if (sickPoliticianAlert != null) {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(8.dp)
-                            .clickable { activeMainTab = 1 },
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Default.MonitorHeart, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "🚨 DISTRESS WARNING: The $presidentName or MP is critically ill! Tap to switch and ADMIT them immediately.",
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                        }
-                    }
-                }
-
-                // --- Collapsible Bedside Clinical Hub Card (Vitals, Demographics, and Emergency Interventions under one clean tabbed subsection drawer) ---
-                Button(
-                    onClick = {
-                        isGeneratingIntake = true
-                        viewModel.generateIntakeFormData { populatedFormData ->
-                            aiIntakeData = populatedFormData
-                            isGeneratingIntake = false
-                            showIntakeFormDialog = true
-                        }
-                    },
-                    enabled = !isGeneratingIntake,
-                    modifier = Modifier.padding(16.dp).fillMaxWidth()
-                ) {
-                    Text(if (isGeneratingIntake) "📋 Generating AI Registration..." else "📋 Patient Registration Intake Form")
-                }
-                
-                ClinicalHubCard(
-                    uiState = uiState,
-                    hiddenCase = hiddenCase,
-                    isLoading = isLoading,
-                    viewModel = viewModel
-                )
-
-                if (showIntakeFormDialog) {
-                    IntakeFormDialog(
-                        initialData = aiIntakeData,
-                        onDismiss = { showIntakeFormDialog = false; aiIntakeData = null },
-                        onFinalize = { formData -> viewModel.acceptPatientIntake(formData) },
-                        onSuggestAiAutofill = { noteStr, callback ->
-                            viewModel.generateIntakeFormData(customNote = noteStr, completion = callback)
-                        },
-                        onSyncBedside = { callback ->
-                            viewModel.generateIntakeFormData(customNote = null, completion = callback)
-                        }
+                    val isUninsuredCase = hiddenCase != null && (
+                        hiddenCase!!.insuranceStatus.contains("Uninsured", ignoreCase = true) ||
+                        hiddenCase!!.insuranceStatus.contains("State Funded", ignoreCase = true) ||
+                        hiddenCase!!.insuranceStatus.contains("Cash", ignoreCase = true) ||
+                        hiddenCase!!.insuranceStatus.contains("Out-of-Pocket", ignoreCase = true)
                     )
-                }
 
-                DailyPracticeClosureCard(
-                currentDay = currentDay,
-                patientsSeenToday = patientsSeenToday,
-                dailyRevenue = dailyRevenue,
-                dailyExpenses = dailyExpenses,
-                clinicBalance = clinicBalance,
-                syringeStock = syringeStock,
-                salineStock = salineStock,
-                adrenalineStock = adrenalineStock,
-                reagentsStock = reagentsStock,
-                medsStock = medsStock,
-                viewModel = viewModel
-            )
-
-            // Current Phase Tracker
-            Text(
-                text = "📍 CURRENT PHASE: ${uiState.currentPhase}",
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.ExtraBold,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
-                    .padding(vertical = 6.dp, horizontal = 16.dp)
-            )
-
-            val isUninsuredCase = hiddenCase != null && (
-                hiddenCase!!.insuranceStatus.contains("Uninsured", ignoreCase = true) ||
-                hiddenCase!!.insuranceStatus.contains("State Funded", ignoreCase = true) ||
-                hiddenCase!!.insuranceStatus.contains("Cash", ignoreCase = true) ||
-                hiddenCase!!.insuranceStatus.contains("Out-of-Pocket", ignoreCase = true)
-            )
-
-            if (isUninsuredCase) {
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (wildAiUninsuredMode) Color(0xFF1B1210) else Color(0xFFFF8F00).copy(alpha = 0.08f)
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                    border = BorderStroke(1.dp, if (wildAiUninsuredMode) Color(0xFFD84315) else Color(0xFFFFB300)),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(
-                                text = if (wildAiUninsuredMode) "🔥" else "⚠️",
-                                fontSize = 18.sp,
-                                modifier = Modifier.padding(end = 8.dp)
-                            )
-                            Column {
-                                Text(
-                                    text = if (wildAiUninsuredMode) "WILD AI SIMULATOR ENGINE ACTIVE" else "NO INSURANCE / STATE PATHWAYS MANDATE",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 11.sp,
-                                    color = if (wildAiUninsuredMode) Color(0xFFFF7043) else Color(0xFFFF8F00)
-                                )
-                                Text(
-                                    text = if (wildAiUninsuredMode) 
-                                        "Standard state constraints bypassed! AI engine is granted full liberty to introduce alternative, rebel clinical events and bizarre reactions." 
-                                        else "This patient has no private insurance. Flip this state override toggle to authorize wild experimental therapies or deep clinical roams!",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    lineHeight = 13.sp,
-                                    fontSize = 9.5.sp,
-                                    color = if (wildAiUninsuredMode) Color(0xFFD7CCC8) else Color.DarkGray
-                                )
+                    if (showIntakeFormDialog) {
+                        IntakeFormDialog(
+                            initialData = aiIntakeData,
+                            onDismiss = { showIntakeFormDialog = false; aiIntakeData = null },
+                            onFinalize = { formData -> viewModel.acceptPatientIntake(formData) },
+                            onSuggestAiAutofill = { noteStr, callback ->
+                                viewModel.generateIntakeFormData(customNote = noteStr, completion = callback)
+                            },
+                            onSyncBedside = { callback ->
+                                viewModel.generateIntakeFormData(customNote = null, completion = callback)
                             }
-                        }
-                        Switch(
-                            checked = wildAiUninsuredMode,
-                            onCheckedChange = { viewModel.toggleWildAiUninsuredMode(it) }
                         )
                     }
-                }
-            }
 
-            // --- Dialogue Chat Stream ---
-            LazyColumn(
-                state = lazyListState,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                if (!uiState.dmEnvironmentalUpdate.isNullOrBlank()) {
-                    item {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A237E)),
-                            shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.dp, Color(0xFF3F51B5).copy(alpha = 0.5f)),
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                        ) {
-                            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(imageVector = Icons.Default.Info, contentDescription = null, tint = Color.Cyan, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "MASTER NARRATIVE: ${uiState.dmEnvironmentalUpdate}",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
+                    // --- Scrollable Stream including all upper cards so that the chat screen does not get squashed ---
+                    LazyColumn(
+                        state = lazyListState,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // 1. Sovereign Alert Notices
+                        if (sovereignNotice != null) {
+                            item {
+                                val notice = sovereignNotice!!
+                                val containerColor = when (notice.severity) {
+                                    "Critical" -> MaterialTheme.colorScheme.errorContainer
+                                    "High" -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f)
+                                    "Medium" -> MaterialTheme.colorScheme.tertiaryContainer
+                                    else -> MaterialTheme.colorScheme.surfaceVariant
+                                }
+                                val contentColor = when (notice.severity) {
+                                    "Critical" -> MaterialTheme.colorScheme.onErrorContainer
+                                    "High" -> MaterialTheme.colorScheme.onErrorContainer
+                                    "Medium" -> MaterialTheme.colorScheme.onTertiaryContainer
+                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                                val icon = when (notice.severity) {
+                                    "Critical" -> Icons.Default.Gavel
+                                    "High" -> Icons.Default.Warning
+                                    "Medium" -> Icons.Default.Info
+                                    else -> Icons.Default.Campaign
+                                }
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = containerColor, contentColor = contentColor),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 6.dp)
+                                        .border(1.dp, contentColor.copy(alpha = 0.25f), RoundedCornerShape(12.dp)),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Column(modifier = Modifier.padding(16.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                                Icon(imageVector = icon, contentDescription = null, tint = contentColor, modifier = Modifier.size(24.dp))
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(
+                                                    text = notice.headline.uppercase(),
+                                                    style = MaterialTheme.typography.titleSmall,
+                                                    fontWeight = FontWeight.Black,
+                                                    color = contentColor
+                                                )
+                                            }
+                                            IconButton(
+                                                onClick = { viewModel.dismissSovereignNotice() },
+                                                modifier = Modifier.size(24.dp)
+                                            ) {
+                                                Icon(Icons.Default.Close, contentDescription = "Dismiss Notice", tint = contentColor.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = notice.message,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = contentColor.copy(alpha = 0.9f)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // 2. Ambient Sick Politician Banner
+                        if (sickPoliticianAlert != null) {
+                            item {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 6.dp)
+                                        .clickable { activeMainTab = 1 },
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Default.MonitorHeart, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "🚨 DISTRESS WARNING: The $presidentName or MP is critically ill! Tap to switch and ADMIT them immediately.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onErrorContainer
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // 3. Intake Form Registration Action
+                        item {
+                            Button(
+                                onClick = {
+                                    isGeneratingIntake = true
+                                    viewModel.generateIntakeFormData { populatedFormData ->
+                                        aiIntakeData = populatedFormData
+                                        isGeneratingIntake = false
+                                        showIntakeFormDialog = true
+                                    }
+                                },
+                                enabled = !isGeneratingIntake,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(if (isGeneratingIntake) "📋 Generating AI Registration..." else "📋 Patient Registration Intake Form")
+                            }
+                        }
+
+                        // 4. Clinical Hub Collapsible Drawer Card
+                        item {
+                            ClinicalHubCard(
+                                uiState = uiState,
+                                hiddenCase = hiddenCase,
+                                isLoading = isLoading,
+                                viewModel = viewModel,
+                                activeTab = activeTab,
+                                onTabChanged = { activeTab = it },
+                                isExpanded = isExpanded,
+                                onExpandedChanged = { isExpanded = it }
+                            )
+                        }
+
+                        // 5. Daily Practice Closure / Audit Card
+                        item {
+                            DailyPracticeClosureCard(
+                                currentDay = currentDay,
+                                patientsSeenToday = patientsSeenToday,
+                                dailyRevenue = dailyRevenue,
+                                dailyExpenses = dailyExpenses,
+                                clinicBalance = clinicBalance,
+                                syringeStock = syringeStock,
+                                salineStock = salineStock,
+                                adrenalineStock = adrenalineStock,
+                                reagentsStock = reagentsStock,
+                                medsStock = medsStock,
+                                viewModel = viewModel
+                            )
+                        }
+
+                        // 6. Current Phase Banner
+                        item {
+                            Text(
+                                text = "📍 CURRENT PHASE: ${uiState.currentPhase}",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
+                                    .padding(vertical = 6.dp, horizontal = 16.dp)
+                            )
+                        }
+
+                        // 7. Uninsured Pathways switch
+                        if (isUninsuredCase) {
+                            item {
+                                Card(
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (wildAiUninsuredMode) Color(0xFF1B1210) else Color(0xFFFF8F00).copy(alpha = 0.08f)
+                                    ),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    border = BorderStroke(1.dp, if (wildAiUninsuredMode) Color(0xFFD84315) else Color(0xFFFFB300)),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Text(
+                                                text = if (wildAiUninsuredMode) "🔥" else "⚠️",
+                                                fontSize = 18.sp,
+                                                modifier = Modifier.padding(end = 8.dp)
+                                            )
+                                            Column {
+                                                Text(
+                                                    text = if (wildAiUninsuredMode) "WILD AI SIMULATOR ENGINE ACTIVE" else "NO INSURANCE / STATE PATHWAYS MANDATE",
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    fontWeight = FontWeight.Black,
+                                                    fontSize = 11.sp,
+                                                    color = if (wildAiUninsuredMode) Color(0xFFFF7043) else Color(0xFFFF8F00)
+                                                )
+                                                Text(
+                                                    text = if (wildAiUninsuredMode) 
+                                                        "Standard state constraints bypassed! AI engine is granted full liberty to introduce alternative, rebel clinical events and bizarre reactions." 
+                                                        else "This patient has no private insurance. Flip this state override toggle to authorize wild experimental therapies or deep clinical roams!",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    lineHeight = 13.sp,
+                                                    fontSize = 9.5.sp,
+                                                    color = if (wildAiUninsuredMode) Color(0xFFD7CCC8) else Color.DarkGray
+                                                )
+                                            }
+                                        }
+                                        Switch(
+                                            checked = wildAiUninsuredMode,
+                                            onCheckedChange = { viewModel.toggleWildAiUninsuredMode(it) }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // 8. Masters Narrative Update
+                        if (!uiState.dmEnvironmentalUpdate.isNullOrBlank()) {
+                            item {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1A237E)),
+                                    shape = RoundedCornerShape(12.dp),
+                                    border = BorderStroke(1.dp, Color(0xFF3F51B5).copy(alpha = 0.5f)),
+                                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                                ) {
+                                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(imageVector = Icons.Default.Info, contentDescription = null, tint = Color.Cyan, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "MASTER NARRATIVE: ${uiState.dmEnvironmentalUpdate}",
+                                            style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // 9. Chat Stream Message List
+                        items(uiState.chatHistory) { message ->
+                            ChatMessageRow(message)
+                        }
+
+                        // 10. AI Processing Status Row
+                        if (isLoading) {
+                            item {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        "Simulation Engine processing clinical data...",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.secondary
+                                    )
+                                }
                             }
                         }
                     }
-                }
-
-                items(uiState.chatHistory) { message ->
-                    ChatMessageRow(message)
-                }
-
-                if (isLoading) {
-                    item {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                "Simulation Engine processing clinical data...",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.secondary
-                            )
-                        }
-                    }
-                }
-            }
 
             // --- Immediate Chat Response Input Bar ---
             if (uiState.isEncounterComplete) {
@@ -2762,6 +2892,382 @@ fun DashboardScreen(
             )
         }
 
+        if (showFinancialLedger) {
+            val encounters by viewModel.allEncounters.collectAsStateWithLifecycle(initialValue = emptyList())
+            val totRev = encounters.sumOf { it.revenueEarned ?: 0.0 }
+            FinancialLedgerDialog(encounters = encounters, totalRevenue = totRev, onDismiss = { showFinancialLedger = false })
+        }
+
+        if (showAiMemories) {
+            val memories by viewModel.aiMemoryManager.allMemoriesFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+            AiMemoryContextDialog(memories = memories, onDismiss = { showAiMemories = false })
+        }
+
+        // --- 🏛️ SUPREME COURT CONSTITUTIONAL HEARING DIALOG ---
+        val onDemandCourtActive by viewModel.onDemandCourtActive.collectAsStateWithLifecycle()
+        if (onDemandCourtActive) {
+            val odCourtLog by viewModel.onDemandCourtLog.collectAsStateWithLifecycle()
+            val odCourtSentiment by viewModel.onDemandCourtJurySentiment.collectAsStateWithLifecycle()
+            val odCourtTension by viewModel.onDemandCourtTension.collectAsStateWithLifecycle()
+            val odCourtStage by viewModel.onDemandCourtStage.collectAsStateWithLifecycle()
+            val odCourtVerdict by viewModel.onDemandCourtVerdictText.collectAsStateWithLifecycle()
+            val odCourtLawDetails by viewModel.onDemandCourtR0Text.collectAsStateWithLifecycle()
+            val selectedCerts by OrchidDeepStateManager.selectedCertificateIds.collectAsStateWithLifecycle()
+            val availableCerts by OrchidDeepStateManager.generatedCertificates.collectAsStateWithLifecycle()
+            
+            var userArgumentInput by remember { mutableStateOf("") }
+            val courtScrollState = rememberScrollState()
+
+            LaunchedEffect(odCourtLog.size) {
+                courtScrollState.animateScrollTo(courtScrollState.maxValue)
+            }
+
+            Dialog(
+                onDismissRequest = { viewModel.dismissOnDemandConstitutionalCourt() }
+            ) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.95f),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF121214)), // Sleek Dark Slate
+                    border = BorderStroke(2.dp, Color(0xFF673AB7)) // Royal Purple Frame
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp)
+                    ) {
+                        // --- HEADER ---
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("🏛️", fontSize = 24.sp)
+                                Spacer(Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        "SUPREME TRIBUNAL",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Color(0xFFB39DDB)
+                                    )
+                                    Text(
+                                        "Constitutional Statutory Review Bench",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.Gray
+                                    )
+                                }
+                            }
+                            IconButton(onClick = { viewModel.dismissOnDemandConstitutionalCourt() }) {
+                                Icon(Icons.Default.Close, contentDescription = "Close Court", tint = Color.LightGray)
+                            }
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+                        HorizontalDivider(color = Color(0xFF311B92))
+                        Spacer(Modifier.height(8.dp))
+
+                        // --- STATUTE UNDER CHALLENGE ACCORDION ---
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E24)),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(8.dp)) {
+                                Text(
+                                    "📜 STATUTORY RECORD CHALLENGED:",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF81C784)
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = odCourtLawDetails,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontSize = 10.sp,
+                                    color = Color.LightGray,
+                                    maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+
+                        // Supreme Court Constitutional Stepper
+                        val odHearing = SovereignHearingDocketHandler.getOnDemandHearingDetails()
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E22)),
+                            border = BorderStroke(1.dp, Color(0xFF3B3B44))
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Text(
+                                    text = odHearing.title,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color(0xFF81C784)
+                                )
+                                Text(
+                                    text = odHearing.subtitle,
+                                    fontSize = 10.sp,
+                                    color = Color.LightGray
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "💡 Guideline Focus: ${odHearing.requirementsHint}",
+                                    fontSize = 9.sp,
+                                    color = Color(0xFFB39DDB),
+                                    style = androidx.compose.ui.text.TextStyle(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
+                                )
+                                
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(4.dp)
+                                            .background(if (odHearing.index >= 1) Color(0xFF81C784) else Color(0xFF424248))
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(4.dp)
+                                            .background(if (odHearing.index >= 2) Color(0xFF81C784) else Color(0xFF424248))
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+
+                        // --- METRICS PANEL ---
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            // JURY SENTIMENT
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("⚖️ Bench Sympathy", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    Text("$odCourtSentiment%", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color(0xFF81C784))
+                                }
+                                Spacer(Modifier.height(4.dp))
+                                androidx.compose.material3.LinearProgressIndicator(
+                                    progress = { odCourtSentiment.toFloat() / 100f },
+                                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                                    color = Color(0xFF4CAF50),
+                                    trackColor = Color(0xFF333336)
+                                )
+                            }
+                            // COURT TENSION
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("⚡ Courtroom Tension", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    Text("$odCourtTension%", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color(0xFFE57373))
+                                }
+                                Spacer(Modifier.height(4.dp))
+                                androidx.compose.material3.LinearProgressIndicator(
+                                    progress = { odCourtTension.toFloat() / 100f },
+                                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                                    color = Color(0xFFF44336),
+                                    trackColor = Color(0xFF333336)
+                                )
+                            }
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+
+                        // --- CHAT / TRANSCRIPT TRANSITION AREA ---
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .background(Color(0xFF151518), RoundedCornerShape(8.dp))
+                                .border(1.dp, Color(0xFF2C2C35), RoundedCornerShape(8.dp))
+                                .padding(8.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .verticalScroll(courtScrollState)
+                            ) {
+                                odCourtLog.forEach { logLine ->
+                                    val isSelfGrievance = logLine.startsWith("🗣️")
+                                    val isDecree = logLine.startsWith("⚖️")
+                                    Card(
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = when {
+                                                isSelfGrievance -> Color(0xFF4A148C).copy(alpha = 0.3f)
+                                                isDecree -> Color(0xFF1B5E20).copy(alpha = 0.4f)
+                                                else -> Color(0xFF212124)
+                                            }
+                                        ),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp),
+                                        shape = RoundedCornerShape(6.dp)
+                                    ) {
+                                        Text(
+                                            text = logLine,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontSize = 11.sp,
+                                            color = Color.White,
+                                            modifier = Modifier.padding(8.dp)
+                                        )
+                                    }
+                                }
+                            }
+                            
+                            val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+                            if (isLoading) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(Color.Black.copy(alpha = 0.4f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    androidx.compose.material3.CircularProgressIndicator(color = Color(0xFFB39DDB))
+                                }
+                            }
+                        }
+
+                        // --- INPUT & ACTION BAR ---
+                        if (odCourtStage != "verdict") {
+                            Spacer(Modifier.height(8.dp))
+
+                            // ATTACH REHABILITATIVE CREDENTIALS CHIPS
+                            if (availableCerts.isNotEmpty()) {
+                                Text(
+                                    "📜 ATTACH CREDENTIAL VERIFICATION:",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                                ) {
+                                    availableCerts.forEach { cert ->
+                                        val isSelected = selectedCerts.contains(cert.id)
+                                        FilterChip(
+                                            selected = isSelected,
+                                            onClick = { OrchidDeepStateManager.toggleCertificateSelection(cert.id) },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = Color(0xFFE040FB),
+                                                selectedLabelColor = Color.White,
+                                                containerColor = Color(0xFF2C2C32),
+                                                labelColor = Color.LightGray
+                                            ),
+                                            label = { Text("${cert.sealEmoji} ${cert.title}", fontSize = 9.sp) }
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(Modifier.height(6.dp))
+
+                            // TEXT FIELD INPUT FOR LITIGATION LOBBY
+                            OutlinedTextField(
+                                value = userArgumentInput,
+                                onValueChange = { userArgumentInput = it },
+                                placeholder = { Text("Draft your statutory or clinical counter-arguments here to present to the Chief Justice...", fontSize = 11.sp, color = Color.Gray) },
+                                textStyle = MaterialTheme.typography.bodySmall.copy(color = Color.White, fontSize = 11.sp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                singleLine = true,
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = Color(0xFF1E1E24),
+                                    unfocusedContainerColor = Color(0xFF1A1A20),
+                                    focusedIndicatorColor = Color(0xFF673AB7),
+                                    unfocusedIndicatorColor = Color(0xFF2C2C35),
+                                    cursorColor = Color.White
+                                )
+                            )
+
+                            Spacer(Modifier.height(8.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = {
+                                        viewModel.argueOnDemandConstitutionalCourt(userArgumentInput)
+                                        userArgumentInput = ""
+                                    },
+                                    enabled = userArgumentInput.isNotBlank() && !isLoading,
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF673AB7)),
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text("Present Argument", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                }
+
+                                if (odCourtStage == "cross" || odCourtStage == "rebuttal") {
+                                    if (odHearing.index < 2) {
+                                        Button(
+                                            onClick = { viewModel.advanceOnDemandConstitutionalHearing() },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2)),
+                                            modifier = Modifier.weight(1f),
+                                            shape = RoundedCornerShape(8.dp),
+                                            enabled = !isLoading
+                                        ) {
+                                            Text("👉 Advance to Step II", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        }
+                                    } else {
+                                        Button(
+                                            onClick = { viewModel.concludeOnDemandConstitutionalCourt() },
+                                            enabled = !isLoading,
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                                            modifier = Modifier.weight(1f),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Text("🏛️ Request Supreme Decree", fontWeight = FontWeight.Black, fontSize = 12.sp)
+                                        }
+                                    }
+                                } else {
+                                    Button(
+                                        onClick = { },
+                                        enabled = false,
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2C2C32)),
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text("Awaiting Argument Submission", fontSize = 10.sp)
+                                    }
+                                }
+                            }
+                        } else {
+                            // VERDICT DISPLAY & DISMISS
+                            Spacer(Modifier.height(12.dp))
+                            Button(
+                                onClick = { viewModel.dismissOnDemandConstitutionalCourt() },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE040FB)),
+                                modifier = Modifier.fillMaxWidth().height(48.dp),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("Acknowledge Supreme Decree", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // --- PHYSICAL EXAM DIALOGUE BOX ---
         if (showPhysicalExamDialog) {
             AlertDialog(
@@ -3350,6 +3856,80 @@ fun DashboardScreen(
                             )
                         }
 
+                        // M3 Hearing Progress Stepper
+                        val malpracticeHearing = SovereignHearingDocketHandler.getMalpracticeHearingDetails()
+                        val isAppealsActive by SovereignHearingDocketHandler.isAppellateAppealActive.collectAsStateWithLifecycle()
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = malpracticeHearing.title,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                                        shape = RoundedCornerShape(4.dp)
+                                    ) {
+                                        Text(
+                                            text = "Tempering: ${malpracticeHearing.prosecutorTemperament}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onErrorContainer,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = malpracticeHearing.subtitle,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "🎯 Objective Focus Guideline: ${malpracticeHearing.requirementsHint}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.tertiary
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                
+                                val stepsCount = if (isAppealsActive) 4 else 3
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    for (i in 1..stepsCount) {
+                                        val isPassedOrCurrent = (malpracticeHearing.index >= i)
+                                        val isCurrent = (malpracticeHearing.index == i)
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(6.dp)
+                                                .clip(RoundedCornerShape(3.dp))
+                                                .background(
+                                                    when {
+                                                        isCurrent -> MaterialTheme.colorScheme.secondary
+                                                        isPassedOrCurrent -> MaterialTheme.colorScheme.primary
+                                                        else -> MaterialTheme.colorScheme.surfaceVariant
+                                                    }
+                                                )
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
                         // Court Status Metrics: Tension & Aggression
                         Card(
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)),
@@ -3732,6 +4312,38 @@ fun DashboardScreen(
                                 }
                             }
                             
+                            if (lawsuitLog.isNotEmpty() && lawsuitVerdict != "Exonerated" && !isAppealsActive) {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f)),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary)
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Text(
+                                            "⚖️ SUPREME CONSTITUTIONAL APPEAL",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                                        )
+                                        Text(
+                                            "The local Magistracy ruling is unfavourable. You can petition the Supreme Appellate Bench in the capital to review administrative fines or suspension order. Costs $2,000 in lobbying fees.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Button(
+                                            onClick = { viewModel.lodgeHighAppellateAppeal() },
+                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
+                                            shape = RoundedCornerShape(8.dp),
+                                            modifier = Modifier.fillMaxWidth(),
+                                            enabled = !isLoading
+                                        ) {
+                                            Text("Lodge High Appeal (Cost: $2,000)", fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            }
+
                             Button(
                                 onClick = { viewModel.dismissLawsuit() },
                                 modifier = Modifier.fillMaxWidth().height(48.dp),
@@ -4024,47 +4636,45 @@ fun DashboardScreen(
 
                             Spacer(Modifier.height(10.dp))
 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
+                            if (lawsuitCurrentStage == "charges" || lawsuitCurrentStage == "pleading") {
                                 Button(
                                     onClick = {
                                         viewModel.submitInteractiveLawsuitPlea(userPleaMsg, selectedEvidence)
                                         userPleaMsg = ""
                                     },
-                                    enabled = roundsRemaining > 0 && !isLoading,
+                                    enabled = roundsRemaining > 0 && !isLoading && userPleaMsg.isNotBlank(),
                                     shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.weight(1.1f).height(48.dp)
+                                    modifier = Modifier.fillMaxWidth().height(48.dp)
                                 ) {
-                                    Text("PLEAD ROUND", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                    Text("SUBMIT PLEA & EVIDENCE", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                 }
-
-                                Button(
-                                    onClick = {
-                                        viewModel.concludeLawsuitInteractiveVerdict()
-                                    },
-                                    enabled = !isLoading,
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.weight(0.9f).height(48.dp)
+                            } else {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Text("RULING VERDICT", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color.White)
+                                    if (malpracticeHearing.index < 3 && !isAppealsActive) {
+                                        Button(
+                                            onClick = { viewModel.advanceToNextScheduledHearing() },
+                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                            shape = RoundedCornerShape(8.dp),
+                                            modifier = Modifier.weight(1f).height(48.dp),
+                                            enabled = !isLoading
+                                        ) {
+                                            Text("👉 Proceed to Hearing ${malpracticeHearing.index + 1}", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        }
+                                    } else {
+                                        Button(
+                                            onClick = { viewModel.concludeLawsuitInteractiveVerdict() },
+                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                            shape = RoundedCornerShape(8.dp),
+                                            modifier = Modifier.weight(1f).height(48.dp),
+                                            enabled = !isLoading
+                                        ) {
+                                            Text("🏛️ Conclude Trial & Request Verdict", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = Color.White)
+                                        }
+                                    }
                                 }
-                            }
-
-                            Spacer(Modifier.height(10.dp))
-
-                            Button(
-                                onClick = {
-                                    viewModel.concludeLawsuitInteractiveVerdict()
-                                },
-                                modifier = Modifier.fillMaxWidth().height(36.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.onSurface),
-                                shape = RoundedCornerShape(8.dp),
-                                enabled = !isLoading
-                            ) {
-                                Text("Skip Trial Cross-exam directly to Judicial Verdict", fontSize = 10.sp)
                             }
                         }
                     }
@@ -4356,12 +4966,16 @@ fun ClinicalHubCard(
     uiState: SimulationState,
     hiddenCase: HiddenCaseProfile?,
     isLoading: Boolean,
-    viewModel: SimulationViewModel
+    viewModel: SimulationViewModel,
+    activeTab: Int,
+    onTabChanged: (Int) -> Unit,
+    isExpanded: Boolean,
+    onExpandedChanged: (Boolean) -> Unit
 ) {
     val activePolicies by viewModel.activePolicies.collectAsStateWithLifecycle()
     val isBasicMode by viewModel.isBasicMode.collectAsStateWithLifecycle()
-    var isExpanded by remember { mutableStateOf(false) } // Default collapsed to keep the UI clean & spacious!
-    var activeTab by remember { mutableStateOf(0) } // 0: Vitals, 1: Patient Profile, 2: Interventions
+    var selectReasonByIndex by remember { mutableStateOf(0) }
+    var customSueReasonInput by remember { mutableStateOf("") }
 
     Card(
         colors = CardDefaults.cardColors(
@@ -4380,7 +4994,7 @@ fun ClinicalHubCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { isExpanded = !isExpanded }
+                    .clickable { onExpandedChanged(!isExpanded) }
                     .padding(vertical = 4.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -4450,11 +5064,11 @@ fun ClinicalHubCard(
                             .horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        val tabOptions = listOf("📊 Vitals Signs", "👤 Patient Profile", "⚡ Emergency Desk", "💊 Dispensary Cabinet", "⚖️ Legal & World")
+                        val tabOptions = listOf("📊 Vitals Signs", "👤 Patient Profile", "⚡ Emergency Desk", "💊 Dispensary Cabinet", "⚖️ Legal & World", "⚖️ SUE PATIENT")
                         tabOptions.forEachIndexed { index, title ->
                             val selected = activeTab == index
                             AssistChip(
-                                onClick = { activeTab = index },
+                                onClick = { onTabChanged(index) },
                                 label = { Text(title, fontSize = 11.sp, fontWeight = FontWeight.Bold) },
                                 colors = AssistChipDefaults.assistChipColors(
                                     containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
@@ -4828,6 +5442,89 @@ fun ClinicalHubCard(
                         }
                         4 -> {
                             WorldStatePanel(viewModel)
+                        }
+                        5 -> {
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 400.dp)
+                                    .verticalScroll(rememberScrollState())
+                                    .animateContentSize()
+                            ) {
+                                Text(
+                                    text = "⚖️ PATIENT LITIGATION COCKPIT (SUE DIRECTLY)",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Black,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                                Text(
+                                    text = "Is your current patient being non-compliant, refusing copay schemes, or irritating you? Use the sovereign courts to sue them instantly!",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+
+                                val reasons = listOf(
+                                    "Gross non-compliance, financial default, and adversarial clinical damages.",
+                                    "Failure to say 'Thank you, esteemed healer' at checkout.",
+                                    "Deep clinical eye-rolling and expressing skepticism of doctor's board diplomas.",
+                                    "Breathing with suspicious frequency, indicating illegal oxygen hoarding.",
+                                    "Refusing to purchase a premium $250 syringe during clinical bedside consultation.",
+                                    "Suspected industrial espionage by memorizing clinical bedside monitor telemetry."
+                                )
+
+                                Text(
+                                    text = "Select a preset citation / grounds for court damages:",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    reasons.forEachIndexed { i, r ->
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable { selectReasonByIndex = i }
+                                                .background(
+                                                    if (selectReasonByIndex == i) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f) else Color.Transparent,
+                                                    RoundedCornerShape(6.dp)
+                                                )
+                                                .padding(6.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            RadioButton(
+                                                selected = (selectReasonByIndex == i),
+                                                onClick = { selectReasonByIndex = i }
+                                            )
+                                            Spacer(Modifier.width(4.dp))
+                                            Text(r, style = MaterialTheme.typography.bodySmall, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface)
+                                        }
+                                    }
+                                }
+
+                                OutlinedTextField(
+                                    value = customSueReasonInput,
+                                    onValueChange = { customSueReasonInput = it },
+                                    label = { Text("Or Type the Reason for Lawsuit:") },
+                                    placeholder = { Text("e.g. Coughing without covering mouth...") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                    textStyle = MaterialTheme.typography.bodySmall
+                                )
+
+                                Button(
+                                    onClick = {
+                                        val finalReason = customSueReasonInput.ifBlank { reasons[selectReasonByIndex] }
+                                        viewModel.initiateCivilSuitAgainstPatient(finalReason)
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text("🏛️ SUE PATIENT & LAUNCH LAWSUIT! (POW)", fontWeight = FontWeight.Black)
+                                }
+                            }
                         }
                     }
                 }
@@ -7132,21 +7829,159 @@ fun StateAndLegislationTab(
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         Spacer(modifier = Modifier.height(4.dp))
 
-                        OutlinedButton(
-                            onClick = {
-                                viewModel.draftAmendment(policy)
-                                isAmendingDraft = true
-                                amendTitle = policy.title
-                                amendSummary = policy.summary
-                                amendClinicalRule = policy.clinicalRule
-                                amendEconomicImpact = policy.economicImpact
-                                amendClausesList = policy.extendedClauses
-                            },
-                            modifier = Modifier.align(Alignment.End),
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
                         ) {
-                            Text("✏️ PROPOSE AMENDMENT ACT", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Button(
+                                onClick = {
+                                    viewModel.startOnDemandConstitutionalCourt(policy.id)
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.error,
+                                    contentColor = Color.White
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                modifier = Modifier.height(34.dp)
+                            ) {
+                                Text("🏛️ ARGUE WITH JUDGE", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    viewModel.draftAmendment(policy)
+                                    isAmendingDraft = true
+                                    amendTitle = policy.title
+                                    amendSummary = policy.summary
+                                    amendClinicalRule = policy.clinicalRule
+                                    amendEconomicImpact = policy.economicImpact
+                                    amendClausesList = policy.extendedClauses
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                modifier = Modifier.height(34.dp)
+                            ) {
+                                Text("✏️ PROPOSE AMENDMENT ACT", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // --- 📚 SOVEREIGN CODEX & STRATEGY MANUAL ---
+            var showCodexManual by remember { mutableStateOf(false) }
+            Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.15f)
+                ),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f)),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("📚", fontSize = 18.sp)
+                            Spacer(Modifier.width(6.dp))
+                            Column {
+                                Text(
+                                    text = "SOVEREIGN CODEX & STRATEGY HANDBOOK",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = MaterialTheme.colorScheme.tertiary,
+                                    fontSize = 11.sp
+                                )
+                                Text(
+                                    text = "Comprehensive gameplay manual of regulatory scoring and parameters",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 9.sp
+                                )
+                            }
+                        }
+                        TextButton(onClick = { showCodexManual = !showCodexManual }) {
+                            Text(if (showCodexManual) "Close ✖" else "Open Manual 📖", fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                        }
+                    }
+
+                    if (showCodexManual) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f))
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            "Understanding Sovereign Clinical Mechanics & Underworld Audit Equations:",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            fontSize = 11.sp
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(8.dp)) {
+                                    Text("🗳️ 1. LOBBYING & PARLIAMENT BILL DECREE", fontWeight = FontWeight.Bold, fontSize = 10.sp, color = MaterialTheme.colorScheme.primary)
+                                    Text(
+                                        "• Progressive factions favor clinical audits and safety guidelines, while Conservatives favor generic drug substitutions and national tariffs.\n" +
+                                        "• Cost Equation: Sponsoring a lobby faction costs generic budget based on total Active Bills. Success rate increases with Alignment, reducing opposing bias.",
+                                        fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(8.dp)) {
+                                    Text("⚖️ 2. SUPREME INTERACTIVE LAW TRIAL", fontWeight = FontWeight.Bold, fontSize = 10.sp, color = MaterialTheme.colorScheme.primary)
+                                    Text(
+                                        "• Prosecution hostility scales inversely with your Hired Lawyer bonus (Alex Vance provides -35% tension damping).\n" +
+                                        "• Argument score relies on matching clinical evidence with Cited Laws. Presenting generic ampicillin logs or official certificates increases Bench Support.\n" +
+                                        "• On-Demand Challenges: You can strike down ANY law preemptively at the High Bench. If sympathy reaches 65%, the law is permanently repealed.",
+                                        fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(8.dp)) {
+                                    Text("🚨 3. COMPLIANCE AUDITS & INTEL SUSPICION", fontWeight = FontWeight.Bold, fontSize = 10.sp, color = MaterialTheme.colorScheme.primary)
+                                    Text(
+                                        "• Dispensing heavy controlled narcotics (Schedule 8 Morphine) increases national Inspectorate Inspection Alerts, lowering compliance stats.\n" +
+                                        "• Directives: Complying with active medical board directives (e.g. mandatory vitals screening, generic substitution limits) restores stability and gains prestige.",
+                                        fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(8.dp)) {
+                                    Text("🏥 4. PRIVATE MEDICAL INSURANCE REJECTION", fontWeight = FontWeight.Bold, fontSize = 10.sp, color = MaterialTheme.colorScheme.primary)
+                                    Text(
+                                        "• Private medical schemes have a strict 'Pre-Authorization Delay' coefficient. Submitting non-authorized procedures runs a direct risk of claim rejection.\n" +
+                                        "• In contrast, National Health Service (NHS) guarantees 100% copay cover but applies high-level systemic audits, penalizing diagnostic errors.",
+                                        fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
                         }
                     }
                 }
