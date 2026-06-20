@@ -170,7 +170,7 @@ fun ResultsBottomSheet(
                 when (selectedTab) {
                     0 -> LabsTabContent(uiState)
                     1 -> PhysicalsTabContent(uiState)
-                    2 -> RxDocsTabContent(uiState)
+                    2 -> RxDocsTabContent(viewModel, uiState)
                     3 -> BillingTabContent(viewModel, uiState)
                     4 -> EvaluationTabContent(uiState) {
                         viewModel.startNextPatient()
@@ -938,8 +938,9 @@ fun LedgerTabContent(viewModel: SimulationViewModel) {
 }
 
 @Composable
-fun RxDocsTabContent(state: SimulationState) {
+fun RxDocsTabContent(viewModel: SimulationViewModel, state: SimulationState) {
     val scrollState = rememberScrollState()
+    val currencySymbol by viewModel.currencySymbol.collectAsState()
     var selectedDocType by remember { mutableStateOf(0) } // 0: Prescription, 1: Referral, 2: Sick Note
     
     val docsAvailable = listOf(
@@ -1003,7 +1004,7 @@ fun RxDocsTabContent(state: SimulationState) {
                             .padding(16.dp)
                     ) {
                         Text(
-                            text = "📜 SOUTH AFRICAN PRACTICE CERTIFICATION",
+                            text = "📜 SOVEREIGN PRACTICE CERTIFICATION",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.secondary,
@@ -1030,7 +1031,8 @@ fun RxDocsTabContent(state: SimulationState) {
                     Spacer(modifier = Modifier.height(8.dp))
                     GenericDrugAlternativeAdvisor(
                         medsNameCurrent = "",
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        currencySymbol = currencySymbol
                     )
                 }
             }

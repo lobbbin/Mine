@@ -49,6 +49,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.regex.Pattern
 
+data class SovereignNoticeData(
+    val headline: String,
+    val message: String,
+    val severity: String
+)
+
 class SimulationViewModel(application: Application) : AndroidViewModel(application) {
 
     private val appDatabase = AppDatabase.getDatabase(application)
@@ -292,10 +298,149 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
 
     fun petitionForPardon(fine: com.example.data.Fine? = null, isSuspension: Boolean = false) {
         viewModelScope.launch {
+            val selectedIds = OrchidDeepStateManager.selectedCertificateIds.value
+            val allCerts = OrchidDeepStateManager.generatedCertificates.value
+            val attachedCerts = allCerts.filter { selectedIds.contains(it.id) }
+            val attachedStr = if (attachedCerts.isNotEmpty()) {
+                "\n\nFORMALLY ATTACHED CLINICAL REHABILITATION CERTIFICATES / EVIDENCE:\n" +
+                        attachedCerts.joinToString("\n") { cert ->
+                            "- ${cert.title} (Registry: ${cert.registrationNumber}). Issued by: ${cert.issuer}. Criteria Met: ${cert.verificationDetails}"
+                        }
+            } else ""
+
             if (isSuspension) {
-                sendMessage("PRESIDENTIAL PETITION: I am formally requesting an executive pardon for my clinical license suspension. I believe my practice serves the greater good and I pledge full statutory compliance moving forward. [CMD: request executive pardon for suspension]")
+                sendMessage("PRESIDENTIAL PETITION: I am formally requesting an executive pardon for my clinical license suspension. I believe my practice serves the greater good and I pledge full statutory compliance moving forward.$attachedStr\n\n[CMD: request executive pardon for suspension]")
             } else if (fine != null) {
-                sendMessage("PRESIDENTIAL PETITION: I am formally requesting an executive pardon for the fine of ${fine.amount} regarding '${fine.reason}'. My clinical record and contribution to national health should be considered. [CMD: request executive pardon for fine ID ${fine.id}]")
+                sendMessage("PRESIDENTIAL PETITION: I am formally requesting an executive pardon for the fine of ${fine.amount} regarding '${fine.reason}'. My clinical record and contribution to national health should be considered.$attachedStr\n\n[CMD: request executive pardon for fine ID ${fine.id}]")
+            }
+        }
+    }
+
+    // --- INTUITIVE PRESIDENTIAL AUDIENCE & PARDON TOOL ---
+    private val _pardonTriesRemaining = MutableStateFlow(8)
+    val pardonTriesRemaining: StateFlow<Int> = _pardonTriesRemaining.asStateFlow()
+
+    private val _presidentMood = MutableStateFlow("Skeptical") // Skeptical, Hostile, Pragmatic, Benevolent, Amused
+    val presidentMood: StateFlow<String> = _presidentMood.asStateFlow()
+
+    private val _presidentResponseText = MutableStateFlow("Welcome Dr. Tim. I hold absolute sovereign discretion over your license and outstanding fines. State your plea, or present your formal rehabilitation certificates. I will render my judgment.")
+    val presidentResponseText: StateFlow<String> = _presidentResponseText.asStateFlow()
+
+    private val _pardonGrantedState = MutableStateFlow(false)
+    val pardonGrantedState: StateFlow<Boolean> = _pardonGrantedState.asStateFlow()
+
+    private val _pardonAudienceTerminated = MutableStateFlow(false)
+    val pardonAudienceTerminated: StateFlow<Boolean> = _pardonAudienceTerminated.asStateFlow()
+
+    private val _pardonHistory = MutableStateFlow<List<String>>(emptyList())
+    val pardonHistory: StateFlow<List<String>> = _pardonHistory.asStateFlow()
+
+    fun resetPresidentialAudience() {
+        _pardonTriesRemaining.value = 8
+        _presidentMood.value = listOf("Skeptical", "Hostile", "Pragmatic", "Benevolent", "Amused").shuffled().first()
+        _presidentResponseText.value = "I am listening, Dr. Tim. Make your case now. You have 8 audiences remaining before I withdraw from this clinic chambers entirely."
+        _pardonGrantedState.value = false
+        _pardonAudienceTerminated.value = false
+        _pardonHistory.value = emptyList()
+    }
+
+    fun submitPresidentialPlea(pleaText: String) {
+        val remaining = _pardonTriesRemaining.value
+        if (remaining <= 0 || _pardonGrantedState.value || _pardonAudienceTerminated.value) return
+
+        _pardonTriesRemaining.value = remaining - 1
+        val updatedHistory = _pardonHistory.value + "Dr. Tim: $pleaText"
+        _pardonHistory.value = updatedHistory
+
+        viewModelScope.launch {
+            setLoading(true)
+            try {
+                // Determine attached evidence
+                val selectedIds = OrchidDeepStateManager.selectedCertificateIds.value
+                val allCerts = OrchidDeepStateManager.generatedCertificates.value
+                val attachedCerts = allCerts.filter { selectedIds.contains(it.id) }
+                val attachedStr = if (attachedCerts.isNotEmpty()) {
+                    "\n\n[USER SUBMITTED PROOF ATTACHMENTS]:\n" +
+                            attachedCerts.joinToString("\n") { cert ->
+                                "- ${cert.title} issued by ${cert.issuer}. Registered: ${cert.registrationNumber}. Details: ${cert.verificationDetails}. Score attached: ${cert.testScores ?: "N/A"}"
+                            }
+                } else "\n\n[USER ATTACHED NO CERTIFICATES]"
+
+                val currentProvider = provider.value
+                val currentModel = model.value
+                val userKey = apiKey.value ?: ""
+                val activeKey = resolveActiveApiKey(currentProvider, userKey)
+
+                val prompt = """
+                    You are simulating an interactive executive appeal where the user (Dr. Tim) defends his medical clinical performance, ethics, or finances directly to the President of their country (${presidentName.value}), striving to receive a license reinstatement or fine waiving.
+                    
+                    President Name: ${presidentName.value}
+                    President Party: ${presidentParty.value}
+                    Nation: ${countryName.value}
+                    Current President Mood: ${_presidentMood.value}
+                    Remaining appeal attempts in this audience: ${remaining - 1}
+                    
+                    User's Plea Input: "$pleaText"
+                    $attachedStr
+                    
+                    TASK:
+                    Analyze the user's plea. If they attached high-scoring certificates (e.g., Psyche Eval or Ethics Course showing high test scores) or made an exceptionally moving, respectful, or patriotic argument that aligns with the President's party perspective, you may decide to GRANT the executive pardon.
+                    
+                    Return a JSON object with the following fields:
+                    - "reply": The President's dynamic dialogue spoken directly to Dr. Tim (max 3 sentences). Keep the tone fitting their current mood.
+                    - "nextMood": The next mood of the President (choose from: "Skeptical", "Hostile", "Pragmatic", "Benevolent", "Amused")
+                    - "pardonGranted": boolean (Set to true ONLY if you are fully satisfied with their argument or their attached credentials. If they attached a valid high-score certificate or presented an incredible defense, reward them!)
+                    - "terminated": boolean (Set to true if you are completely insulted, angry, or if the remaining tries are 0, which ends the audience permanently)
+                    
+                    Return ONLY raw JSON, do not wrap in markdown or any conversational filler.
+                    Format:
+                    {
+                      "reply": "string",
+                      "nextMood": "string",
+                      "pardonGranted": boolean,
+                      "terminated": boolean
+                    }
+                """.trimIndent()
+
+                val responseRaw = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt)
+                val sanitized = extractJsonString(responseRaw)
+                val json = org.json.JSONObject(sanitized)
+
+                val reply = json.optString("reply", "I have heard enough. Present better arguments or I shall leave.")
+                val nextMood = json.optString("nextMood", _presidentMood.value)
+                val granted = json.optBoolean("pardonGranted", false)
+                val isTerminated = json.optBoolean("terminated", false) || (remaining - 1 <= 0)
+
+                _presidentResponseText.value = reply
+                _presidentMood.value = nextMood
+                _pardonHistory.value = _pardonHistory.value + "President: $reply"
+
+                if (granted) {
+                    _pardonGrantedState.value = true
+                    // Execute the real world pardon!
+                    launch {
+                        legalWorldAgent.pardonSuspension()
+                    }
+                    
+                    // Waive all active fines as well!
+                    val activeFines = worldSnapshot.value?.activeFines ?: emptyList()
+                    activeFines.forEach { fine ->
+                        launch {
+                            legalWorldAgent.pardonFine(fine)
+                        }
+                    }
+
+                    _presidentResponseText.value = "$reply\n\n🎉 [EXECUTIVE PARDON ISSUED]: Your medical license has been fully reinstated to ACTIVE status, and all outstanding fines have been waived by presidential seal!"
+                    _pardonHistory.value = _pardonHistory.value + "🚨 SYSTEM: Executive pardon successfully issued. License is ACTIVE and fines cleared."
+                } else if (isTerminated) {
+                    _pardonAudienceTerminated.value = true
+                    _presidentResponseText.value = "$reply\n\n❌ [AUDIENCE CLOSED]: The President has dismissed you. You may reset the audience to try again from a fresh perspective."
+                }
+
+            } catch (e: Exception) {
+                _presidentResponseText.value = "An administrative connection loss occurred: ${e.localizedMessage}. The President's secretary asks you to repeat your statement."
+            } finally {
+                setLoading(false)
             }
         }
     }
@@ -353,6 +498,13 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
 
     private val _currentNewsReport = MutableStateFlow<String?>(null)
     val currentNewsReport: StateFlow<String?> = _currentNewsReport.asStateFlow()
+
+    private val _sovereignNotice = MutableStateFlow<SovereignNoticeData?>(null)
+    val sovereignNotice: StateFlow<SovereignNoticeData?> = _sovereignNotice.asStateFlow()
+
+    fun dismissSovereignNotice() {
+        _sovereignNotice.value = null
+    }
 
     private var lastGeminiFunctionCall: GeminiFunctionCall? = null
 
@@ -457,6 +609,43 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
     fun generateIntakeFormData(customNote: String? = null, completion: (IntakeFormData) -> Unit) {
         viewModelScope.launch {
             _isLoading.value = true
+            try {
+                val providerStr = provider.value
+                val modelStr = model.value
+                val keyStr = resolveActiveApiKey(providerStr, apiKey.value ?: "")
+                val endpointStr = customEndpoint.value
+                val rKeys = rotatorKeys.value
+                val rEnabledModels = rotatorEnabledModels.value
+
+                val apiDetails = ApiDetails(
+                    provider = providerStr,
+                    model = modelStr,
+                    apiKey = keyStr,
+                    customEndpoint = endpointStr,
+                    rotatorKeys = rKeys,
+                    rotatorEnabledModels = rEnabledModels
+                )
+
+                val activeCase = _hiddenCase.value
+                val activeSchemes = OrchidDeepStateManager.medicalAidSchemes.value
+                val schemesNames = activeSchemes.map { it.name }
+
+                val data = ClinicalSimHandler.executeGenerateIntakeFormData(
+                    customNote = customNote,
+                    activeCase = activeCase,
+                    activeSchemesList = schemesNames,
+                    apiDetails = apiDetails,
+                    gameAgent = gameAgent
+                )
+                completion(data)
+                return@launch
+            } catch (e: Exception) {
+                val fallback = ClinicalSimHandler.generateIntakeFormDataFallback(_hiddenCase.value)
+                completion(fallback)
+                return@launch
+            } finally {
+                _isLoading.value = false
+            }
             
             // Generate a robust, high-fidelity universal clinical/demographics fallback first
             val activeCase = _hiddenCase.value
@@ -533,8 +722,8 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
 
                 // 8. Medical Aid Option
                 medAidVal = when (activeCase.insuranceStatus) {
-                    "Private Medical Aid" -> listOf("Discovery Elite Private", "CarePlus Basic").random()
-                    "Discovery Elite Private" -> "Discovery Elite Private"
+                    "Private Medical Aid" -> listOf("Elysium Elite Private", "CarePlus Basic").random()
+                    "Elysium Elite Private" -> "Elysium Elite Private"
                     "CarePlus Basic" -> "CarePlus Basic"
                     "National Health Service (NHS)" -> "National Health Service (NHS)"
                     "Out-of-Pocket Cash" -> "Out-of-Pocket (Cash)"
@@ -597,7 +786,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 val contextPrompt = if (activeCase != null) {
                     val actualRawInsurance = activeCase.insuranceStatus
                     val matchedSchemeName = when {
-                        actualRawInsurance.contains("Discovery", ignoreCase = true) || actualRawInsurance.contains("Private", ignoreCase = true) -> "Discovery Elite Private"
+                        actualRawInsurance.contains("Discovery", ignoreCase = true) || actualRawInsurance.contains("Elysium", ignoreCase = true) || actualRawInsurance.contains("Private", ignoreCase = true) -> "Elysium Elite Private"
                         actualRawInsurance.contains("CarePlus", ignoreCase = true) || actualRawInsurance.contains("Basic", ignoreCase = true) -> "CarePlus Basic"
                         actualRawInsurance.contains("NHS", ignoreCase = true) || actualRawInsurance.contains("State", ignoreCase = true) || actualRawInsurance.contains("Government", ignoreCase = true) -> "National Health Service (NHS)"
                         else -> "Out-of-Pocket Cash"
@@ -616,7 +805,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     The patient's registration form MUST explicitly identify their legal insurance scheme.
                     Under the in-game laws/schemes, the patient is officially registered with and covered by the scheme named '$matchedSchemeName'.
                     Therefore, the "medicalAid" field in your JSON output MUST be EXACTLY: "$matchedSchemeName" (or chosen from the active registry: $schemesListStr).
-                    DO NOT under any circumstances hallucinate, invent, or use any other medical aid name, subsidiary plan, or generic name (like Discovery GEMS, KeyCare, Classic Comprehensive, etc.). It must be exactly "$matchedSchemeName".
+                    DO NOT under any circumstances hallucinate, invent, or use any other medical aid name, subsidiary plan, or generic name (like Elysium GEMS, KeyCare, Classic Comprehensive, etc.). It must be exactly "$matchedSchemeName".
                     
                     Please construct realistic, formal clinical registration data aligning exactly with this active patient profile. The first name, surname, gender, dob/age, chronic conditions, health insurance, and allergies MUST match this profile flawlessly.
                     """.trimIndent()
@@ -700,6 +889,38 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
     fun generateSuggestedPaperwork(completion: (com.example.data.SuggestedPaperwork) -> Unit) {
         viewModelScope.launch {
             _isLoading.value = true
+            try {
+                val providerStr = provider.value
+                val modelStr = model.value
+                val keyStr = resolveActiveApiKey(providerStr, apiKey.value ?: "")
+                val endpointStr = customEndpoint.value
+                val rKeys = rotatorKeys.value
+                val rEnabledModels = rotatorEnabledModels.value
+
+                val apiDetails = ApiDetails(
+                    provider = providerStr,
+                    model = modelStr,
+                    apiKey = keyStr,
+                    customEndpoint = endpointStr,
+                    rotatorKeys = rKeys,
+                    rotatorEnabledModels = rEnabledModels
+                )
+
+                val activeCase = _hiddenCase.value
+                val data = ClinicalSimHandler.executeGenerateSuggestedPaperwork(
+                    activeCase = activeCase,
+                    apiDetails = apiDetails,
+                    gameAgent = gameAgent
+                )
+                completion(data)
+                return@launch
+            } catch (e: Exception) {
+                val fallback = ClinicalSimHandler.generateSuggestedPaperworkFallback(_hiddenCase.value)
+                completion(fallback)
+                return@launch
+            } finally {
+                _isLoading.value = false
+            }
             
             // Build absolute fallback in case AI call fails
             val activeCase = _hiddenCase.value
@@ -848,7 +1069,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                 
                 val sb = java.lang.StringBuilder()
                 sb.append("# General Ledger & Error Report\n\n")
-                sb.append("**Current Operating Balance:** R$balance\n")
+                sb.append("**Current Operating Balance:** ${currencySymbol.value}$balance\n")
                 sb.append("**Total Patients Seen:** $totalSeen\n\n")
                 
                 sb.append("## Transaction Ledger\n\n")
@@ -861,12 +1082,12 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                     val pLoss = curr.revenueEarned - curr.expensesIncurred
                     totalRev += curr.revenueEarned
                     totalExp += curr.expensesIncurred
-                    sb.append("| ${curr.id} | ${curr.specialty} | ${curr.trueDiagnosis} | R${curr.revenueEarned} | R${curr.expensesIncurred} | R${pLoss} |\n")
+                    sb.append("| ${curr.id} | ${curr.specialty} | ${curr.trueDiagnosis} | ${currencySymbol.value}${curr.revenueEarned} | ${currencySymbol.value}${curr.expensesIncurred} | ${currencySymbol.value}${pLoss} |\n")
                 }
-                sb.append("\n**Total Gross Revenue:** R$totalRev\n")
-                sb.append("**Total Operational Expenses:** R$totalExp\n")
+                sb.append("\n**Total Gross Revenue:** ${currencySymbol.value}$totalRev\n")
+                sb.append("**Total Operational Expenses:** ${currencySymbol.value}$totalExp\n")
                 val netProfit = totalRev - totalExp
-                sb.append("**Net Clinic Profit:** R$netProfit\n\n")
+                sb.append("**Net Clinic Profit:** ${currencySymbol.value}$netProfit\n\n")
 
                 sb.append("## App Error Log\n\n")
                 if (sessionErrorLog.isEmpty()) {
@@ -968,7 +1189,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                         document.add(headerPara)
                         document.add(com.itextpdf.text.Paragraph("Date: $dateString", normalFont))
                         
-                        val clinicStats = "Practice Name: ${world?.clinicName ?: "JB Practice"} | Operating Balance: R$balance | License: ${world?.licenseStatus ?: "ACTIVE"}"
+                        val clinicStats = "Practice Name: ${world?.clinicName ?: "JB Practice"} | Operating Balance: ${currencySymbol.value}$balance | License: ${world?.licenseStatus ?: "ACTIVE"}"
                         document.add(com.itextpdf.text.Paragraph(clinicStats, boldFont))
                         document.add(com.itextpdf.text.Paragraph("Doctor Rank: ${doctorRank.value} (XP: ${doctorXp.value}) | Total Patients Seen: $totalSeen | Reputation: ${reputationStars.value} Stars", normalFont))
                         document.add(com.itextpdf.text.Paragraph(" "))
@@ -1012,7 +1233,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                             document.add(com.itextpdf.text.Paragraph(" "))
                             document.add(com.itextpdf.text.Paragraph("UNPAID SOVEREIGN FINES & LEGAL LIABILITIES:", boldFont))
                             for (f in activeFines) {
-                                document.add(com.itextpdf.text.Paragraph("• R${f.amount} - ${f.reason}", smallFont))
+                                document.add(com.itextpdf.text.Paragraph("• ${currencySymbol.value}${f.amount} - ${f.reason}", smallFont))
                             }
                         }
                         document.add(com.itextpdf.text.Paragraph(" "))
@@ -1056,16 +1277,16 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                             val outcomeText = "${curr.patientOutcome}\nScore: $score/100"
                             table.addCell(com.itextpdf.text.Phrase(outcomeText, normalFont))
                             
-                            val finText = "Rev: R${curr.revenueEarned}\nExp: R${curr.expensesIncurred}"
+                            val finText = "Rev: ${currencySymbol.value}${curr.revenueEarned}\nExp: ${currencySymbol.value}${curr.expensesIncurred}"
                             table.addCell(com.itextpdf.text.Phrase(finText, normalFont))
                             
-                            table.addCell(com.itextpdf.text.Phrase("R$pLoss", normalFont))
+                            table.addCell(com.itextpdf.text.Phrase("${currencySymbol.value}$pLoss", normalFont))
                         }
                         document.add(table)
                         
                         val netProfit = totalRev - totalExp
                         val financialSummaryPara = com.itextpdf.text.Paragraph(
-                            "Total Gross Revenue: R$totalRev | Total Operational Expenses: R$totalExp | Net Practice Profit: R$netProfit", 
+                            "Total Gross Revenue: ${currencySymbol.value}$totalRev | Total Operational Expenses: ${currencySymbol.value}$totalExp | Net Practice Profit: ${currencySymbol.value}$netProfit", 
                             com.itextpdf.text.FontFactory.getFont(com.itextpdf.text.FontFactory.HELVETICA_BOLD, 10f)
                         )
                         financialSummaryPara.spacingBefore = 8f
@@ -1096,7 +1317,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                             invTable.addCell(com.itextpdf.text.Phrase(item.classification, normalFont))
                             val stockStr = (inventory[item.id] ?: 0).toString()
                             invTable.addCell(com.itextpdf.text.Phrase(stockStr, normalFont))
-                            invTable.addCell(com.itextpdf.text.Phrase("R${item.purchaseCost}", normalFont))
+                            invTable.addCell(com.itextpdf.text.Phrase("${currencySymbol.value}${item.purchaseCost}", normalFont))
                             
                             val effectText = "${item.description}\nEffect: ${item.clinicalTherapyImpact}\nBP: ${item.patientBPDelta} | HR: ${item.patientHRDelta}"
                             invTable.addCell(com.itextpdf.text.Phrase(effectText, smallFont))
@@ -1202,9 +1423,9 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                              val consentStatus = if (hasConsentSigned) "SIGNED / RATIFIED ONLINE BY PATIENT" else "NOT REQUISITIONED (EMERGENCY STATUS / OUT-PATIENT SKIP)"
                              val consentSignatureText = """
                                  Clinical Procedure Cost Quote Ref: #${curr.id}-IFC
-                                 General Practise Consult Tariff Code 0101: R${String.format("%.2f", currentConsultPrice)}
-                                 Laboratory Diagnostics Pathology Reagent Order: R${String.format("%.2f", currentLabPrice)}
-                                 Total Prescribed Consumable Expenditure: R${String.format("%.2f", totalGross)}
+                                 General Practise Consult Tariff Code 0101: ${currencySymbol.value}${String.format("%.2f", currentConsultPrice)}
+                                 Laboratory Diagnostics Pathology Reagent Order: ${currencySymbol.value}${String.format("%.2f", currentLabPrice)}
+                                 Total Prescribed Consumable Expenditure: ${currencySymbol.value}${String.format("%.2f", totalGross)}
                                  
                                  SIGNATURE RECORD STATUS: ${consentStatus}
                                  Detail Statement: ${if (hasConsentSigned) "Prior to diagnostic investigations, medical tariff boundaries and out-of-pocket fees were disclosed to the patient, who ratified this written quote with active visual signature consent." else "Medical tariff boundaries and out-of-pocket fees were NOT explicitly disclosed or electronically ratified by the patient prior to diagnostic investigations."}
@@ -1255,12 +1476,34 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                             document.add(com.itextpdf.text.Paragraph("Sovereign Courtroom Trial Transcripts", headerFont))
                             document.add(com.itextpdf.text.Paragraph(" "))
                             
-                            val lawInfo = "Active Trial against: ${lawsuitPatientName.value}\nCharges: ${lawsuitCharges.value.joinToString()}\nVerdict: ${lawsuitVerdict.value ?: "Ongoing"}\nPenalty/Fine Levied: R${lawsuitFine.value}"
+                            val lawInfo = "Active Trial against: ${lawsuitPatientName.value}\nCharges: ${lawsuitCharges.value.joinToString()}\nVerdict: ${lawsuitVerdict.value ?: "Ongoing"}\nPenalty/Fine Levied: ${currencySymbol.value}${lawsuitFine.value}"
                             document.add(createPdfShadedBox(lawInfo, "Trial Summary:", normalFont, boldFont))
                             
                             document.add(com.itextpdf.text.Paragraph("Full Courtroom Record:", boldFont))
                             for (record in lawsuitLog.value) {
                                 document.add(com.itextpdf.text.Paragraph("- $record", normalFont))
+                            }
+                            document.add(com.itextpdf.text.Paragraph(" "))
+                        }
+
+                        val certs = OrchidDeepStateManager.generatedCertificates.value
+                        if (certs.isNotEmpty()) {
+                            document.add(com.itextpdf.text.Paragraph("Sovereign Clinical Rehabilitation Certificates & Accredited Proofs", headerFont))
+                            document.add(com.itextpdf.text.Paragraph(" "))
+                            for (cert in certs) {
+                                val isSelected = OrchidDeepStateManager.selectedCertificateIds.value.contains(cert.id)
+                                val certContent = """
+                                    TITLE: ${cert.title}
+                                    REGISTRATION SERIAL: ${cert.registrationNumber}
+                                    ISSUING BODY: ${cert.issuer}
+                                    DATE OF ISSUANCE: ${cert.issueDate}
+                                    COMPLIANCE CRITERIA DETAILS:
+                                    ${cert.verificationDetails}
+                                    DEFENSE UTILITY EXPLANATION:
+                                    ${cert.suitabilityExplanation}
+                                    FORMALLY SUBMITTED/ATTACHED TO LEGAL PROCEEDINGS: ${if (isSelected) "YES (ACTIVE PLEA ATTACHMENT)" else "NO (NOT ATTACHED)"}
+                                """.trimIndent()
+                                document.add(createPdfShadedBox(certContent, "${cert.sealEmoji} CERTIFICATE Registry: ${cert.registrationNumber}", normalFont, boldFont))
                             }
                             document.add(com.itextpdf.text.Paragraph(" "))
                         }
@@ -1761,7 +2004,7 @@ class SimulationViewModel(application: Application) : AndroidViewModel(applicati
                               "pathophysiology": "highly detailed master-level explanation of the mechanical and biological pathophysiology matching the diagnosis.",
                               "expectedLabs": "detailed summary of realistic clinical lab investigations, pathology, or imaging findings. Blood chemistry, counts, CRP, Hb, electrolytes, urine, glucose, or imaging as relevant.",
                               "severity": "$targetSeverity",
-                              "insuranceStatus": "The exact name of the patient's medical insurance scheme. You MUST select and return EXACTLY one of these four permissible strings (DO NOT invent, hallucinate, or use any other name): 'Discovery Elite Private', 'CarePlus Basic', 'National Health Service (NHS)', or 'Out-of-Pocket Cash'.",
+                              "insuranceStatus": "The exact name of the patient's medical insurance scheme. You MUST select and return EXACTLY one of these four permissible strings (DO NOT invent, hallucinate, or use any other name): 'Elysium Elite Private', 'CarePlus Basic', 'National Health Service (NHS)', or 'Out-of-Pocket Cash'.",
                               "initialVitals": {
                                 "bp": "blood pressure string (e.g. '120/80')",
                                 "hr": "heart rate string",
@@ -3048,8 +3291,8 @@ $memoryLines
                         val name = action.parameters?.get("name") as? String ?: ""
                         val desc = action.parameters?.get("description") as? String ?: ""
                         val penalty = action.parameters?.get("penalty") as? String ?: ""
-                        legalWorldAgent.enactNewStatute(id, name, desc, penalty)
-                        "Statute successfully enacted: $name (ID: $id)"
+                        parliamentViewModel.queueAIPendingStatute(id, name, desc, penalty)
+                        "Regulatory action 'enactStatute' redirected to Presidential Desk: $name (ID: $id)"
                     }
                     "repealStatute" -> {
                         val id = action.parameters?.get("id") as? String ?: ""
@@ -4011,8 +4254,8 @@ $memoryLines
                         val title = args["name"] as? String ?: ""
                         val desc = args["description"] as? String ?: ""
                         val penalty = args["penalty"] as? String ?: ""
-                        legalWorldAgent.enactNewStatute(id, title, desc, penalty)
-                        "Statute successfully enacted: $title (ID: $id)"
+                        parliamentViewModel.queueAIPendingStatute(id, title, desc, penalty)
+                        "Regulatory action 'enactStatute' redirected to Presidential Desk: $title (ID: $id)"
                     }
                     "repealStatute" -> {
                         val id = args["id"] as? String ?: ""
@@ -4165,8 +4408,8 @@ $memoryLines
                     "enact_new_medical_statute" -> {
                         val name = args["statute_name"] as? String ?: ""
                         val desc = args["statute_description"] as? String ?: ""
-                        legalWorldAgent.enactNewStatute(java.util.UUID.randomUUID().toString(), name, desc, "R1000 fine")
-                        "Successfully enacted custom medical statute: $name"
+                        parliamentViewModel.queueAIPendingStatute(java.util.UUID.randomUUID().toString(), name, desc, "R1000 fine")
+                        "Custom medical statute proposed to Presidential Desk: $name"
                     }
                     "resolve_political_lobbying_outcome" -> {
                         val faction = args["faction_name"] as? String ?: ""
@@ -4205,6 +4448,38 @@ $memoryLines
                         val laws = args["active_laws"] as? String ?: ""
                         val finalResult = legalWorldAgent.auditEncounter(trans, laws)
                         "Audit completed. Active laws evaluation logged: $finalResult"
+                    }
+                    "add_custom_ui_button" -> {
+                        val label = args["label"] as? String ?: "Custom AI Action"
+                        val hexColor = args["hexColor"] as? String ?: "#FF1744"
+                        val promptText = args["promptText"] as? String ?: ""
+                        val kotlinLogic = args["kotlinLogic"] as? String ?: ""
+                        OrchidDeepStateManager.addCustomAction(
+                            label = label,
+                            promptText = promptText,
+                            hexColor = hexColor,
+                            kotlinLogic = kotlinLogic
+                        )
+                        "SUCCESS: Add custom UI button action deployed. Label: '$label', color: $hexColor"
+                    }
+                    "execute_custom_logic" -> {
+                        val kotlinLogic = args["kotlinLogic"] as? String ?: ""
+                        val explanation = args["explanation"] as? String ?: "Direct clinical parameter override"
+                        executeKotlinLogicMod(kotlinLogic)
+                        "SUCCESS: Executed custom clinical state logic: $explanation"
+                    }
+                    "set_clinic_notice" -> {
+                        val headline = args["headline"] as? String ?: "GOVERNMENT ANNOUNCEMENT"
+                        val message = args["message"] as? String ?: ""
+                        val severity = args["severity"] as? String ?: "Medium"
+                        viewModelScope.launch(Dispatchers.Main) {
+                            _sovereignNotice.value = SovereignNoticeData(
+                                headline = headline,
+                                message = message,
+                                severity = severity
+                            )
+                        }
+                        "SUCCESS: Sovereign notice displayed at the top of the clinic dashboard. Headline: '$headline'"
                     }
                     else -> "Unknown helper action or no programmatic side effect for: $name"
                 }
@@ -4513,9 +4788,9 @@ $memoryLines
 
         val initialLog = mutableListOf<String>()
         val initialLine = if (violations.isNotEmpty()) {
-            "🏛️ HIGH COURT OF ${countryName.value.uppercase()} - SOVEREIGN JUDICIARY DEPT\nLocation: Supreme Inquest division, Pretoria, Royal District\n\nPresiding Judge: 'Practitioner, this sovereign court has convened a formal compliance trial. The National Health Inspectorate has logged clinical violations under our actively enacted legislative policies during your treatment of patient $targetName for $targetDiag.'\n\nState Prosecutor: 'Your Honor, the State charges the practitioner with ${violations.size} counted violations of our nation's sovereign health statutes. The clinic bypassed mandatory legislative guidelines, failing public safety! How does the defense plead?'"
+            "🏛️ HIGH COURT OF ${countryName.value.uppercase()} - SOVEREIGN JUDICIARY DEPT\nLocation: Supreme Inquest division, Sovereign Capital District\n\nPresiding Judge: 'Practitioner, this sovereign court has convened a formal compliance trial. The National Health Inspectorate has logged clinical violations under our actively enacted legislative policies during your treatment of patient $targetName for $targetDiag.'\n\nState Prosecutor: 'Your Honor, the State charges the practitioner with ${violations.size} counted violations of our nation's sovereign health statutes. The clinic bypassed mandatory legislative guidelines, failing public safety! How does the defense plead?'"
         } else {
-            "🏛️ HIGH COURT OF ${countryName.value.uppercase()} - SOVEREIGN JUDICIARY DEPT\nLocation: Supreme Inquest division, Pretoria, Royal District\n\nPresiding Judge: 'Practitioner, you have been summoned to face this sovereign judicial inquest. A civil malpractice and negligence complaint has been filed regarding your care of patient $targetName for $targetDiag with a clinical competency rating of only $targetScore/100.'\n\nState Prosecutor: 'Your Honor, we charge the accused with clinical negligence and gross malpractice failing the baseline treaties of ${countryName.value}. How does the practitioner plead?'"
+            "🏛️ HIGH COURT OF ${countryName.value.uppercase()} - SOVEREIGN JUDICIARY DEPT\nLocation: Supreme Inquest division, Sovereign Capital District\n\nPresiding Judge: 'Practitioner, you have been summoned to face this sovereign judicial inquest. A civil malpractice and negligence complaint has been filed regarding your care of patient $targetName for $targetDiag with a clinical competency rating of only $targetScore/100.'\n\nState Prosecutor: 'Your Honor, we charge the accused with clinical negligence and gross malpractice failing the baseline treaties of ${countryName.value}. How does the practitioner plead?'"
         }
         initialLog.add(initialLine)
         _lawsuitLog.value = initialLog
@@ -4525,7 +4800,9 @@ $memoryLines
         val labResultsStr = _uiState.value.labResults
         val policyViolationsSummary = violations.joinToString("; ") { it.policyTitle }
         OrchidDeepStateManager.setEvidencePool(caseVitalsText, labResultsStr, policyViolationsSummary)
-        OrchidDeepStateManager.resetTrialRounds()
+        val policies = activePolicies.value
+        val maxPleaRounds = policies.maxOfOrNull { it.maxPleaRounds } ?: 3
+        OrchidDeepStateManager.resetTrialRounds(rounds = maxPleaRounds)
     }
 
     fun startLicenseAppealSimulation() {
@@ -4553,7 +4830,7 @@ $memoryLines
         _courtroomPatientLog.value = "=== APPEAL DOSSIER ===\nPractitioner is actively petitioning to overturn the $currentStatus status of their medical license and restore clinical practice rights."
         
         val initialLog = mutableListOf<String>()
-        initialLog.add("🏛️ HIGH COURT OF ${countryName.value.uppercase()} - SOVEREIGN JUDICIARY DEPT\nLocation: Supreme Inquest division, Pretoria, Royal District\n\nPresiding Judge: 'Practitioner, this sovereign court has convened to review your formal appeal petition for the reinstatement of your $currentStatus medical license.'\n\nState Prosecutor: 'Your Honor, the State notes the petitioner's prior offenses and suspended status. The practitioner must strongly justify why their practice rights should be legally reinstated today under our current health statutes. How does the petitioner plead?'")
+        initialLog.add("🏛️ HIGH COURT OF ${countryName.value.uppercase()} - SOVEREIGN JUDICIARY DEPT\nLocation: Supreme Inquest division, Sovereign Capital District\n\nPresiding Judge: 'Practitioner, this sovereign court has convened to review your formal appeal petition for the reinstatement of your $currentStatus medical license.'\n\nState Prosecutor: 'Your Honor, the State notes the petitioner's prior offenses and suspended status. The practitioner must strongly justify why their practice rights should be legally reinstated today under our current health statutes. How does the petitioner plead?'")
         _lawsuitLog.value = initialLog
 
         viewModelScope.launch {
@@ -4672,7 +4949,7 @@ $memoryLines
                 Your vitals have clinically updated to: BP $currentBPString, Pulse $currentHRString, RR $currentRR, SpO2 $currentSPO2.
                 Roleplay your response reacting specifically to this medical delivery!
                 Acknowledge this specific drug and describe the immediate bodily changes (e.g. chest easing for GTN, severe anxiety/racing core for Epinephrine, or deep, warm sedative comfort for Morphine).
-                If Orchid Serum was dispensed, speak directly as 'The Orchid Traitor' or 'Syndicate Operative', dropping a subtle hint that the rebel faction is grateful, while warning the doctor of Pretoria's intelligence agency!
+                If Orchid Serum was dispensed, speak directly as 'The Orchid Traitor' or 'Syndicate Operative', dropping a subtle hint that the rebel faction is grateful, while warning the doctor of the Sovereign State's intelligence agency!
             """.trimIndent()
         )
     }
@@ -4807,6 +5084,15 @@ $memoryLines
             "${i + 1}. ${j.name} (${j.role}): Currently ${j.inclination} - ${j.comment}"
         }.joinToString("\n")
 
+        val attachedCertificates = OrchidDeepStateManager.generatedCertificates.value.filter { 
+            OrchidDeepStateManager.selectedCertificateIds.value.contains(it.id) 
+        }
+        val certsStr = if (attachedCertificates.isNotEmpty()) {
+            attachedCertificates.joinToString("\n") { cert ->
+                "[Accredited Professional Proof] TITLE: ${cert.title} | ID: ${cert.registrationNumber} | ISSURED BY: ${cert.issuer} | DETAILS: ${cert.verificationDetails}"
+            }
+        } else "None attached."
+
         val prompt = """
             You are simulating an interactive clinical trial hearing in the Supreme Medical Court of the Republic of ${countryName.value}.
             
@@ -4833,13 +5119,14 @@ $memoryLines
             LEGAL DEFENSE DETAILS IN THIS PLEA ROUND:
             - Defendant's Written Testimony / Pleading speech: "$pleaMsg"
             - Submitted Physical Exhibits / Clinical evidence: ${if (selectedEvidence.isNotEmpty()) selectedEvidence.joinToString(", ") else "None"}
+            - Submitted AI Accredited Certifications / Credentials: $certsStr
             - Legal Representation: $lawyerContext
             
             YOUR JOB IN THIS INTERIM ROUND:
             1. Roleplay the intense, sharp voice of the State Prosecutor and the impartial questioning of the Presiding Judge in Court.
-            2. The state prosecutor must cross-examine the doctor's specific typed statement "$pleaMsg" and check the validity of their submitted evidence: "${selectedEvidence.joinToString("; ")}".
-            3. CRITICAL AUDIT: Compare the defendant's justification claims ($justificationContext) with the actual performance record log of what happened at the bedside. Verify if they are telling the truth or if they are offering a bogus distraction! For example, if they claim they complied with active legal acts by offering free care, verify if they did; if they claim compliance with diagnostics, check if they checked vitals/labs etc. Aggressively call them out in court if their excuses columns mismatch the raw patient log!
-            4. If the defense makes true clinical and legal sense (it complies with the laws and standard medical protocols based on the logs), reduce the tension and aggression metrics. If they claim compliance but the logs show they clearly broke the law or acted carelessly, aggressively call them out on it, and increase the tension and aggression metrics.
+            2. The state prosecutor must cross-examine the doctor's specific typed statement "$pleaMsg" and check the validity of their submitted evidence: "${selectedEvidence.joinToString("; ")}" and certifications: "$certsStr".
+            3. CRITICAL AUDIT: Compare the defendant's justification claims ($justificationContext) with the actual performance record log of what happened at the bedside, as well as their new training / safety certifications ($certsStr). Verify if they are telling the truth or if they are offering a bogus distraction! For example, if they claim they complied with active legal acts by offering free care, verify if they did; if they claim compliance with diagnostics, check if they checked vitals/labs etc. Aggressively call them out in court if their excuses columns mismatch the raw patient log!
+            4. If the defense makes true clinical and legal sense (it complies with the laws and standard medical protocols based on the logs, or they attach highly credentials that solve prior compliance gaps), reduce the tension and aggression metrics. If they claim compliance but the logs show they clearly broke the law or acted carelessly, aggressively call them out on it, and increase the tension and aggression metrics.
             5. Evaluate the current 6 jurors' reactions. You must update each of the 6 jurors' inclination and write a 1-sentence thought from them.
             6. Provide the prosecutor's aggressive response and the Judge's subsequent inquiry in 'courtDialogue'.
             7. Return raw JSON matching this EXACT schema:
@@ -5301,6 +5588,81 @@ $memoryLines
         sendMessage("*(SYSTEM EXECUTION)*: Executed Logic Mod \n```kotlin\n$logic\n```")
     }
 
+    // --- DIRECT SOVEREIGN SANDBOX MANIPULATORS ---
+    fun modifyClinicBalanceDirectly(delta: Double) {
+        viewModelScope.launch {
+            val current = clinicBalance.value
+            settingsDataStore.updateClinicStats((current + delta).coerceAtLeast(0.0), reputationStars.value)
+            sendMessage("*(SANDBOX)*: Modified Clinic Balance by ${if (delta >= 0) "+" else ""}${String.format("%.2f", delta)}")
+        }
+    }
+
+    fun modifyPoliticalPrestigeDirectly(delta: Int) {
+        viewModelScope.launch {
+            val current = politicalPrestige.value
+            settingsDataStore.savePoliticalPrestige((current + delta).coerceIn(0, 100))
+            sendMessage("*(SANDBOX)*: Modified Political Prestige by ${if (delta >= 0) "+" else ""}${delta}")
+        }
+    }
+
+    fun modifyReputationStarsDirectly(delta: Float) {
+        viewModelScope.launch {
+            val current = reputationStars.value
+            settingsDataStore.updateClinicStats(clinicBalance.value, (current + delta).coerceIn(0.0f, 5.0f))
+            sendMessage("*(SANDBOX)*: Modified Clinic Reputation Stars by ${if (delta >= 0) "+" else ""}${delta}")
+        }
+    }
+
+    fun modifyPresidentialAudienceTriesDirectly(delta: Int) {
+        _pardonTriesRemaining.value = (_pardonTriesRemaining.value + delta).coerceIn(0, 12)
+        sendMessage("*(SANDBOX)*: Modified Presidential Audience Tries by ${if (delta >= 0) "+" else ""}${delta}")
+    }
+
+    fun modifyOrchidIntelligenceDirectly(delta: Int) {
+        val current = OrchidDeepStateManager.orchidIntelligence.value
+        OrchidDeepStateManager.setOrchidIntelligence(current + delta)
+        sendMessage("*(SANDBOX)*: Modified Regulatory Compliance Score by ${if (delta >= 0) "+" else ""}${delta}")
+    }
+
+    fun modifySyndicateReputationDirectly(delta: Int) {
+        val current = OrchidDeepStateManager.syndicateReputation.value
+        OrchidDeepStateManager.setSyndicateReputation(current + delta)
+        sendMessage("*(SANDBOX)*: Modified Sovereign Law Standing by ${if (delta >= 0) "+" else ""}${delta}")
+    }
+
+    fun modifyJurySentimentDirectly(delta: Int) {
+        val current = courtroomViewModel.lawsuitJurySentiment.value
+        courtroomViewModel.updateJurySentiment((current + delta).coerceIn(0, 100))
+        sendMessage("*(SANDBOX)*: Modified Court Jury Sentiment by ${if (delta >= 0) "+" else ""}${delta}")
+    }
+
+    fun setLicenseStatusDirectly(statusString: String) {
+        viewModelScope.launch {
+            val status = try {
+                com.example.data.LicenseStatus.valueOf(statusString.uppercase())
+            } catch (e: Exception) {
+                com.example.data.LicenseStatus.ACTIVE
+            }
+            legalWorldAgent.updateMedicalLicense(status, "Sovereign Sandbox Modification", 0)
+            sendMessage("*(SANDBOX)*: Medical License status forced to $statusString")
+        }
+    }
+
+    fun clearAllFinesDirectly() {
+        viewModelScope.launch {
+            val activeFines = worldSnapshot.value?.activeFines ?: emptyList()
+            activeFines.forEach { fine ->
+                legalWorldAgent.pardonFine(fine)
+            }
+            sendMessage("*(SANDBOX)*: Cleared all active monetary statutory fines!")
+        }
+    }
+
+    fun corruptAllJurorsDirectly() {
+        courtroomViewModel.corruptAllJurorsDirectly()
+        sendMessage("*(SANDBOX)*: Sub-rosa settled all outstanding active courtroom jurors to 100% FAVORABLE!")
+    }
+
     // --- NEW GEOPOLITICAL GAMEPLAY FUNCTIONS ---
 
     private suspend fun makeFreshDirectApiCall(
@@ -5758,7 +6120,7 @@ $memoryLines
         _lastLobbyReport.value = null
     }
 
-    fun autoArchitectCompound(primaryMandate: String, onSuccess: (name: String, category: String, cost: String, bp: String, hr: String, effect: String, desc: String) -> Unit) {
+    fun autoArchitectCompound(primaryMandate: String, userPrompt: String, onSuccess: (name: String, category: String, cost: String, bp: String, hr: String, effect: String, desc: String) -> Unit) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -5773,38 +6135,44 @@ $memoryLines
                     return@launch
                 }
 
-                val prompt = """
-                    You are formulating a brand new fictional therapeutic drug/compound that adheres to the nation's parliamentary health directive:
-                    "$primaryMandate"
-                    
-                    Return a JSON object with the following string fields matching the requirements of the directory:
-                    - "name": Drug Name (e.g. Synthetix-500)
-                    - "scheduleCategory": e.g. "Schedule 4 (Prescription Medication)", "Schedule 5", or "Schedule 2 (OTC)"
-                    - "costZar": e.g. "350" (just the number)
-                    - "bpDelta": e.g. "Raises (+10 mmHg)" or "Neutral"
-                    - "hrDelta": e.g. "Stabilizes (-5 bpm)" or "Increases (+20 bpm)"
-                    - "therapeuticEffect": Clinical indication effect (e.g. Rapidly combats acute respiratory infections while avoiding antibiotic resistance)
-                    - "pharmacologyDescription": A short, realistic pharmacology description.
-
-                    Make the compound creative but medically rigorous and directly suited to satisfy the provided governmental health directive.
-                    Ensure that the JSON is valid.
-                """.trimIndent()
-                
+                val prompt = CompoundArchitectHandler.generateDrugPrompt(primaryMandate, userPrompt)
                 val apiResponse = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt, customEndpoint.value)
                 val sanitized = extractJsonString(apiResponse)
-                val json = org.json.JSONObject(sanitized)
+                val parsed = CompoundArchitectHandler.parseDrugJson(sanitized)
                 
-                val name = json.optString("name", "Novocaine-Ultra")
-                val category = json.optString("scheduleCategory", "Schedule 4 (Prescription Medication)")
-                val cost = json.optString("costZar", "150.0")
-                val bp = json.optString("bpDelta", "Neutral")
-                val hr = json.optString("hrDelta", "Neutral")
-                val effect = json.optString("therapeuticEffect", "Provides immediate relief.")
-                val desc = json.optString("pharmacologyDescription", "A highly effective new generation compound.")
-                
-                onSuccess(name, category, cost, bp, hr, effect, desc)
+                onSuccess(parsed.name, parsed.category, parsed.cost, parsed.bp, parsed.hr, parsed.effect, parsed.desc)
             } catch (e: Exception) {
                 logAndEmitError("AI Architect failed: ${e.message}")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun generateAiProofCertificate(userPrompt: String, onFinished: () -> Unit = {}) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val currentProvider = provider.value
+                val currentModel = model.value
+                val userKey = apiKey.value ?: ""
+                val activeKey = resolveActiveApiKey(currentProvider, userKey)
+                
+                if (activeKey.isBlank()) {
+                    logAndEmitError("API Key missing! Cannot issue certified credentials.")
+                    _isLoading.value = false
+                    return@launch
+                }
+
+                val prompt = SovereignProofHandler.generateProofPrompt(userPrompt, countryName.value)
+                val apiResponse = makeFreshDirectApiCall(currentProvider, currentModel, activeKey, prompt, customEndpoint.value)
+                val sanitized = extractJsonString(apiResponse)
+                val parsedCert = SovereignProofHandler.parseCertificateJson(sanitized)
+                
+                OrchidDeepStateManager.addGeneratedCertificate(parsedCert)
+                onFinished()
+            } catch (e: Exception) {
+                logAndEmitError("AI Proof Generation failed: ${e.message}")
             } finally {
                 _isLoading.value = false
             }

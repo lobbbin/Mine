@@ -31,21 +31,22 @@ data class GenericDrugMatch(
 }
 
 val genericDrugsList = listOf(
-    GenericDrugMatch("Augmentin 375mg/1000mg", "Amoxicillin/Clavulanic Acid", "Adco-Amoclav", 240.0, 132.0, "Bacterial tonsillitis, respiratory or sinus tract infections"),
-    GenericDrugMatch("Voltaren 75mg SR", "Diclofenac Sodium", "Panamor 75mg", 185.0, 74.0, "Inflammatory pain, osteo/rheumatoid arthritis, severe tissue swelling"),
-    GenericDrugMatch("Panado 500mg", "Paracetamol", "Adco-Paracetamol", 35.0, 24.5, "Mild-to-moderate fever, headache, body aches"),
-    GenericDrugMatch("Lipitor 20mg", "Atorvastatin Calcium", "Aspen Atorvastatin", 310.0, 139.5, "Primary dyslipidaemia, high cholesterol, cardiovascular risk mitigation"),
-    GenericDrugMatch("Nexium 40mg", "Esomeprazole", "Esomeprazole Aspen", 280.0, 140.0, "Gastro-oesophageal reflux disease (GORD), acid peptic ulcer management"),
-    GenericDrugMatch("Ventolin HFA", "Salbutamol", "Asthavent Inhaler", 125.0, 62.5, "Asthma relief, bronchospasms, copd wheezing inhalation"),
-    GenericDrugMatch("Zovirax 400mg", "Acyclovir", "Adco-Acyclovir", 420.0, 147.0, "Herpes zoster/simplex flare-ups, viral shingles treatment"),
-    GenericDrugMatch("Cataflam 50mg", "Diclofenac Potassium", "K-Fenak 50mg", 160.0, 80.0, "Acute structural pain, dysmenorrhoea, severe migraine headaches"),
-    GenericDrugMatch("Klaricid 500mg", "Clarithromycin", "Adco-Clarithromycin", 320.0, 192.0, "Atypical pneumonia, chest infection, Helicobacter pylori eradication")
+    GenericDrugMatch("Augmentin 375mg/1000mg", "Amoxicillin/Clavulanic Acid", "Amoclav Generic", 240.0, 132.0, "Bacterial tonsillitis, respiratory or sinus tract infections"),
+    GenericDrugMatch("Voltaren 75mg SR", "Diclofenac Sodium", "Diclopen 75mg", 185.0, 74.0, "Inflammatory pain, osteo/rheumatoid arthritis, severe tissue swelling"),
+    GenericDrugMatch("Panado 500mg", "Paracetamol", "ParaMed 500mg", 35.0, 24.5, "Mild-to-moderate fever, headache, body aches"),
+    GenericDrugMatch("Lipitor 20mg", "Atorvastatin Calcium", "StatLipid 20mg", 310.0, 139.5, "Primary dyslipidaemia, high cholesterol, cardiovascular risk mitigation"),
+    GenericDrugMatch("Nexium 40mg", "Esomeprazole", "Esomeprazole Generic", 280.0, 140.0, "Gastro-oesophageal reflux disease (GORD), acid peptic ulcer management"),
+    GenericDrugMatch("Ventolin HFA", "Salbutamol", "AeroVent Inhaler", 125.0, 62.5, "Asthma relief, bronchospasms, copd wheezing inhalation"),
+    GenericDrugMatch("Zovirax 400mg", "Acyclovir", "Acyclovir Generic", 420.0, 147.0, "Herpes zoster/simplex flare-ups, viral shingles treatment"),
+    GenericDrugMatch("Cataflam 50mg", "Diclofenac Potassium", "Diclofenac K 50mg", 160.0, 80.0, "Acute structural pain, dysmenorrhoea, severe migraine headaches"),
+    GenericDrugMatch("Klaricid 500mg", "Clarithromycin", "Clarithromycin Generic", 320.0, 192.0, "Atypical pneumonia, chest infection, Helicobacter pylori eradication")
 )
 
 @Composable
 fun GenericDrugAlternativeAdvisor(
     medsNameCurrent: String,
     modifier: Modifier = Modifier,
+    currencySymbol: String = "$",
     onSelectGeneric: (brand: String, generic: String) -> Unit = { _, _ -> }
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -149,7 +150,7 @@ fun GenericDrugAlternativeAdvisor(
                                         color = Color(0xFF2E7D32)
                                     )
                                     Text(
-                                        text = "Brand price R${drug.brandPrice} ➡️ Generic R${drug.genericPrice}",
+                                        text = "Brand price ${currencySymbol}${drug.brandPrice} ➡️ Generic ${currencySymbol}${drug.genericPrice}",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Medium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant

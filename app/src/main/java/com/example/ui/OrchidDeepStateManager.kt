@@ -71,7 +71,7 @@ object OrchidDeepStateManager {
     // --- 0. MEDICAL AID SCHEME REGISTRY ---
     private val _medicalAidSchemes = MutableStateFlow<List<MedicalAidScheme>>(
         listOf(
-            MedicalAidScheme("premium_private", "Discovery Elite Private", 0.90, true, 0.05),
+            MedicalAidScheme("premium_private", "Elysium Elite Private", 0.90, true, 0.05),
             MedicalAidScheme("state_fund", "National Health Service (NHS)", 1.00, false, 0.35),
             MedicalAidScheme("basic_plan", "CarePlus Basic", 0.60, true, 0.15)
         )
@@ -92,7 +92,7 @@ object OrchidDeepStateManager {
         if (lower.isBlank() || lower.contains("cash") || lower.contains("pocket") || lower.contains("self-fund") || lower.contains("uninsured") || lower.contains("none") || lower.contains("private cash") || lower.contains("self pay") || lower.contains("out of pocket")) {
             return null // Out-of-pocket cash
         }
-        if (lower == "private medical aid" || lower.contains("premium private") || lower.contains("discovery elite") || lower.contains("discovery health") || lower.contains("gems") || lower.contains("bonitas") || lower.contains("medihelp") || lower.contains("momentum")) {
+        if (lower == "private medical aid" || lower.contains("premium private") || lower.contains("elysium elite") || lower.contains("elysium health") || lower.contains("aegis") || lower.contains("apex") || lower.contains("medishield") || lower.contains("shield")) {
             return _medicalAidSchemes.value.find { it.id == "premium_private" }
         }
         if (lower == "basic medical aid" || lower.contains("careplus basic") || lower.contains("careplus") || lower.contains("basic plan")) {
@@ -461,5 +461,31 @@ object OrchidDeepStateManager {
 
     fun setActiveDirectives(directives: List<String>) {
         _activeDirectives.value = directives
+    }
+
+    // --- AI GENERATED CREDENTIALS / REHABILITATION CERTIFICATES ---
+    private val _generatedCertificates = MutableStateFlow<List<LegalCertificate>>(emptyList())
+    val generatedCertificates: StateFlow<List<LegalCertificate>> = _generatedCertificates.asStateFlow()
+
+    private val _selectedCertificateIds = MutableStateFlow<Set<String>>(emptySet())
+    val selectedCertificateIds: StateFlow<Set<String>> = _selectedCertificateIds.asStateFlow()
+
+    fun addGeneratedCertificate(cert: LegalCertificate) {
+        _generatedCertificates.update { it + cert }
+    }
+
+    fun removeGeneratedCertificate(id: String) {
+        _generatedCertificates.update { current -> current.filter { it.id != id } }
+        _selectedCertificateIds.update { it - id }
+    }
+
+    fun toggleCertificateSelection(id: String) {
+        _selectedCertificateIds.update { active ->
+            if (active.contains(id)) active - id else active + id
+        }
+    }
+
+    fun clearCertificateSelections() {
+        _selectedCertificateIds.value = emptySet()
     }
 }

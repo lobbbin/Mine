@@ -378,6 +378,45 @@ class GameAgent(
                         ),
                         "required" to listOf("type", "justification")
                     )
+                ),
+                GeminiFunctionDeclaration(
+                    name = "add_custom_ui_button",
+                    description = "Dynamically deploy a new action/bylaw button onto the doctor's clinic dashboard UI. The player can click it to execute corresponding sovereign actions and logic.",
+                    parameters = mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "label" to mapOf("type" to "string", "description" to "The interactive label text on the button, e.g. 'Enforce Mask Tariff' or 'Tissue Levy'"),
+                            "hexColor" to mapOf("type" to "string", "description" to "Accent color of the button in hex format (e.g. '#FF1744' or '#00E676')"),
+                            "promptText" to mapOf("type" to "string", "description" to "The system overlay response/guidance that runs first when clicked (keeps context of this law)"),
+                            "kotlinLogic" to mapOf("type" to "string", "description" to "Fidelity emulated state modifiers. Format: 'variable += value' or 'variable -= value' separated by newlines. Valid variables: clinicBalance, politicalPrestige, reputationStars, consultationFee. E.g. 'clinicBalance += 500\npoliticalPrestige -= 5'")
+                        ),
+                        "required" to listOf("label", "hexColor", "promptText", "kotlinLogic")
+                    )
+                ),
+                GeminiFunctionDeclaration(
+                    name = "execute_custom_logic",
+                    description = "Immediately execute a custom emulated logic sequence on client-side properties (e.g. confiscate assets or apply custom tax logic).",
+                    parameters = mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "kotlinLogic" to mapOf("type" to "string", "description" to "Emulated lines. E.g. 'clinicBalance -= 5000\npoliticalPrestige += 10'"),
+                            "explanation" to mapOf("type" to "string", "description" to "Why this direct state modification was enacted")
+                        ),
+                        "required" to listOf("kotlinLogic", "explanation")
+                    )
+                ),
+                GeminiFunctionDeclaration(
+                    name = "set_clinic_notice",
+                    description = "Display a sovereign government announcement notice card or alert broadcast directly at the top of the clinic dashboard screen.",
+                    parameters = mapOf(
+                        "type" to "object",
+                        "properties" to mapOf(
+                            "headline" to mapOf("type" to "string", "description" to "e.g. 'EMERGENCY BIOTERROR PROTOCOL'"),
+                            "message" to mapOf("type" to "string", "description" to "Detailed mandate explanation or health warning text"),
+                            "severity" to mapOf("type" to "string", "enum" to listOf("Low", "Medium", "High", "Critical"), "description" to "Notice styling color indicator severity")
+                        ),
+                        "required" to listOf("headline", "message", "severity")
+                    )
                 )
             )
         )

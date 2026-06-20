@@ -13,7 +13,8 @@ data class Juror(
     val name: String,
     val role: String,
     val inclination: String, // Favorable, Skeptical, Undecided, Hostile
-    val comment: String
+    val comment: String,
+    val isCorrupt: Boolean = false
 )
 
 class CourtroomViewModel(
@@ -26,7 +27,19 @@ class CourtroomViewModel(
     val lawsuitJurors: StateFlow<List<Juror>> = _lawsuitJurors.asStateFlow()
 
     fun updateJurors(jurors: List<Juror>) {
-        _lawsuitJurors.value = jurors
+        val current = _lawsuitJurors.value
+        _lawsuitJurors.value = jurors.map { newJuror ->
+            val existing = current.find { it.name == newJuror.name }
+            if (existing != null && existing.isCorrupt) {
+                newJuror.copy(
+                    inclination = "Favorable",
+                    comment = "The doctor is clearly innocent! 🤫💰 (Financially Settled)",
+                    isCorrupt = true
+                )
+            } else {
+                newJuror
+            }
+        }
     }
 
     private val _lawsuitJurySentiment = MutableStateFlow(50) // 0-100%
@@ -127,11 +140,12 @@ class CourtroomViewModel(
             OrchidDeepStateManager.hireDefenseLawyer(lawyerId)
             if (lawyer.retainerFee > 0.0) {
                 viewModelScope.launch {
+                    val symbol = settingsDataStore.currencySymbolFlow.first()
                     settingsDataStore.updateClinicStats(currentBal - lawyer.retainerFee, reputationStars)
                     settingsDataStore.addDailyExpenses(lawyer.retainerFee)
                     
                     val logs = _lawsuitLog.value.toMutableList()
-                    logs.add("💼 RETAINER INVOICE: Paid R${String.format("%.2f", lawyer.retainerFee)} to hire ${lawyer.displayName}.")
+                    logs.add("💼 RETAINER INVOICE: Paid ${symbol}${String.format("%.2f", lawyer.retainerFee)} to hire ${lawyer.displayName}.")
                     _lawsuitLog.value = logs
                     onFinished(currentBal - lawyer.retainerFee)
                 }
@@ -142,9 +156,66 @@ class CourtroomViewModel(
             _lawsuitTension.value = (_lawsuitTension.value - (lawyer.defenseBiasPercent / 2)).coerceAtLeast(10)
         } else {
             viewModelScope.launch {
-                _errorFlow.emit("Cannot hire lawyer: Insufficient clinic balance of R$clinicBalance for retainer!")
+                val symbol = settingsDataStore.currencySymbolFlow.first()
+                _errorFlow.emit("Cannot hire lawyer: Insufficient clinic balance of ${symbol}${String.format("%.2f", clinicBalance)} for retainer!")
             }
         }
+    }
+
+    fun bribeJuror(jurorName: String, bribeCost: Double, clinicBalance: Double, reputationStars: Float, onFinished: (Double) -> Unit) {
+        if (clinicBalance >= bribeCost) {
+            val updated = _lawsuitJurors.value.map { juror ->
+                if (juror.name == jurorName) {
+                    juror.copy(
+                        inclination = "Favorable",
+                        comment = "The doctor is clearly innocent! 🤫💰 (Financially Settled)",
+                        isCorrupt = true
+                    )
+                } else {
+                    juror
+                }
+            }
+            _lawsuitJurors.value = updated
+            
+            // Recalculate jury sentiment with a major boost per corrupt juror!
+            val totalJurors = updated.size
+            if (totalJurors > 0) {
+                val favorableCount = updated.count { it.inclination == "Favorable" }
+                val dynamicSentiment = ((favorableCount.toFloat() / totalJurors.toFloat()) * 100).toInt()
+                _lawsuitJurySentiment.value = dynamicSentiment.coerceIn(0, 100)
+            }
+
+            viewModelScope.launch {
+                val symbol = settingsDataStore.currencySymbolFlow.first()
+                settingsDataStore.updateClinicStats(clinicBalance - bribeCost, reputationStars)
+                settingsDataStore.addDailyExpenses(bribeCost)
+                
+                val logs = _lawsuitLog.value.toMutableList()
+                logs.add("🤫 SUB-ROSA SETTLEMENT: Paid ${symbol}${String.format("%.2f", bribeCost)} to privately secure the favor of juror $jurorName.")
+                _lawsuitLog.value = logs
+                onFinished(clinicBalance - bribeCost)
+            }
+        } else {
+            viewModelScope.launch {
+                val symbol = settingsDataStore.currencySymbolFlow.first()
+                _errorFlow.emit("Sub-rosa transaction aborted: Insufficient funds of ${symbol}${String.format("%.2f", clinicBalance)} to settle juror $jurorName!")
+            }
+        }
+    }
+
+    fun corruptAllJurorsDirectly() {
+        val updated = _lawsuitJurors.value.map { juror ->
+            juror.copy(
+                inclination = "Favorable",
+                comment = "The doctor is clearly innocent! 🤫💰 (Financially Settled)",
+                isCorrupt = true
+            )
+        }
+        _lawsuitJurors.value = updated
+        _lawsuitJurySentiment.value = 100
+        val logs = _lawsuitLog.value.toMutableList()
+        logs.add("🤫 SUB-ROSA SETTLEMENT ALL: Paid off all jurors to guarantee clinical acquittal!")
+        _lawsuitLog.value = logs
     }
 
     // Direct helper functions for API calls, duplicated for completeness
@@ -465,7 +536,7 @@ class CourtroomViewModel(
                 1. Formulate a final, realistic sentencing judgment.
                 2. Weigh the Jury's consensus: Since our system operates with a Judge AND Jury, high Jury support (${_lawsuitJurySentiment.value}%) should strongly push you toward leniency.
                 3. Verdict types allowed: "Exonerated" (if jury support > 65% and tension < 50%), "Warning" (jury support 50-65% or tension 50-65%), "Fined" (jury support 35-50% or tension 65-80%), "Suspension" (jury support < 35% or tension > 80%).
-                4. If Fined, define a numeric cash fine (e.g. R500.00 to R3000.00). Deduct this from the clinic's balance.
+                4. If Fined, define a numeric cash fine (e.g. 500.00 to 3000.00). Deduct this from the clinic's balance.
                 5. If Suspension, define the suspension weeks (e.g. 1 to 3 weeks).
                 6. Return raw JSON matching this schema:
                 {

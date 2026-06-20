@@ -193,6 +193,22 @@ class ParliamentViewModel(
         _currentDraftPolicy.value = null
     }
 
+    fun queueAIPendingStatute(id: String, name: String, description: String, penalty: String) {
+        val draftId = id.ifBlank { java.util.UUID.randomUUID().toString() }
+        val draft = HealthPolicy(
+            id = draftId,
+            title = name,
+            summary = description,
+            extendedClauses = listOf(description, "Standard Penalty: $penalty"),
+            economicImpact = "Proposed Sovereign Statute",
+            clinicalRule = penalty,
+            status = "PresidentDesk",
+            customEngineDirectives = "DM_ENFORCED"
+        )
+        _currentDraftPolicy.value = draft
+        _votingLog.value = _votingLog.value + "🏛️ [ADVISORY COUNCIL DECREE]: A new clinical statute has been drafted and sent directly to your PRESIDENTIAL DESK for executive sign-off! (Bill ID: $draftId)"
+    }
+
     fun triggerPoliticianSickness(presidentName: String) {
         val firstNames = listOf("Representative Sarah", "Senator Marcus", "Representative Julia", "Minister Eleanor", "Speaker Douglas", "President Arthur")
         val lastNames = listOf("Brody", "Sterlings", "Verghese", "Crest", "Hale", "Vance")
@@ -909,7 +925,7 @@ class ParliamentViewModel(
                 _currentDraftPolicy.value = amendedDraft
                 _votingLog.value = listOf("✨ Draft Healthcare Bill was successfully restructured by the AI Political Strategist!")
             } catch (e: Exception) {
-                // No-op
+                _errorFlow.emit("Failed to automatically amend bill: ${e.localizedMessage}")
             } finally {
                 onFinished()
             }

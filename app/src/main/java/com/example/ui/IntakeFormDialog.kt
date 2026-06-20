@@ -329,7 +329,7 @@ fun IntakeFormDialog(
                                 onValueChange = { formData = formData.copy(medicalAid = it) },
                                 label = { Text("Medical Aid Scheme Name & Option") },
                                 leadingIcon = { Icon(Icons.Default.MedicalServices, contentDescription = null) },
-                                placeholder = { Text("e.g. Discovery Health - KeyCare, or Out-of-Pocket Cash") },
+                                placeholder = { Text("e.g. Elysium Elite Private, or Out-of-Pocket Cash") },
                                 modifier = Modifier.fillMaxWidth()
                             )
 
